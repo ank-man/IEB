@@ -47,75 +47,77 @@
 })();
 
 // ---- Visitor Counter ----
-// Strategy:
-//   1. localStorage per-page view counter  — shows a real number INSTANTLY on every device/page.
-//      Counts are stored in the visitor's own browser (localStorage key = page pathname).
-//      This is perfect for GitHub Pages (no server needed).
-//   2. GoatCounter analytics (optional, see README) — real cross-device global stats.
-//      Sign up free at https://www.goatcounter.com, get your script tag, and replace
-//      the placeholder script src below with your own endpoint.
+// Uses CountAPI.xyz — free, no signup, persistent across devices and deployments.
+// Each page path gets its own counter key. Counts survive Git pushes forever.
+// Falls back to localStorage silently if CountAPI is unreachable.
 function initVisitorCounter() {
   const path = window.location.pathname;
-  const isHomepage      = !path.includes('/tutorials/');
-  const isTutorialsIdx  = path.endsWith('/tutorials/index.html') || path.endsWith('/tutorials/');
-  const isTutorial      = path.includes('/tutorials/') && path.endsWith('.html') && !isTutorialsIdx;
+  const isHomepage     = !path.includes('/tutorials/');
+  const isTutorialsIdx = path.endsWith('/tutorials/index.html') || path.endsWith('/tutorials/');
+  const isTutorial     = path.includes('/tutorials/') && path.endsWith('.html') && !isTutorialsIdx;
 
-  // --- localStorage counter ---
-  // Key: 'ieb_views_' + sanitised pathname
-  const storageKey = 'ieb_views_' + path.replace(/[^a-z0-9]/gi, '_');
-  let views = parseInt(localStorage.getItem(storageKey) || '0', 10);
-  // Only count once per session per page (use sessionStorage flag)
-  const sessionKey = 'ieb_counted_' + storageKey;
-  if (!sessionStorage.getItem(sessionKey)) {
-    views += 1;
-    localStorage.setItem(storageKey, views);
-    sessionStorage.setItem(sessionKey, '1');
+  // --- CountAPI — free, persistent, cross-device, survives deployments ---
+  // Uses countapi.xyz: each unique key gets its own counter stored on their servers.
+  // No signup needed. Counts persist forever regardless of pushes or browser clears.
+  // Key = sanitised pathname so each page gets its own counter.
+  const namespace = 'indianelucidbiology';
+  const key = path.replace(/[^a-z0-9]/gi, '-').replace(/^-+|-+$/g, '') || 'homepage';
+
+  function formatCount(n) {
+    return n >= 1000000 ? (n / 1000000).toFixed(1) + 'M'
+         : n >= 1000    ? (n / 1000).toFixed(1) + 'k'
+         : String(n);
   }
-  const viewsFormatted = views >= 1000
-    ? (views / 1000).toFixed(1) + 'k'
-    : views.toString();
 
-  // --- GoatCounter analytics ping ---
-  // Replace 'YOURCODE' with your GoatCounter site code after signing up at goatcounter.com
-  // This fires silently in the background and gives you a real analytics dashboard.
-  (function injectGoatCounter() {
-    const gc = document.createElement('script');
-    gc.async = true;
-    gc.setAttribute('data-goatcounter', 'https://YOURCODE.goatcounter.com/count');
-    gc.src = '//gc.zgo.at/count.js';
-    document.head.appendChild(gc);
-  })();
+  // Hit the counter — increments on every page load and returns new total
+  fetch(`https://api.countapi.xyz/hit/${namespace}/${key}`)
+    .then(r => r.json())
+    .then(data => {
+      const count = data.value || 0;
+      const label = formatCount(count);
+      renderBadges(label, count);
+    })
+    .catch(() => {
+      // If CountAPI is unreachable, fall back to localStorage silently
+      const sk = 'ieb_v2_' + key;
+      let v = parseInt(localStorage.getItem(sk) || '0', 10);
+      if (!sessionStorage.getItem('ieb_c_' + key)) {
+        v += 1;
+        localStorage.setItem(sk, v);
+        sessionStorage.setItem('ieb_c_' + key, '1');
+      }
+      renderBadges(formatCount(v), v);
+    });
 
-  // --- Render counter badge ---
-  function makeHomepageBadge() {
-    // Replace the last stat item (♥ Open Source) with a views counter
+  function renderBadges(label, count) {
+    if (isHomepage)     makeHomepageBadge(label, count);
+    if (isTutorial)     makeTutorialBadge(label);
+    if (isTutorialsIdx) makeTutorialsIndexBadge(label);
+  }
+
+  function makeHomepageBadge(label, count) {
     const statsRow = document.querySelector('.stats-row');
     if (!statsRow) return;
-    // Add views item before the last stat
+    // Update the ♥ Open Source stat slot to show page visits instead of injecting extra element
     const lastStat = statsRow.querySelector('.stat-item:last-child');
     if (!lastStat) return;
-    const el = document.createElement('div');
-    el.className = 'stat-item';
-    el.innerHTML = `
-      <div class="stat-number visitor-count-num" id="homepage-views">${viewsFormatted}</div>
+    // Replace its content to stay within the existing grid columns
+    lastStat.innerHTML = `
+      <div class="stat-number visitor-count-num" id="homepage-views" title="Total page visits across all visitors">${label}</div>
       <div class="stat-label">Page Visits</div>
     `;
-    statsRow.insertBefore(el, lastStat);
   }
 
-  function makeTutorialBadge() {
-    // Inject compact badge into tutorial hero
+  function makeTutorialBadge(label) {
     const hero = document.querySelector('.tutorial-hero');
     if (!hero) return;
-    // Try to find an existing meta/tag row to append to
-    const tagRow = hero.querySelector('.d-flex.gap-2, .d-flex.flex-wrap, .tut-tags, .tutorial-meta');
     const badge = document.createElement('span');
     badge.className = 'tutorial-visitor-badge';
-    badge.innerHTML = `<i class="bi bi-eye-fill me-1"></i>${viewsFormatted} visits`;
+    badge.innerHTML = `<i class="bi bi-eye-fill me-1"></i>${label} visits`;
+    const tagRow = hero.querySelector('.d-flex.flex-wrap, .d-flex.gap-3, .d-flex.gap-2');
     if (tagRow) {
       tagRow.appendChild(badge);
     } else {
-      // Fall back: append a row at bottom of hero container
       const heroContainer = hero.querySelector('.container') || hero;
       const row = document.createElement('div');
       row.className = 'mt-3';
@@ -124,20 +126,14 @@ function initVisitorCounter() {
     }
   }
 
-  function makeTutorialsIndexBadge() {
-    const heroHeading = document.querySelector('.category-hero h1, .category-hero .display-5, .category-hero .display-6');
+  function makeTutorialsIndexBadge(label) {
+    const heroHeading = document.querySelector('.category-hero h1, .category-hero .display-5');
     if (!heroHeading) return;
     const badge = document.createElement('div');
-    badge.className = 'mt-2 d-flex align-items-center gap-2';
-    badge.innerHTML = `
-      <span class="tutorial-visitor-badge"><i class="bi bi-eye-fill me-1"></i>${viewsFormatted} page visits</span>
-    `;
+    badge.className = 'mt-2';
+    badge.innerHTML = `<span class="tutorial-visitor-badge"><i class="bi bi-eye-fill me-1"></i>${label} page visits</span>`;
     heroHeading.insertAdjacentElement('afterend', badge);
   }
-
-  if (isHomepage)     makeHomepageBadge();
-  if (isTutorial)     makeTutorialBadge();
-  if (isTutorialsIdx) makeTutorialsIndexBadge();
 }
 
 // Dark Mode Toggle
