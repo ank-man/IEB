@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Label-Free Proteomics: MaxQuant &amp; Perseus | IndianElucidBiology</title>
+  <meta name="description" content="Complete label-free quantitative proteomics pipeline: MaxQuant database search, Perseus statistical analysis, volcano plots, heatmaps, GO enrichment, and STRING network analysis.">
+  <meta name="keywords" content="MaxQuant, Perseus, proteomics, mass spectrometry, label-free quantification, LFQ, volcano plot, differential expression, proteomics, DIA, TMT, shotgun proteomics">
+  <link rel="canonical" href="https://indianelucidbiology.github.io/tutorials/proteomics-maxquant-perseus.html">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="../css/style.css" rel="stylesheet">
+</head>
+<body>
+<div class="progress-tracker"></div>
+
+<nav class="navbar navbar-expand-lg fixed-top">
+  <div class="container">
+    <a class="navbar-brand" href="../index.html">
+      <span class="brand-indian">Indian</span><span class="brand-elucid">Elucid</span><span class="brand-biology">Biology</span>
+    </a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="mainNav">
+      <ul class="navbar-nav ms-auto me-3">
+        <li class="nav-item"><a class="nav-link" href="../index.html">Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="index.html">Tutorial Library</a></li>
+        <li class="nav-item"><a class="nav-link" href="somatic-variant-calling-mutect2.html"><i class="bi bi-arrow-left me-1"></i>Somatic Variants</a></li>
+        <li class="nav-item"><a class="nav-link" href="scrna-scanpy-python.html">scRNA Scanpy<i class="bi bi-arrow-right ms-1"></i></a></li>
+      </ul>
+      <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode">&#9790;</button>
+    </div>
+  </div>
+</nav>
+
+<section class="tutorial-hero">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-lg-8">
+        <nav aria-label="breadcrumb">
+          <ol class="breadcrumb mb-3" style="--bs-breadcrumb-divider-color:rgba(255,255,255,0.5);">
+            <li class="breadcrumb-item"><a href="../index.html" class="text-white-50 text-decoration-none">Home</a></li>
+            <li class="breadcrumb-item"><a href="index.html" class="text-white-50 text-decoration-none">Tutorials</a></li>
+            <li class="breadcrumb-item active text-white">Label-Free Proteomics</li>
+          </ol>
+        </nav>
+        <h1 class="display-5 fw-bold text-white mb-3">Label-Free Proteomics: MaxQuant &amp; Perseus</h1>
+        <p class="lead text-white-50 mb-4">
+          MaxQuant database search &middot; LFQ normalization &middot; Perseus statistical workflow &middot; imputation &middot; volcano plots &middot; GO enrichment &middot; STRING network
+        </p>
+        <div class="d-flex gap-3 flex-wrap">
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-clock me-1"></i> ~120 min</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-bar-chart me-1"></i> Intermediate</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-terminal me-1"></i> GUI (MaxQuant / Perseus) + R</span>
+        </div>
+      </div>
+      <div class="col-lg-4 text-center d-none d-lg-block">
+        <img src="../img/Byte3.png" alt="Byte" class="img-fluid" style="max-height:230px;filter:drop-shadow(0 10px 30px rgba(0,0,0,0.4));">
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="container py-5">
+  <div class="row">
+    <div class="col-lg-3 d-none d-lg-block">
+      <div class="toc-sidebar">
+        <h6 class="fw-bold text-muted text-uppercase small mb-3">On this page</h6>
+        <nav class="nav flex-column">
+          <a class="nav-link" href="#overview">Overview</a>
+          <a class="nav-link" href="#dataset">Dataset</a>
+          <a class="nav-link" href="#step1">1. MaxQuant Database Search</a>
+          <a class="nav-link" href="#step2">2. Perseus: Load &amp; Filter</a>
+          <a class="nav-link" href="#step3">3. Normalization &amp; Imputation</a>
+          <a class="nav-link" href="#step4">4. Statistical Testing</a>
+          <a class="nav-link" href="#step5">5. Volcano &amp; Heatmap</a>
+          <a class="nav-link" href="#step6">6. GO Enrichment &amp; STRING</a>
+        </nav>
+      </div>
+    </div>
+
+    <div class="col-lg-9">
+      <div class="tutorial-content">
+
+<section id="overview" class="mb-5">
+  <h2 class="section-divider">Overview</h2>
+  <p>Label-free quantitative (LFQ) proteomics measures protein abundance across samples by comparing the intensity of peptide mass spectra without using isotope labels. MaxQuant performs the raw MS data processing (peptide identification and quantification), and Perseus provides a complete statistical analysis environment specifically designed for proteomics data.</p>
+  <div class="byte-callout">
+    <img src="../img/Byte1.png" alt="Byte">
+    <div>
+      <strong>Proteomics vs RNA-seq — key conceptual differences:</strong>
+      <ul class="mb-0 mt-1 small">
+        <li><strong>Missing values:</strong> Proteins not detected in a sample give a 0 or NA intensity &mdash; this is &ldquo;missing not at random&rdquo; (protein is likely absent, not just unmeasured). Must impute from the lower end of the distribution, not from the mean.</li>
+        <li><strong>Dynamic range:</strong> LC-MS/MS covers ~4 orders of magnitude of protein abundance. Highly abundant proteins (albumin, ribosomal proteins) dominate spectra and suppress rare protein detection.</li>
+        <li><strong>No count data:</strong> LFQ intensities are continuous, not counts. Use t-tests or limma, not DESeq2/edgeR (which require discrete count data).</li>
+        <li><strong>Log2 intensities:</strong> Always work with log2-transformed intensities — raw intensities are log-normally distributed and cannot be compared with parametric tests.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="dataset" class="mb-5">
+  <h2 class="section-divider">Dataset</h2>
+  <p>We use the <strong>PRIDE PXD000279</strong> dataset &mdash; a benchmark LFQ proteomics dataset from the Cox/Mann lab (MaxQuant developers) comparing three UPS1 standard spike-in concentrations mixed into a yeast background proteome. This is the standard dataset used to benchmark LFQ proteomics methods.</p>
+  <div class="param-table">
+    <table class="table table-striped mb-0">
+      <thead><tr><th>Property</th><th>Value</th></tr></thead>
+      <tbody>
+        <tr><td>Dataset</td><td>UPS1 standard proteins spiked into yeast at three concentrations</td></tr>
+        <tr><td>PRIDE accession</td><td><a href="https://www.ebi.ac.uk/pride/archive/projects/PXD000279" target="_blank">PXD000279</a></td></tr>
+        <tr><td>Groups</td><td>Low (0.25 fmol/&mu;L), Medium (2.5 fmol/&mu;L), High (25 fmol/&mu;L)</td></tr>
+        <tr><td>Replicates</td><td>3 technical replicates per concentration group</td></tr>
+        <tr><td>Instrument</td><td>Orbitrap Velos (Q Exactive), DDA mode</td></tr>
+        <tr><td>Expected result</td><td>48 UPS1 proteins significantly up with increasing concentration; yeast background constant</td></tr>
+        <tr><td>Publication</td><td>Cox et al. 2014 <em>Molecular &amp; Cellular Proteomics</em></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="step1" class="mb-5">
+  <h2 class="section-divider">Step 1 — MaxQuant Database Search</h2>
+  <div class="byte-callout" style="border-left-color:#6f42c1;">
+    <img src="../img/Byte2.png" alt="Byte">
+    <div>
+      <strong>MaxQuant is a GUI application for Windows.</strong> The settings below describe the key parameters to configure in the MaxQuant interface. A command-line version is also available for HPC: <code>dotnet MaxQuant.dll mqpar.xml</code> where <code>mqpar.xml</code> is the parameter file exported from the GUI.
+    </div>
+  </div>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>MaxQuant Configuration — key parameter settings</span><button class="btn-copy">Copy</button></div>
+<pre id="s1-maxquant">######################################################################
+## STEP 1: MaxQuant database search configuration
+## MaxQuant (https://www.maxquant.org/) is a free Windows GUI tool.
+## Below are the critical settings to configure in the MaxQuant GUI,
+## with explanations for each parameter.
+## Download MaxQuant: https://www.maxquant.org/maxquant/
+######################################################################
+
+## ====================================================================
+## RAW FILE LOADING (MaxQuant GUI → Raw files tab)
+## ====================================================================
+## 1. Add all .raw files (9 files: 3 groups × 3 replicates)
+## 2. Set experiment names: Low_1, Low_2, Low_3, Med_1, Med_2, Med_3, High_1, High_2, High_3
+## 3. Group replicates: parameter groups (all same settings, no fractionation)
+
+## ====================================================================
+## SEQUENCE DATABASES (MaxQuant GUI → Group-specific parameters → Sequences)
+## ====================================================================
+## Add FASTA files:
+##   1. Human UPS1 standard proteins FASTA (48 proteins)
+##      Download: https://www.sigmaaldrich.com/deepweb/assets/sigmaaldrich/product/documents/168/214/ups1ups2datasheet.pdf
+##   2. Saccharomyces cerevisiae UniProt reference proteome
+##      Download from UniProt: https://www.uniprot.org/proteomes/UP000002311
+##
+## Why two FASTAs? The search engine identifies peptides from both databases.
+## UPS1 proteins are your spike-in "ground truth"; yeast = background.
+
+## ====================================================================
+## DIGESTION (MaxQuant GUI → Group-specific parameters → Digestion)
+## ====================================================================
+## Enzyme: Trypsin/P
+##   Trypsin cleaves after K (lysine) or R (arginine) residues
+##   EXCEPT when followed by P (proline) — the /P means include KP/RP sites
+## Max missed cleavages: 2
+##   Allow up to 2 incomplete tryptic cleavages per peptide
+##   (some K/R sites are not cleaved by trypsin)
+
+## ====================================================================
+## MODIFICATIONS (MaxQuant GUI → Group-specific parameters → Modifications)
+## ====================================================================
+## Fixed modifications:
+##   Carbamidomethyl (C) — standard cysteine alkylation with iodoacetamide
+##   This blocks free cysteine thiols to prevent disulfide scrambling
+## Variable modifications:
+##   Oxidation (M)       — methionine oxidation (common in-solution artifact)
+##   Acetyl (Protein N-term) — N-terminal protein acetylation
+
+## ====================================================================
+## LABEL-FREE QUANTIFICATION (MaxQuant GUI → Group-specific parameters → Label-free quantification)
+## ====================================================================
+## LFQ: ON (checked)
+## Min. ratio count: 2
+##   A protein is quantified if at least 2 unique peptide pairs were used
+##   (this filters proteins with only one unique peptide quantification)
+## Fast LFQ: OFF (use standard LFQ for better accuracy; fast LFQ for large datasets > 50 samples)
+## Match between runs: ON
+##   MaxQuant transfers peptide identifications from one run to another
+##   based on accurate mass and retention time alignment.
+##   This dramatically reduces missing values between samples.
+##   In our 9-sample experiment, this is CRITICAL — without it,
+##   proteins detected in only 1 replicate appear as "missing" in the others.
+
+## ====================================================================
+## GLOBAL PARAMETERS (MaxQuant GUI → Global parameters)
+## ====================================================================
+## Peptide FDR:    0.01  (1% false discovery rate at peptide level)
+## Protein FDR:    0.01  (1% FDR at protein level)
+## Min. peptide length: 7 (discard very short peptides — unreliable)
+## Max. charge: 7 (include charge states 1 to 7)
+##
+## Threads: set to available CPU cores (MaxQuant uses parallel processing)
+## Temp folder: set to a fast local SSD (MaxQuant creates many temp files)
+
+echo "======================================================="
+echo "MaxQuant OUTPUT FILES (in /combined/txt/ directory):"
+echo "  proteinGroups.txt  - main output: one row per protein group"
+echo "  peptides.txt       - all detected peptides + intensities"
+echo "  summary.txt        - run statistics (identification rates, etc.)"
+echo "  parameters.txt     - all MaxQuant settings used"
+echo "======================================================="
+echo ""
+echo "Key columns in proteinGroups.txt:"
+echo "  Protein IDs      : UniProt accessions (semicolon-separated for protein groups)"
+echo "  Gene names       : gene symbols"
+echo "  LFQ intensity *  : LFQ-normalised intensity for each sample"
+echo "  Razor + unique peptides : number of peptides used for quantification"
+echo "  Potential contaminant  : + if contaminant (remove these!)"
+echo "  Reverse               : + if decoy (remove these!)"
+echo "  Only identified by site: + if only detected via modification (remove these!)"</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s1-maxquant" data-filename="01_maxquant_settings.txt"><i class="bi bi-download me-1"></i>01_maxquant_settings.txt</button></div>
+  <div class="cmd-explain">
+    <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> MaxQuant key concepts decoded</div>
+    <table>
+      <tr><td><span class="cmd-emoji">&#128200;</span>LFQ normalization</td><td>MaxQuant&rsquo;s LFQ algorithm normalizes intensities across runs by finding a small set of &ldquo;normalization peptides&rdquo; (peptides with similar intensity across all samples) and using them to compute sample-specific scaling factors. This is equivalent to median normalization but specifically designed for MS data where only a subset of proteins change between conditions.</td></tr>
+      <tr><td><span class="cmd-emoji">&#127919;</span>Match between runs</td><td>This feature identifies peptides in one run based on their mass AND their chromatographic retention time alignment to other runs where the peptide was confidently identified. It requires accurate mass (&lt;5 ppm) and a tight retention time window (&lt;0.7 min after calibration). Match between runs reduces missing values by ~30&ndash;50% in typical experiments.</td></tr>
+    </table>
+  </div>
+</section>
+
+<section id="step2" class="mb-5">
+  <h2 class="section-divider">Step 2 — Perseus: Load &amp; Filter</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>R — Load MaxQuant proteinGroups.txt and apply standard filters</span><button class="btn-copy">Copy</button></div>
+<pre id="s2-filter">######################################################################
+## STEP 2: Load MaxQuant output and filter contaminants/decoys
+## Can be done in Perseus GUI OR in R (shown here for reproducibility)
+## Standard filters to apply FIRST (before any analysis):
+##   1. Remove contaminants (marked with "+" in "Potential contaminant" column)
+##   2. Remove reverse decoys (marked with "+" in "Reverse" column)
+##   3. Remove "only identified by site" proteins
+##   4. Require detection in minimum N samples per group
+######################################################################
+
+library(tidyverse)
+
+## --- Load proteinGroups.txt ---
+pg <- read.delim("proteinGroups.txt", sep="\t", stringsAsFactors=FALSE)
+cat("Total protein groups loaded:", nrow(pg), "\n")
+
+## --- Step 2a: Remove contaminants, reverse, site-only ---
+## These three filters are ALWAYS applied first in any MaxQuant analysis
+## "+" in Potential.contaminant = common lab contaminants (keratin, trypsin, albumin)
+## "+" in Reverse = decoy database hits (used to estimate FDR; not real proteins)
+## "+" in Only.identified.by.site = protein only detected via modified peptide
+pg_filtered <- pg %>%
+    filter(
+        Potential.contaminant != "+",   # remove contaminants
+        Reverse               != "+",   # remove reverse decoys
+        Only.identified.by.site != "+"  # remove site-only
+    )
+cat("After contaminant/decoy removal:", nrow(pg_filtered), "\n")
+
+## --- Step 2b: Extract LFQ intensity columns ---
+## LFQ intensity columns are named: "LFQ.intensity.SampleName"
+lfq_cols <- grep("^LFQ\\.intensity\\.", colnames(pg_filtered), value=TRUE)
+cat("LFQ intensity columns:", length(lfq_cols), "\n")
+cat("Samples:", gsub("LFQ\\.intensity\\.", "", lfq_cols), "\n")
+
+## --- Step 2c: Convert to log2 intensities ---
+## Raw LFQ intensities are log-normally distributed (range: ~10^6 to 10^11)
+## Log2 transformation: compresses range, makes distribution normal
+## Replace 0 with NA: 0 in MaxQuant = not detected (missing value, not zero)
+lfq_mat <- pg_filtered[, lfq_cols]
+lfq_mat[lfq_mat == 0] <- NA           # 0 = missing, convert to NA
+lfq_log2 <- log2(lfq_mat)            # log2 transform
+rownames(lfq_log2) <- pg_filtered$Gene.names
+
+## Check missing value pattern
+missing_pct <- colMeans(is.na(lfq_log2)) * 100
+cat("\nMissing values per sample (%):\n")
+print(round(missing_pct, 1))
+## Expect ~20-40% missing values in typical LFQ experiments
+
+## --- Step 2d: Filter: keep proteins quantified in >= 2 of 3 replicates per group ---
+## Define groups
+groups <- list(
+    Low  = grep("Low",  lfq_cols, value=TRUE),
+    Med  = grep("Med",  lfq_cols, value=TRUE),
+    High = grep("High", lfq_cols, value=TRUE)
+)
+
+## Keep protein if quantified in at least 2/3 replicates in AT LEAST ONE group
+valid_low  <- rowSums(!is.na(lfq_log2[, groups$Low]))  >= 2
+valid_med  <- rowSums(!is.na(lfq_log2[, groups$Med]))  >= 2
+valid_high <- rowSums(!is.na(lfq_log2[, groups$High])) >= 2
+
+keep <- valid_low | valid_med | valid_high
+lfq_log2 <- lfq_log2[keep, ]
+cat("\nProteins after valid-value filter:", nrow(lfq_log2), "\n")</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s2-filter" data-filename="02_load_filter.R"><i class="bi bi-download me-1"></i>02_load_filter.R</button></div>
+</section>
+
+<section id="step3" class="mb-5">
+  <h2 class="section-divider">Step 3 — Normalization &amp; Missing Value Imputation</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>R — Median normalization and MNAR imputation from low-end Gaussian</span><button class="btn-copy">Copy</button></div>
+<pre id="s3-norm">######################################################################
+## STEP 3: Normalize intensities and impute missing values
+## LFQ intensities from MaxQuant are already normalised within MaxQuant.
+## However, additional median centering per sample is recommended in R.
+## Missing value imputation: replace NA with draws from the lower end
+## of the intensity distribution — because missing = not detected =
+## likely low abundance (Missing Not At Random, MNAR imputation)
+######################################################################
+
+## --- Step 3a: Median centering (additional normalisation) ---
+## Subtract the median of each sample from its log2 intensities
+## This ensures all samples have the same median (centered at 0 after centering)
+## Plot before/after to confirm
+lfq_norm <- sweep(lfq_log2,
+                  MARGIN = 2,
+                  FUN    = "-",
+                  STATS  = apply(lfq_log2, 2, median, na.rm=TRUE))
+
+## --- Boxplot before and after normalisation ---
+par(mfrow=c(1,2))
+boxplot(lfq_log2, las=2, main="Before normalisation", cex.axis=0.7,
+        col=c(rep("lightblue",3), rep("lightgreen",3), rep("salmon",3)))
+boxplot(lfq_norm, las=2, main="After median normalisation", cex.axis=0.7,
+        col=c(rep("lightblue",3), rep("lightgreen",3), rep("salmon",3)))
+## Boxes should align after normalisation
+
+## --- Step 3b: MNAR imputation (Perseus-style: MinProb) ---
+## Perseus default: impute missing values from a downshifted Gaussian
+## Parameters:
+##   width = 0.3 × sample SD    (how wide the imputation distribution is)
+##   shift = 1.8 × sample SD below the sample mean
+##   (imputed values represent proteins at the detection limit)
+## This is called "MinProb" in Perseus
+set.seed(42)
+lfq_imputed <- lfq_norm
+
+for (col in colnames(lfq_imputed)) {
+    ## Find positions with missing values in this sample
+    missing_idx <- which(is.na(lfq_imputed[[col]]))
+    if (length(missing_idx) == 0) next
+
+    ## Sample parameters
+    col_mean <- mean(lfq_imputed[[col]], na.rm=TRUE)
+    col_sd   <- sd(lfq_imputed[[col]],   na.rm=TRUE)
+
+    ## Draw from a narrow Gaussian at the low end of the distribution
+    ## shift: imputed values are centred 1.8 SDs below the observed mean
+    ## width: imputed distribution is 0.3× narrower than the observed distribution
+    lfq_imputed[[col]][missing_idx] <- rnorm(
+        n    = length(missing_idx),
+        mean = col_mean - 1.8 * col_sd,   # shifted downward
+        sd   = 0.3 * col_sd               # narrowed
+    )
+}
+
+cat("Imputation complete. Missing values remaining:",
+    sum(is.na(lfq_imputed)), "\n")
+## Should be 0 after imputation</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s3-norm" data-filename="03_normalization_imputation.R"><i class="bi bi-download me-1"></i>03_normalization_imputation.R</button></div>
+  <div class="cmd-explain">
+    <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> Imputation decoded</div>
+    <table>
+      <tr><td><span class="cmd-emoji">&#128202;</span>Why MNAR imputation matters</td><td>Missing values in proteomics are NOT random. If a protein is absent from a sample, it&rsquo;s likely because it&rsquo;s at or below the detection limit — not because of a random technical failure. Standard mean/median imputation (MAR-based) would impute it as an average-intensity protein, which is biologically wrong. MinProb imputation places missing values at the low end of the distribution, where undetected proteins should be.</td></tr>
+      <tr><td><span class="cmd-emoji">&#127919;</span>Perseus vs R</td><td>Perseus (also free from the Mann lab) provides a GUI implementation of all these steps with drag-and-drop workflow building. The R implementation shown here is identical statistically but scriptable and reproducible. For routine use, Perseus GUI is faster to set up; for publication pipelines, R is more reproducible.</td></tr>
+    </table>
+  </div>
+</section>
+
+<section id="step4" class="mb-5">
+  <h2 class="section-divider">Step 4 — Statistical Testing with limma</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>R — limma moderated t-test for proteomics differential abundance</span><button class="btn-copy">Copy</button></div>
+<pre id="s4-stats">######################################################################
+## STEP 4: Differential abundance testing with limma
+## For proteomics: use limma (moderated t-test) NOT DESeq2/edgeR
+## Reason: LFQ intensities are continuous (not counts)
+## limma uses empirical Bayes to shrink variance estimates toward the
+## global mean variance — crucial with small n (n=3 per group here)
+######################################################################
+
+library(limma)
+
+## --- Set up design matrix ---
+group   <- factor(c("Low","Low","Low","Med","Med","Med","High","High","High"))
+design  <- model.matrix(~ 0 + group)   # 0+ = no intercept (group-coded design)
+colnames(design) <- levels(group)
+rownames(design) <- colnames(lfq_imputed)
+
+## --- Contrast matrix: define all pairwise comparisons ---
+## We want: High vs Low, High vs Med, Med vs Low
+contrasts_mat <- makeContrasts(
+    High_vs_Low  = High - Low,
+    High_vs_Med  = High - Med,
+    Med_vs_Low   = Med  - Low,
+    levels       = design
+)
+
+## --- Fit limma model ---
+## lmFit: fits a linear model for each protein (row)
+## t(lfq_imputed) : transpose so proteins are rows, samples are columns
+fit <- lmFit(t(lfq_imputed), design)
+
+## --- Apply contrasts ---
+## contrasts.fit: re-parameterises the model for the specified contrasts
+fit2 <- contrasts.fit(fit, contrasts_mat)
+
+## --- Empirical Bayes moderation ---
+## eBayes: uses information across all proteins to moderate each protein's
+## variance estimate. This stabilises the t-statistics for proteins with
+## few valid quantifications. Critical for n=3 per group.
+fit2 <- eBayes(fit2, trend=TRUE)   # trend=TRUE: model variance-mean trend
+
+## --- Extract results for High vs Low ---
+res_HvL <- topTable(
+    fit2,
+    coef       = "High_vs_Low",  # which contrast to extract
+    n          = Inf,             # return all proteins
+    adjust.method = "BH",        # Benjamini-Hochberg FDR
+    sort.by    = "P"
+)
+cat("Significant proteins (High vs Low, FDR < 0.05):",
+    sum(res_HvL$adj.P.Val < 0.05, na.rm=TRUE), "\n")
+## Expected: ~48 UPS1 proteins (up in High); yeast background ~ no change
+
+write.csv(res_HvL, "limma_High_vs_Low.csv")</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s4-stats" data-filename="04_limma_testing.R"><i class="bi bi-download me-1"></i>04_limma_testing.R</button></div>
+  <div class="fun-tip"><span class="fun-tip-icon">&#129516;</span><div><strong>Expected result:</strong> The 48 UPS1 spike-in proteins should all be significant with positive log2FC (Higher in High vs Low). The ~2,000 yeast background proteins should be near zero fold-change and mostly non-significant — this is the key validation of the pipeline. If yeast proteins are systematically changing, check your normalisation step.</div></div>
+</section>
+
+<section id="step5" class="mb-5">
+  <h2 class="section-divider">Step 5 — Volcano Plot &amp; Heatmap</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>R — Volcano plot and heatmap distinguishing UPS1 from yeast background</span><button class="btn-copy">Copy</button></div>
+<pre id="s5-plots">######################################################################
+## STEP 5: Publication-quality volcano and heatmap for proteomics data
+## Colour-code UPS1 spike-in proteins (should be UP) vs yeast (should be flat)
+######################################################################
+
+library(ggplot2); library(ggrepel); library(pheatmap)
+
+## --- Volcano plot ---
+vol <- res_HvL %>%
+    rownames_to_column("protein") %>%
+    mutate(
+        ups1     = grepl("HUMAN", protein, ignore.case=TRUE),  # UPS1 proteins have _HUMAN suffix
+        sig      = adj.P.Val < 0.05 & abs(logFC) > 1,
+        category = case_when(
+            ups1 & sig  ~ "UPS1 (significant)",
+            ups1        ~ "UPS1 (not sig)",
+            sig         ~ "Yeast (significant)",
+            TRUE        ~ "Yeast (background)"
+        )
+    )
+
+ggplot(vol, aes(logFC, -log10(adj.P.Val), color=category, size=category)) +
+    geom_point(alpha=0.7) +
+    geom_hline(yintercept=-log10(0.05), linetype=2, color="grey50") +
+    geom_vline(xintercept=c(-1,1), linetype=2, color="grey50") +
+    geom_text_repel(data=filter(vol, category=="UPS1 (significant)"),
+                    aes(label=protein), size=2.5, max.overlaps=20) +
+    scale_color_manual(values=c(
+        "UPS1 (significant)"   = "firebrick",
+        "UPS1 (not sig)"       = "tomato",
+        "Yeast (significant)"  = "steelblue",
+        "Yeast (background)"   = "grey80"
+    )) +
+    scale_size_manual(values=c(1.8, 1.2, 1.2, 0.6)) +
+    labs(title="LFQ proteomics: High vs Low UPS1 concentration",
+         subtitle="Red = UPS1 spike-in (should be significant), Grey = yeast background",
+         x="log2 Fold Change", y="-log10 adjusted p-value") +
+    theme_bw(base_size=12)
+ggsave("volcano_proteomics.png", width=10, height=7, dpi=150)
+
+## --- Heatmap of top 50 most significant proteins ---
+top_prots <- res_HvL %>%
+    rownames_to_column("protein") %>%
+    filter(!is.na(adj.P.Val), adj.P.Val < 0.05) %>%
+    arrange(adj.P.Val) %>%
+    head(50) %>% pull(protein)
+
+mat <- t(lfq_imputed)[top_prots, ]
+mat_z <- t(scale(t(mat)))
+
+ann_col <- data.frame(
+    Group = group,
+    row.names = colnames(mat_z)
+)
+ann_colors <- list(Group=c(Low="lightblue", Med="orange", High="firebrick"))
+
+pheatmap(mat_z, annotation_col=ann_col, annotation_colors=ann_colors,
+         show_rownames=TRUE, cluster_cols=FALSE,
+         color=colorRampPalette(rev(RColorBrewer::brewer.pal(9,"RdBu")))(100),
+         main="Top 50 significant proteins (z-scored LFQ intensities)",
+         filename="heatmap_proteomics.png", width=9, height=11)</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s5-plots" data-filename="05_volcano_heatmap.R"><i class="bi bi-download me-1"></i>05_volcano_heatmap.R</button></div>
+</section>
+
+<section id="step6" class="mb-5">
+  <h2 class="section-divider">Step 6 — GO Enrichment &amp; STRING Network</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>R — clusterProfiler GO enrichment + STRINGdb protein interaction network</span><button class="btn-copy">Copy</button></div>
+<pre id="s6-enrichment">######################################################################
+## STEP 6: GO enrichment and STRING protein interaction network
+## For proteomics, use gene names (not Ensembl IDs) since MaxQuant
+## provides gene names directly in the proteinGroups.txt output.
+######################################################################
+
+library(clusterProfiler); library(org.Hs.eg.db); library(STRINGdb)
+
+## --- GO enrichment on significant proteins ---
+sig_genes <- res_HvL %>%
+    rownames_to_column("gene") %>%
+    filter(adj.P.Val < 0.05, logFC > 0) %>%   # upregulated proteins
+    pull(gene) %>%
+    ## Extract gene symbol (MaxQuant format: GENENAME_ORGANISM or just GENENAME)
+    gsub(";.*", "", .) %>%    # take first gene name if multiple
+    unique()
+
+all_genes <- rownames(res_HvL) %>% gsub(";.*", "", .) %>% unique()
+
+## enrichGO: over-representation analysis using GO Biological Process terms
+ego <- enrichGO(
+    gene          = sig_genes,
+    universe      = all_genes,
+    OrgDb         = org.Hs.eg.db,
+    keyType       = "SYMBOL",      # gene symbols from MaxQuant
+    ont           = "BP",
+    pAdjustMethod = "BH",
+    pvalueCutoff  = 0.05,
+    minGSSize     = 10
+)
+dotplot(ego, showCategory=15,
+        title="GO: Significantly upregulated proteins (High vs Low)")
+ggsave("go_enrichment_proteomics.png", width=9, height=7, dpi=150)
+
+## --- STRING protein interaction network ---
+## STRINGdb: fetches protein-protein interactions from the STRING database
+## score_threshold = 700 : high-confidence interactions only (0-1000 scale)
+string_db <- STRINGdb$new(
+    version         = "12",
+    species         = 9606,              # 9606 = Homo sapiens
+    score_threshold = 700,               # high confidence interactions only
+    network_type    = "physical",        # physical interactions (not just co-expression)
+    input_directory = ""
+)
+
+## Map gene names to STRING IDs
+sig_df <- data.frame(gene = sig_genes)
+sig_mapped <- string_db$map(sig_df, "gene", removeUnmappedRows=TRUE)
+
+## Plot the interaction network
+string_db$plot_network(sig_mapped$STRING_id,
+                        add_summary_nodes=FALSE,
+                        vertex_size_type="degree")
+## Opens a STRING network plot — clusters = functionally related proteins
+## UPS1 proteins will form one dense cluster; other proteins will be dispersed</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s6-enrichment" data-filename="06_go_string_network.R"><i class="bi bi-download me-1"></i>06_go_string_network.R</button></div>
+</section>
+
+<section class="mb-5">
+  <div class="d-flex justify-content-between">
+    <a href="somatic-variant-calling-mutect2.html" class="btn btn-outline-secondary rounded-pill px-4"><i class="bi bi-arrow-left me-2"></i>Somatic Variants</a>
+    <a href="scrna-scanpy-python.html" class="btn btn-primary rounded-pill px-4">scRNA-seq with Scanpy <i class="bi bi-arrow-right ms-2"></i></a>
+  </div>
+</section>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-lg-6"><h5 class="text-white fw-bold mb-3"><span style="color:#ff9933;">Indian</span><span style="color:var(--ieb-primary);">Elucid</span><span style="color:var(--ieb-accent);">Biology</span></h5><p class="small">Free, interactive bioinformatics tutorials. Open source and community-driven.</p></div>
+      <div class="col-lg-6 text-lg-end"><p class="small mb-1">Founded by <strong>Ankush Sharma</strong></p><div class="d-flex gap-3 justify-content-lg-end"><a href="https://github.com/ank-man" target="_blank" class="text-white fs-5"><i class="bi bi-github"></i></a><a href="https://www.linkedin.com/in/ankush-sharma-290307/" target="_blank" class="text-white fs-5"><i class="bi bi-linkedin"></i></a><a href="mailto:mr.ank2999@gmail.com" class="text-white fs-5"><i class="bi bi-envelope"></i></a></div></div>
+    </div>
+    <hr class="border-secondary mt-4 mb-3">
+    <p class="text-center small mb-0">&copy; 2025 IndianElucidBiology &mdash; Made with <span style="color:#e25555;">&#9829;</span> for the bioinformatics community.</p>
+  </div>
+</footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/main.js"></script>
+</body>
+</html>

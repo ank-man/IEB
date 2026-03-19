@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Taxonomic Classification with Kraken2 | IndianElucidBiology</title>
+  <meta name="description" content="Build a custom Kraken2 database, classify shotgun metagenomics reads from nematode RNA-seq, and visualize results with Bracken and Krona. Real nematode dataset walkthrough.">
+  <link rel="canonical" href="https://indianelucidbiology.github.io/tutorials/kraken2-taxonomic-classification.html">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="../css/style.css" rel="stylesheet">
+</head>
+<body>
+<div class="progress-tracker"></div>
+<nav class="navbar navbar-expand-lg fixed-top">
+  <div class="container">
+    <a class="navbar-brand" href="../index.html"><span class="brand-indian">Indian</span><span class="brand-elucid">Elucid</span><span class="brand-biology">Biology</span></a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav"><span class="navbar-toggler-icon"></span></button>
+    <div class="collapse navbar-collapse" id="mainNav">
+      <ul class="navbar-nav ms-auto me-3">
+        <li class="nav-item"><a class="nav-link" href="../index.html">Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="index.html">Tutorial Library</a></li>
+      </ul>
+      <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode">&#9790;</button>
+    </div>
+  </div>
+</nav>
+
+<section class="tutorial-hero">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-lg-8">
+        <nav aria-label="breadcrumb"><ol class="breadcrumb mb-3" style="--bs-breadcrumb-divider-color:rgba(255,255,255,0.5);"><li class="breadcrumb-item"><a href="../index.html" class="text-white-50 text-decoration-none">Home</a></li><li class="breadcrumb-item"><a href="index.html" class="text-white-50 text-decoration-none">Tutorials</a></li><li class="breadcrumb-item active text-white">Kraken2</li></ol></nav>
+        <h1 class="display-5 fw-bold text-white mb-3">Taxonomic Classification with Kraken2</h1>
+        <p class="lead text-white-50 mb-4">Build a custom Kraken2 database for nematode-associated bacteria and viruses, classify reads, estimate abundances with Bracken, and visualize with Krona — a workflow applied to nematode RNA-seq data.</p>
+        <div class="d-flex gap-3 flex-wrap">
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-clock me-1"></i>~90 min</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-bar-chart me-1"></i>Intermediate</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-terminal me-1"></i>Bash</span>
+        </div>
+      </div>
+      <div class="col-lg-4 text-center d-none d-lg-block">
+        <img src="../img/Byte3.png" alt="Byte" class="img-fluid" style="max-height:220px;filter:drop-shadow(0 10px 30px rgba(0,0,0,0.4));">
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="container py-5">
+  <div class="row">
+    <div class="col-lg-3 d-none d-lg-block">
+      <div class="toc-sidebar">
+        <h6 class="fw-bold text-muted text-uppercase small mb-3">On this page</h6>
+        <nav class="nav flex-column">
+          <a class="nav-link" href="#overview">Overview</a>
+          <a class="nav-link" href="#step1">1. Install Kraken2</a>
+          <a class="nav-link" href="#step2">2. Build Custom Database</a>
+          <a class="nav-link" href="#step3">3. Add Custom Genomes</a>
+          <a class="nav-link" href="#step4">4. Classify Reads</a>
+          <a class="nav-link" href="#step5">5. Bracken Abundance</a>
+          <a class="nav-link" href="#step6">6. Krona Visualization</a>
+          <a class="nav-link" href="#errors">Troubleshooting</a>
+        </nav>
+      </div>
+    </div>
+    <div class="col-lg-9">
+      <div class="tutorial-content">
+
+        <section id="overview" class="mb-5">
+          <h2 class="section-divider">Overview</h2>
+          <p>Kraken2 uses exact k-mer matches against a reference database to classify DNA (or RNA) reads to taxonomic nodes. It is extremely fast — capable of processing millions of reads per minute — and highly accurate when the database contains the organism of interest.</p>
+          <div class="byte-callout">
+            <img src="../img/Byte1.png" alt="Byte">
+            <div><strong>Application:</strong> This tutorial addresses a practical challenge — nematode RNA-seq libraries often contain reads from bacterial endosymbionts or viral pathogens that co-exist with the nematode. Identifying these contaminants (or genuine biological signals) requires a custom database including nematode-clade bacteria and viruses, not just the standard RefSeq bacterial database. This workflow was developed at Iowa State University GIF.</div>
+          </div>
+          <div class="param-table mt-3">
+            <table class="table table-striped mb-0">
+              <thead><tr><th>Tool</th><th>Purpose</th></tr></thead>
+              <tbody>
+                <tr><td>Kraken2</td><td>K-mer based read classification</td></tr>
+                <tr><td>Bracken</td><td>Bayesian abundance re-estimation at species level</td></tr>
+                <tr><td>KrakenTools</td><td>Filter, merge, and manipulate Kraken outputs</td></tr>
+                <tr><td>Krona</td><td>Interactive taxonomic pie chart visualization</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="dirstructure" class="mb-5">
+          <h2 class="section-divider">Ideal Directory Structure</h2>
+          <p>Kraken2 databases are large (8–60 GB). Keep them separate from your project data so you can reuse the same database across multiple projects.</p>
+          <div class="dir-tree">
+            <div class="dir-tree-header"><i class="bi bi-folder2-open"></i> kraken2_nematode_project/</div>
+<span class="tree-folder">kraken2_nematode_project/</span>
+├── <span class="tree-folder">kraken2_db/</span>          <span class="tree-note"># Kraken2 database (shared, reusable)</span>
+│   ├── <span class="tree-folder">taxonomy/</span>        <span class="tree-note"># NCBI taxonomy nodes + names</span>
+│   ├── <span class="tree-folder">library/</span>         <span class="tree-note"># downloaded reference sequences</span>
+│   ├── <span class="tree-output">hash.k2d</span>         <span class="tree-note"># compiled k-mer hash (largest file!)</span>
+│   ├── <span class="tree-output">opts.k2d</span>
+│   └── <span class="tree-output">taxo.k2d</span>
+├── <span class="tree-folder">custom_genomes/</span>      <span class="tree-note"># FASTA files for non-standard genomes</span>
+├── <span class="tree-folder tree-active">reads/</span>               <span class="tree-note"># input FASTQ files (read-only!)</span>
+├── <span class="tree-folder">kraken2_output/</span>      <span class="tree-note"># per-sample Kraken2 outputs</span>
+│   ├── <span class="tree-output">sample1.kraken2</span>  <span class="tree-note"># per-read classification</span>
+│   └── <span class="tree-output">sample1.report</span>   <span class="tree-note"># summary report (used by Bracken)</span>
+├── <span class="tree-folder">bracken_output/</span>      <span class="tree-note"># Bracken re-estimated abundance tables</span>
+│   └── <span class="tree-output">sample1.bracken</span>
+└── <span class="tree-folder">krona/</span>               <span class="tree-note"># interactive Krona HTML charts</span>
+    └── <span class="tree-output">taxonomy.krona.html</span>
+          </div>
+          <div class="fun-tip"><span class="fun-tip-icon">💾</span><div><strong>Database size reality check:</strong> The standard bacteria+viral+human Kraken2 database is ~55 GB (standard) or ~8 GB (minikraken). Building it requires ~100 GB <em>temporary</em> disk space during compilation. Always check available disk space with <code>df -h .</code> before starting a database build!</div></div>
+        </section>
+
+        <section id="step1" class="mb-5">
+          <h2 class="section-divider">Step 1 — Install Kraken2 and Dependencies</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash — Kraken2 installation</span><button class="btn-copy">Copy</button></div>
+<pre id="s1-kr2-install">conda create -n kraken2_env -c bioconda -c conda-forge \
+    kraken2 bracken krakentools krona
+conda activate kraken2_env
+
+# Verify
+kraken2 --version
+bracken --version
+ktImportTaxonomy --help | head -3</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s1-kr2-install" data-filename="01_install_kraken2.sh"><i class="bi bi-download me-1"></i>01_install_kraken2.sh</button></div>
+        </section>
+
+        <section id="step2" class="mb-5">
+          <h2 class="section-divider">Step 2 — Build a Custom Kraken2 Database</h2>
+          <p>Kraken2 provides standard databases (bacteria, viral, archaea, human) but for specialized applications like nematode microbiome studies, you need a custom database that includes appropriate reference genomes.</p>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash — Download taxonomy and standard libraries</span><button class="btn-copy">Copy</button></div>
+<pre id="s2-kr2-db">mkdir -p kraken2_db
+
+# Step 1: Download NCBI taxonomy (required for all databases)
+kraken2-build --download-taxonomy --db kraken2_db
+
+# IMPORTANT: The script uses ftp.ncbi.nih.gov
+# If your cluster blocks FTP, edit kraken2-build's download_taxonomy.sh:
+# Change ftp:// to https://
+# Example fix:
+DB_DIR="${KRAKEN2_DEFAULT_DB:-kraken2_db}"
+sed -i 's|ftp://ftp.ncbi.nih.gov|https://ftp.ncbi.nih.gov|g' \
+    $(which kraken2-build)   # edit the installed script if needed
+
+# Step 2: Add standard bacterial library
+kraken2-build --download-library bacteria --db kraken2_db
+
+# Step 3: Add viral library
+kraken2-build --download-library viral --db kraken2_db
+
+# Step 4: Add human library (to remove host contamination)
+kraken2-build --download-library human --db kraken2_db
+
+echo "Standard libraries downloaded. Directory size:"
+du -sh kraken2_db/library/</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s2-kr2-db" data-filename="02_download_taxonomy_libs.sh"><i class="bi bi-download me-1"></i>02_download_taxonomy_libs.sh</button></div>
+          <div class="cmd-explain">
+            <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> Kraken2 database build commands decoded</div>
+            <table>
+              <tr><td><span class="cmd-emoji">🌳</span>--download-taxonomy</td><td>Downloads NCBI taxonomy files (<code>nodes.dmp</code>, <code>names.dmp</code>, <code>accession2taxid</code>). These map sequence accession numbers to taxonomic IDs. <strong>Must be run first</strong> — all subsequent steps depend on it.</td></tr>
+              <tr><td><span class="cmd-emoji">🧫</span>--download-library bacteria</td><td>Downloads all complete bacterial RefSeq genomes. Takes 1–6 hours and uses ~50 GB. Available libraries: <code>bacteria</code>, <code>viral</code>, <code>human</code>, <code>fungi</code>, <code>protozoa</code>, <code>plant</code>, <code>archaea</code>, <code>UniVec</code>.</td></tr>
+              <tr><td><span class="cmd-emoji">🔨</span>kraken2-build --build</td><td>Compiles all library sequences into the Kraken2 k-mer hash index. This is the most compute-intensive step — uses all available threads and requires large RAM (up to 100 GB for the full database). The resulting <code>hash.k2d</code> is the file Kraken2 loads at runtime.</td></tr>
+            </table>
+          </div>
+          <div class="fun-tip"><span class="fun-tip-icon">🔍</span><div><strong>How Kraken2 classifies reads:</strong> It extracts all k-mers (default k=35) from a read, looks each one up in the pre-built hash table, and finds the lowest common ancestor (LCA) of all the matching taxa. If 90% of k-mers match <em>E. coli</em>, the read is classified as <em>E. coli</em>. Fast because hash lookups are O(1)!</div></div>
+        </section>
+
+        <section id="step3" class="mb-5">
+          <h2 class="section-divider">Step 3 — Add Custom Nematode-Associated Genomes</h2>
+          <p>The key step: add genome assemblies of bacteria known to associate with nematodes. Each genome needs a NCBI taxonomy ID in the FASTA header.</p>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash — Add custom genomes to database</span><button class="btn-copy">Copy</button></div>
+<pre id="s3-kr2-custom">mkdir -p custom_genomes
+
+# Download specific bacterial genomes associated with nematodes
+# Example: Wolbachia (common nematode endosymbiont)
+# Taxon ID must be added to FASTA headers as: |kraken:taxid|XXXX
+
+# Download Wolbachia genome (TaxID: 953)
+wget https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/008/025/GCF_000008025.1_ASM802v1/GCF_000008025.1_ASM802v1_genomic.fna.gz
+gzip -d GCF_000008025.1_ASM802v1_genomic.fna.gz
+
+# Add taxonomy ID to FASTA headers
+# Format: >seq_name|kraken:taxid|953
+sed 's/^>/&|kraken:taxid|953 /' GCF_000008025.1_ASM802v1_genomic.fna \
+    > custom_genomes/Wolbachia_taxid953.fna
+
+# Repeat for other organisms:
+# Xanthomonas (TaxID: 338) - common soil bacterium
+# Bacillus thuringiensis (TaxID: 1428) - nematode pathogen
+# Microbotryum (TaxID: 5936) - plant fungal pathogen
+
+# Add all custom genomes to the Kraken2 library
+for genome in custom_genomes/*.fna; do
+    echo "Adding: $genome"
+    kraken2-build --add-to-library ${genome} --db kraken2_db
+done
+
+# Build the final database index
+# --kmer-len 35  : k-mer length (default 35 for Kraken2)
+# --minimizer-len 31 : minimizer length
+# --minimizer-spaces 6 : spaces in minimizer (reduces memory)
+kraken2-build --build \
+    --db kraken2_db \
+    --kmer-len 35 \
+    --minimizer-len 31 \
+    --minimizer-spaces 6 \
+    --threads 24
+
+echo "Database build complete!"
+kraken2-build --db kraken2_db --report-minimizer-data</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s3-kr2-custom" data-filename="03_add_custom_genomes.sh"><i class="bi bi-download me-1"></i>03_add_custom_genomes.sh</button></div>
+          <div class="cmd-explain">
+            <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> Custom genome addition decoded</div>
+            <table>
+              <tr><td><span class="cmd-emoji">🏷️</span>sed 's/^&gt;/&amp;|kraken:taxid|953 /'</td><td>Adds the Kraken taxon ID tag to every FASTA header line (lines starting with <code>&gt;</code>). The <code>|kraken:taxid|953</code> format is the magic string Kraken2's <code>--add-to-library</code> command reads to associate sequences with a NCBI taxonomy node. Without it, Kraken2 can't classify reads against your custom genome.</td></tr>
+              <tr><td><span class="cmd-emoji">💉</span>--add-to-library</td><td>Registers a FASTA file into the Kraken2 library folder without building the index yet. Run this for each custom genome. Then run <code>--build</code> once at the end to compile everything together.</td></tr>
+              <tr><td><span class="cmd-emoji">🔢</span>--kmer-len 35</td><td>K-mer length for the hash table. Longer k-mers = more specific but require more memory. Default 35 is optimal for 150 bp reads. For very short reads (&lt;100 bp) use 25.</td></tr>
+              <tr><td><span class="cmd-emoji">💾</span>--minimizer-spaces 6</td><td>Number of positions to skip in the minimizer window. Higher value = smaller database footprint with minor accuracy tradeoff. Set to 6 to reduce the standard database from ~70 GB to ~40 GB.</td></tr>
+            </table>
+          </div>
+          <div class="thumb-rule mt-3"><strong>Memory requirement:</strong> A standard bacterial + viral + human Kraken2 database is ~70–100 GB when loaded into RAM. Use <code>--memory-mapping</code> flag during classification to load from disk instead of RAM — 2–3× slower but uses no RAM.</div>
+        </section>
+
+        <section id="step4" class="mb-5">
+          <h2 class="section-divider">Step 4 — Classify Reads</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash — Kraken2 classification (single and paired)</span><button class="btn-copy">Copy</button></div>
+<pre id="s4-kr2-classify">conda activate kraken2_env
+
+DB="kraken2_db"
+OUTDIR="kraken2_results"
+mkdir -p ${OUTDIR}
+
+# Classify single-end RNA-seq reads
+for fq in data/*.fastq.gz; do
+    SAMPLE=$(basename ${fq} .fastq.gz)
+    echo "Classifying: ${SAMPLE}"
+
+    kraken2 \
+        --db ${DB} \
+        --threads 16 \
+        --output ${OUTDIR}/${SAMPLE}.kraken \
+        --report ${OUTDIR}/${SAMPLE}.report \
+        --gzip-compressed \
+        ${fq}
+
+    echo "  Report: ${OUTDIR}/${SAMPLE}.report"
+done
+
+# For paired-end reads:
+# kraken2 --db ${DB} --threads 16 \
+#   --paired reads_R1.fastq.gz reads_R2.fastq.gz \
+#   --output sample.kraken --report sample.report
+
+# Show top classifications from one sample
+echo "Top 20 classifications:"
+sort -rn -k3,3 ${OUTDIR}/${SAMPLE}.report | head -20
+
+# Report format columns:
+# 1: % reads covered by clade
+# 2: # reads covered by clade (direct + children)
+# 3: # reads directly assigned to taxon
+# 4: taxonomic rank code (U,R,D,P,C,O,F,G,S)
+# 5: taxonomy ID
+# 6: scientific name</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s4-kr2-classify" data-filename="04_classify_reads.sh"><i class="bi bi-download me-1"></i>04_classify_reads.sh</button></div>
+          <div class="cmd-explain">
+            <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> Kraken2 classification flags decoded</div>
+            <table>
+              <tr><td><span class="cmd-emoji">📄</span>--output sample.kraken</td><td>Per-read output: one line per read with classification status (C/U), read ID, taxonomy ID, read length, and k-mer hit string. Large file! You can omit this with <code>--output /dev/null</code> if you only need the summary report.</td></tr>
+              <tr><td><span class="cmd-emoji">📊</span>--report sample.report</td><td>Summary report: one line per taxon, showing percentage and read counts. This is the key output — used by Bracken for abundance re-estimation and by Krona for visualization.</td></tr>
+              <tr><td><span class="cmd-emoji">🔐</span>--gzip-compressed</td><td>Tells Kraken2 to decompress <code>.gz</code> files on the fly. Without this flag, Kraken2 will fail or misread gzipped FASTQs. Use <code>--bzip2-compressed</code> for <code>.bz2</code> files.</td></tr>
+              <tr><td><span class="cmd-emoji">👫</span>--paired R1 R2</td><td>Process paired-end reads together. Kraken2 concatenates the two reads with an N spacer and classifies them as one unit, improving classification accuracy over single-end mode.</td></tr>
+            </table>
+          </div>
+          <div class="fun-tip"><span class="fun-tip-icon">📊</span><div><strong>Reading the Kraken2 report:</strong> The columns are: <code>% reads</code>, <code>reads in clade</code>, <code>reads assigned directly</code>, <code>rank code</code> (U=unclassified, D=domain, P=phylum, C=class, O=order, F=family, G=genus, S=species), <code>taxID</code>, <code>name</code>. Sort by column 3 (direct assignments) to find the most abundant specific taxa.</div></div>
+        </section>
+
+        <section id="step5" class="mb-5">
+          <h2 class="section-divider">Step 5 — Bracken: Abundance Re-estimation</h2>
+          <p>Kraken2 assigns reads to the lowest common ancestor (LCA) — many reads land at genus or family level. Bracken redistributes these reads using a Bayesian model to give species-level abundance estimates.</p>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash — Bracken species-level abundance</span><button class="btn-copy">Copy</button></div>
+<pre id="s5-bracken"># Step 1: Build Bracken database (once per Kraken2 database)
+bracken-build \
+    -d kraken2_db \
+    -t 16 \
+    -l 150 \
+    -k 35
+# -l = read length (match your actual read length)
+# -k = k-mer length used for Kraken2 database
+
+# Step 2: Run Bracken on each sample report
+for report in kraken2_results/*.report; do
+    SAMPLE=$(basename ${report} .report)
+    echo "Bracken: ${SAMPLE}"
+
+    bracken \
+        -d kraken2_db \
+        -i ${report} \
+        -o bracken_results/${SAMPLE}.bracken \
+        -r 150 \
+        -l S \
+        -t 10
+    # -l S = species level
+    # -t 10 = minimum read threshold for re-estimation
+done
+
+# Combine all Bracken results into a single count table
+python3 $(which combine_bracken_outputs.py) \
+    --files bracken_results/*.bracken \
+    --output combined_bracken.txt
+
+echo "Combined table: combined_bracken.txt"
+head -5 combined_bracken.txt</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s5-bracken" data-filename="05_bracken_abundance.sh"><i class="bi bi-download me-1"></i>05_bracken_abundance.sh</button></div>
+          <div class="cmd-explain">
+            <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> Bracken parameters decoded</div>
+            <table>
+              <tr><td><span class="cmd-emoji">🔨</span>bracken-build -l 150</td><td>Builds Bracken's distribution files for a specific read length (150 bp here). Bracken needs to know the expected k-mer distribution for each species at your read length. Run once per database per read length.</td></tr>
+              <tr><td><span class="cmd-emoji">🎯</span>-l S (species level)</td><td>Re-estimate abundances at Species level. Options: <code>D</code>=Domain, <code>P</code>=Phylum, <code>C</code>=Class, <code>O</code>=Order, <code>F</code>=Family, <code>G</code>=Genus, <code>S</code>=Species. Species is usually the goal.</td></tr>
+              <tr><td><span class="cmd-emoji">📉</span>-t 10</td><td>Minimum read threshold — taxa with fewer than 10 reads are not re-estimated (too unreliable). Increase to 50–100 for stricter confidence. Low-read taxa keep their Kraken2 assignment.</td></tr>
+              <tr><td><span class="cmd-emoji">🔀</span>combine_bracken_outputs.py</td><td>Merges per-sample Bracken files into a single matrix (samples × species). This table is directly importable into R (DESeq2, vegan) for downstream microbiome statistics.</td></tr>
+            </table>
+          </div>
+          <div class="fun-tip"><span class="fun-tip-icon">🌡️</span><div><strong>Kraken2 vs Bracken:</strong> Think of Kraken2 as the classifier and Bracken as the statistician. Kraken2 assigns each read to its best LCA — many reads pile up at genus level. Bracken says "given how many reads landed at Genus X, and given the genome sizes of each species in that genus, here's my best estimate of actual species abundances." Use Bracken counts for comparative analysis!</div></div>
+        </section>
+
+        <section id="step6" class="mb-5">
+          <h2 class="section-divider">Step 6 — Krona Interactive Visualization</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash — Krona taxonomic wheel charts</span><button class="btn-copy">Copy</button></div>
+<pre id="s6-krona">mkdir -p krona_plots
+
+# Convert Kraken2 report format to Krona input
+for report in kraken2_results/*.report; do
+    SAMPLE=$(basename ${report} .report)
+
+    # Convert Kraken2 report to Krona format
+    kreport2krona.py \
+        -r ${report} \
+        -o krona_plots/${SAMPLE}.krona.txt
+
+    # Generate interactive HTML Krona chart
+    ktImportText \
+        krona_plots/${SAMPLE}.krona.txt \
+        -o krona_plots/${SAMPLE}.krona.html
+
+    echo "Krona chart: krona_plots/${SAMPLE}.krona.html"
+done
+
+# Or combine all samples into one multi-sample Krona chart
+# (allows switching between samples in the browser)
+ALL_INPUTS=$(for r in kraken2_results/*.report; do
+    SAMPLE=$(basename ${r} .report)
+    kreport2krona.py -r ${r} -o /tmp/${SAMPLE}.krona.txt
+    echo "/tmp/${SAMPLE}.krona.txt,${SAMPLE}"
+done | tr '\n' ' ')
+
+# Create multi-sample Krona HTML
+ktImportText ${ALL_INPUTS} -o krona_all_samples.html
+echo "Multi-sample Krona chart: krona_all_samples.html"
+echo "Open in any browser to explore the interactive taxonomy wheel."</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s6-krona" data-filename="06_krona_visualization.sh"><i class="bi bi-download me-1"></i>06_krona_visualization.sh</button></div>
+          <div class="byte-callout mt-3">
+            <img src="../img/Byte2.png" alt="Byte">
+            <div><strong>Interpreting Krona charts:</strong> The interactive wheel shows taxonomic hierarchy from root (center) to species (outer ring). Click any wedge to zoom in. Larger wedges = more reads classified there. Unclassified reads are shown as a grey outer segment. For nematode RNA-seq, you may find 5–30% of reads classify to bacteria — most of these are true endosymbionts or environmental contamination captured in the RNA extraction.</div>
+          </div>
+        </section>
+
+        <section id="errors" class="mb-5">
+          <h2 class="fw-bold"><i class="bi bi-exclamation-triangle me-2 text-warning"></i>Troubleshooting</h2>
+          <div class="error-box">
+            <h6>kraken2-build: "download_taxonomy.sh" fails with FTP errors</h6>
+            <p>Many HPC clusters block outbound FTP. Edit the <code>download_taxonomy.sh</code> script inside the Kraken2 installation to replace all <code>ftp://ftp.ncbi.nih.gov</code> URLs with <code>https://ftp.ncbi.nih.gov</code>. Find the script path with <code>which kraken2-build</code> then look for the scripts directory alongside it.</p>
+          </div>
+          <div class="error-box">
+            <h6>Very low classification rate (&lt;20%) despite a large database</h6>
+            <p>Common causes: (1) Wrong read type — Kraken2 by default assumes DNA; for RNA-seq reads add no extra flags, but make sure your database includes transcriptome or mRNA sequences if reads are spliced. (2) The organism is simply not in your database. (3) Reads are very short — Kraken2 performs poorly on reads &lt;50 bp.</p>
+          </div>
+          <div class="error-box">
+            <h6>Bracken: "No database found" or "Incompatible database"</h6>
+            <p>Bracken database files (*.kmer_distrib) must match the read length and k-mer size used in Kraken2 build. Run <code>bracken-build</code> with <code>-l</code> matching your actual read length after building the Kraken2 database.</p>
+          </div>
+        </section>
+
+        <div class="d-flex justify-content-between mt-4">
+          <a href="metagenomics-qiime2-amplicon.html" class="btn btn-outline-secondary rounded-pill px-4"><i class="bi bi-arrow-left me-2"></i>QIIME2</a>
+          <a href="comparative-genomics-orthology-synteny.html" class="btn btn-primary rounded-pill px-4">Next: Comparative Genomics <i class="bi bi-arrow-right ms-2"></i></a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-lg-6"><h5 class="text-white fw-bold mb-3"><span style="color:#ff9933;">Indian</span><span style="color:var(--ieb-primary);">Elucid</span><span style="color:var(--ieb-accent);">Biology</span></h5><p class="small">Tutorial adapted from the Bioinformatics Workbook (Iowa State University GIF).</p></div>
+      <div class="col-lg-6 text-lg-end"><p class="small mb-1">Founded by <strong>Ankush Sharma</strong></p><div class="d-flex gap-3 justify-content-lg-end"><a href="https://github.com/ank-man" target="_blank" class="text-white fs-5"><i class="bi bi-github"></i></a><a href="https://www.linkedin.com/in/ankush-sharma-290307/" target="_blank" class="text-white fs-5"><i class="bi bi-linkedin"></i></a></div></div>
+    </div>
+    <hr class="border-secondary mt-4 mb-3">
+    <p class="text-center small mb-0">&copy; 2025 IndianElucidBiology. Based on <a href="https://bioinformaticsworkbook.org" class="text-white-50" target="_blank">bioinformaticsworkbook.org</a>.</p>
+  </div>
+</footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/main.js"></script>
+</body>
+</html>

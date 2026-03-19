@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Population Graph &amp; Migration with TreeMix | IndianElucidBiology</title>
+  <meta name="description" content="Build maximum-likelihood population trees with migration edges using TreeMix. Determine optimal migration events, visualise population graphs and residuals. Uses the Human HGDP dataset (Pickrell & Pritchard 2012).">
+  <meta name="keywords" content="TreeMix, population graph, migration, gene flow, maximum likelihood, HGDP, population structure, admixture graph, optM, residuals, population genomics">
+  <link rel="canonical" href="https://indianelucidbiology.github.io/tutorials/popgen-treemix-migration.html">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="../css/style.css" rel="stylesheet">
+</head>
+<body>
+<div class="progress-tracker"></div>
+
+<!-- =====================================================================
+     NAVBAR — fixed top navigation with series prev/next links
+     ===================================================================== -->
+<nav class="navbar navbar-expand-lg fixed-top">
+  <div class="container">
+    <a class="navbar-brand" href="../index.html">
+      <span class="brand-indian">Indian</span><span class="brand-elucid">Elucid</span><span class="brand-biology">Biology</span>
+    </a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="mainNav">
+      <ul class="navbar-nav ms-auto me-3">
+        <li class="nav-item"><a class="nav-link" href="../index.html">Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="index.html">Tutorial Library</a></li>
+        <li class="nav-item"><a class="nav-link" href="popgen-abba-baba-introgression.html"><i class="bi bi-arrow-left me-1"></i>ABBA-BABA</a></li>
+        <li class="nav-item"><a class="nav-link" href="popgen-vcftools-plink-filtering.html">VCF Filtering<i class="bi bi-arrow-right ms-1"></i></a></li>
+      </ul>
+      <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode">&#9790;</button>
+    </div>
+  </div>
+</nav>
+
+<!-- =====================================================================
+     HERO
+     ===================================================================== -->
+<section class="tutorial-hero">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-lg-8">
+        <nav aria-label="breadcrumb">
+          <ol class="breadcrumb mb-3" style="--bs-breadcrumb-divider-color:rgba(255,255,255,0.5);">
+            <li class="breadcrumb-item"><a href="../index.html" class="text-white-50 text-decoration-none">Home</a></li>
+            <li class="breadcrumb-item"><a href="index.html" class="text-white-50 text-decoration-none">Tutorials</a></li>
+            <li class="breadcrumb-item active text-white">TreeMix Migration Graph</li>
+          </ol>
+        </nav>
+        <h1 class="display-5 fw-bold text-white mb-3">Population Graph &amp; Migration with TreeMix</h1>
+        <p class="lead text-white-50 mb-4">
+          Convert VCF to TreeMix format &middot; Build ML population tree &middot; Add migration edges &middot;
+          Determine optimal M with optM &middot; Visualise graphs &amp; residuals
+        </p>
+        <div class="d-flex gap-3 flex-wrap">
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-clock me-1"></i> ~90 min</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-bar-chart me-1"></i> Intermediate</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-terminal me-1"></i> Bash / R</span>
+        </div>
+      </div>
+      <div class="col-lg-4 text-center d-none d-lg-block">
+        <img src="../img/Byte3.png" alt="Byte" class="img-fluid" style="max-height:230px;filter:drop-shadow(0 10px 30px rgba(0,0,0,0.4));">
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =====================================================================
+     MAIN CONTENT
+     ===================================================================== -->
+<div class="container py-5">
+  <div class="row">
+
+    <!-- TOC sidebar -->
+    <div class="col-lg-3 d-none d-lg-block">
+      <div class="toc-sidebar">
+        <h6 class="fw-bold text-muted text-uppercase small mb-3">On this page</h6>
+        <nav class="nav flex-column">
+          <a class="nav-link" href="#overview">Overview</a>
+          <a class="nav-link" href="#dirstructure">Directory Structure</a>
+          <a class="nav-link" href="#dataset">Dataset</a>
+          <a class="nav-link" href="#step1">1. Prepare Input Data</a>
+          <a class="nav-link" href="#step2">2. Convert VCF &rarr; TreeMix Format</a>
+          <a class="nav-link" href="#step3">3. Run TreeMix (M=0 to M=10)</a>
+          <a class="nav-link" href="#step4">4. Select Optimal M with optM</a>
+          <a class="nav-link" href="#step5">5. Visualise Population Graph</a>
+          <a class="nav-link" href="#step6">6. Residual Analysis</a>
+          <a class="nav-link" href="#step7">7. Bootstrap Confidence</a>
+        </nav>
+      </div>
+    </div>
+
+    <!-- Tutorial body -->
+    <div class="col-lg-9">
+      <div class="tutorial-content">
+
+<!-- ------------------------------------------------------------------ -->
+<!-- OVERVIEW                                                             -->
+<!-- ------------------------------------------------------------------ -->
+<section id="overview" class="mb-5">
+  <h2 class="section-divider">Overview</h2>
+  <p>TreeMix (Pickrell &amp; Pritchard 2012) models population history as a maximum-likelihood <strong>graph</strong> — a bifurcating tree augmented with directed migration edges representing gene flow events. Unlike ADMIXTURE (which clusters individuals) or D-statistics (which test specific four-taxon configurations), TreeMix simultaneously infers both the tree structure and the location and magnitude of gene flow across many populations at once.</p>
+  <div class="byte-callout">
+    <img src="../img/Byte1.png" alt="Byte">
+    <div>
+      <strong>What TreeMix does step by step:</strong>
+      <ol class="mb-0 mt-1 small">
+        <li>Computes a <strong>covariance matrix</strong> of allele frequencies between all pairs of populations</li>
+        <li>Fits a <strong>maximum-likelihood tree</strong> that explains this covariance (M=0)</li>
+        <li>Adds <strong>migration edges</strong> one at a time — each edge connects two branches and represents admixture between populations</li>
+        <li>Reports <strong>residuals</strong> — pairs of populations whose covariance is poorly explained by the model (candidates for additional migration)</li>
+        <li>The <strong>weight</strong> on each migration edge = estimated fraction of ancestry from the donor branch</li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<!-- ------------------------------------------------------------------ -->
+<!-- DIRECTORY STRUCTURE                                                  -->
+<!-- ------------------------------------------------------------------ -->
+<section id="dirstructure" class="mb-5">
+  <h2 class="section-divider">Ideal Directory Structure</h2>
+  <div class="dir-tree">
+    <div class="dir-tree-header"><i class="bi bi-folder2-open"></i> treemix_hgdp/</div>
+<span class="tree-folder">treemix_hgdp/</span>
+&#9500;&#9472;&#9472; <span class="tree-folder tree-active">0_raw/</span>               <span class="tree-note"># HGDP PLINK files (download)</span>
+&#9500;&#9472;&#9472; <span class="tree-folder">1_plink/</span>             <span class="tree-note"># LD-pruned PLINK BED files</span>
+&#9474;   &#9500;&#9472;&#9472; <span class="tree-output">hgdp_pruned.bed/.bim/.fam</span>
+&#9474;   &#9492;&#9472;&#9472; <span class="tree-file">hgdp.clust</span>          <span class="tree-note"># population cluster assignments</span>
+&#9500;&#9472;&#9472; <span class="tree-folder">2_treemix_input/</span>     <span class="tree-note"># TreeMix-format .gz input file</span>
+&#9474;   &#9492;&#9472;&#9472; <span class="tree-output">hgdp_treemix.gz</span>
+&#9500;&#9472;&#9472; <span class="tree-folder">3_runs/</span>              <span class="tree-note"># TreeMix outputs per M value</span>
+&#9474;   &#9500;&#9472;&#9472; <span class="tree-folder">m0/</span>                  <span class="tree-note"># pure tree (no migration)</span>
+&#9474;   &#9500;&#9472;&#9472; <span class="tree-folder">m1/ ... m10/</span>         <span class="tree-note"># tree + 1 to 10 migration edges</span>
+&#9500;&#9472;&#9472; <span class="tree-folder">4_bootstrap/</span>         <span class="tree-note"># 100 bootstrap replicates per M</span>
+&#9492;&#9472;&#9472; <span class="tree-folder">5_plots/</span>             <span class="tree-note"># all final figures</span>
+    &#9500;&#9472;&#9472; <span class="tree-output">tree_m0.png</span>
+    &#9500;&#9472;&#9472; <span class="tree-output">tree_m5.png</span>
+    &#9500;&#9472;&#9472; <span class="tree-output">optM_plot.png</span>
+    &#9492;&#9472;&#9472; <span class="tree-output">residuals_m5.png</span>
+  </div>
+</section>
+
+<!-- ------------------------------------------------------------------ -->
+<!-- DATASET                                                              -->
+<!-- ------------------------------------------------------------------ -->
+<section id="dataset" class="mb-5">
+  <h2 class="section-divider">Dataset</h2>
+  <p>The <strong>Human Genome Diversity Panel (HGDP)</strong> is the original dataset used in the TreeMix paper (Pickrell &amp; Pritchard 2012). Running TreeMix on HGDP and recovering the known migration events (Central Asian admixture, Americas&ndash;East Asia connection, etc.) is the standard validation for any TreeMix pipeline.</p>
+  <div class="param-table">
+    <table class="table table-striped mb-0">
+      <thead><tr><th>Property</th><th>Value</th></tr></thead>
+      <tbody>
+        <tr><td>Organism</td><td><em>Homo sapiens</em></td></tr>
+        <tr><td>Dataset</td><td>HGDP (Pickrell &amp; Pritchard 2012 TreeMix dataset)</td></tr>
+        <tr><td>Download</td><td><a href="https://reich.hms.harvard.edu/software" target="_blank">Reich Lab Software page</a> — TreeMix example data</td></tr>
+        <tr><td>Populations</td><td>53 worldwide populations</td></tr>
+        <tr><td>SNPs (LD-pruned)</td><td>~500,000 autosomal SNPs</td></tr>
+        <tr><td>Expected migration events</td><td>M=5 typically recovers: Mozabite (Berber + European admixture), Uyghur (East Asian + European), Native Americans (East Asian source)</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="thumb-rule mt-3"><strong>Why HGDP for TreeMix?</strong> The HGDP TreeMix results are published in the original paper — you can directly compare your output to Figure 2 of Pickrell &amp; Pritchard 2012. This makes it the ideal tutorial dataset for verifying your pipeline is working correctly before applying it to your own data.</div>
+</section>
+
+<!-- ------------------------------------------------------------------ -->
+<!-- STEP 1 — PREPARE INPUT                                              -->
+<!-- ------------------------------------------------------------------ -->
+<section id="step1" class="mb-5">
+  <h2 class="section-divider">Step 1 — Prepare Input Data</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash — Download HGDP PLINK files and LD prune</span><button class="btn-copy">Copy</button></div>
+<pre id="s1-prepare">######################################################################
+## STEP 1: Download the HGDP dataset and prepare LD-pruned PLINK files
+## TreeMix requires population-level allele frequencies, not individual
+## genotypes — we will aggregate per-population in Step 2.
+## TreeMix works best with LD-pruned SNPs to avoid correlated markers
+## inflating apparent structure.
+######################################################################
+
+mkdir -p 0_raw 1_plink 2_treemix_input 3_runs 4_bootstrap 5_plots
+module load plink2/2.0
+
+## --- Option A: Download the exact TreeMix paper dataset (HGDP) ---
+## Available from the Reich Lab software page (direct PLINK format)
+wget -P 0_raw/ \
+  https://reich.hms.harvard.edu/sites/reich.hms.harvard.edu/files/inline-files/\
+  HGDP_940_plink.tar.gz
+tar -xzf 0_raw/HGDP_940_plink.tar.gz -C 0_raw/
+
+## This extracts: HGDP_940.bed, HGDP_940.bim, HGDP_940.fam, HGDP_940.clust
+## The .clust file maps each individual to their population — used by TreeMix
+
+## --- Option B: Use the HGDP WGS VCF from ADMIXTURE tutorial (if already downloaded) ---
+## (then proceed to the PLINK convert + LD prune steps below)
+
+## --- LD pruning (if starting from existing PLINK files) ---
+## -bfile    : prefix for PLINK binary files (.bed/.bim/.fam)
+## --indep-pairwise 50 10 0.1
+##   50   = window size in SNPs (scan 50 SNPs at a time)
+##   10   = step size (move 10 SNPs forward each scan)
+##   0.1  = r-squared threshold (remove one SNP from any pair with r^2 > 0.1)
+## --allow-extra-chr : needed for non-standard chromosome names
+plink2 \
+    --bfile 0_raw/HGDP_940 \
+    --indep-pairwise 50 10 0.1 \
+    --allow-extra-chr \
+    --out 1_plink/ld_prune
+
+## Extract only the LD-pruned SNPs into a new PLINK binary file
+## --extract : keep only SNPs listed in the .prune.in file
+plink2 \
+    --bfile 0_raw/HGDP_940 \
+    --extract 1_plink/ld_prune.prune.in \
+    --make-bed \
+    --allow-extra-chr \
+    --out 1_plink/hgdp_pruned
+
+## Report how many SNPs remain after pruning
+echo "SNPs before LD pruning: $(wc -l < 0_raw/HGDP_940.bim)"
+echo "SNPs after LD pruning:  $(wc -l < 1_plink/hgdp_pruned.bim)"
+echo "Samples:                $(wc -l < 1_plink/hgdp_pruned.fam)"
+
+## Copy the population cluster file (maps individual → population)
+cp 0_raw/HGDP_940.clust 1_plink/hgdp.clust
+echo "Population clusters available: $(awk '{print $3}' 1_plink/hgdp.clust | sort -u | wc -l)"</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s1-prepare" data-filename="01_prepare_plink.sh"><i class="bi bi-download me-1"></i>01_prepare_plink.sh</button></div>
+  <div class="cmd-explain">
+    <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> Data preparation decoded</div>
+    <table>
+      <tr><td><span class="cmd-emoji">&#128196;</span>.clust file format</td><td>The PLINK cluster file has three columns: FID (family ID), IID (individual ID), and cluster/population name. TreeMix uses this to group individuals into populations and compute population-level allele frequencies. Every individual must have a population assignment — unassigned individuals are excluded.</td></tr>
+      <tr><td><span class="cmd-emoji">&#127775;</span>Why LD pruning for TreeMix?</td><td>TreeMix models the covariance matrix of allele frequencies between populations. Correlated SNPs (in LD) add redundant information that inflates the apparent covariance and can pull migration edges to spurious locations. LD pruning ensures each SNP contributes independent information. Aim for ~200k&ndash;500k pruned SNPs for stable TreeMix results.</td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- ------------------------------------------------------------------ -->
+<!-- STEP 2 — CONVERT VCF → TREEMIX FORMAT                              -->
+<!-- ------------------------------------------------------------------ -->
+<section id="step2" class="mb-5">
+  <h2 class="section-divider">Step 2 — Convert PLINK → TreeMix Format</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash — plink2treemix conversion</span><button class="btn-copy">Copy</button></div>
+<pre id="s2-convert">######################################################################
+## STEP 2: Convert PLINK binary format to TreeMix input format
+## TreeMix input format:
+##   - One row per SNP
+##   - One column per population
+##   - Each cell = "count_allele1,count_allele2" (allele counts, not frequencies)
+##   - First row = population names (space-separated header)
+##   - File must be bgzipped
+## The plink2treemix.py script automates this conversion
+######################################################################
+
+## --- Download the conversion script ---
+## Part of the TreeMix distribution or available separately
+wget -O plink2treemix.py \
+  https://raw.githubusercontent.com/gavinband/bingwa/master/utils/plink2treemix.py
+
+## --- Run the conversion ---
+## This script:
+##   1. Reads the PLINK .bed file (binary genotype matrix)
+##   2. Groups individuals by population using the .clust file
+##   3. For each SNP and each population: counts reference and alternate alleles
+##   4. Outputs the count matrix in TreeMix format
+## --bfile : PLINK binary file prefix
+## --pop   : cluster file mapping individuals to populations
+## --out   : output file prefix
+python plink2treemix.py \
+    --bfile 1_plink/hgdp_pruned \
+    --pop 1_plink/hgdp.clust \
+    --out 2_treemix_input/hgdp_treemix
+
+## Output: hgdp_treemix.treemix.gz  (bgzipped TreeMix format)
+
+## --- Verify the output format ---
+## The first line should be population names (space-separated)
+## Subsequent lines: allele counts per population per SNP
+zcat 2_treemix_input/hgdp_treemix.treemix.gz | head -3
+
+## Count SNPs and populations
+echo "Number of SNPs: $(zcat 2_treemix_input/hgdp_treemix.treemix.gz | tail -n +2 | wc -l)"
+echo "Number of pops: $(zcat 2_treemix_input/hgdp_treemix.treemix.gz | head -1 | wc -w)"</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s2-convert" data-filename="02_convert_treemix.sh"><i class="bi bi-download me-1"></i>02_convert_treemix.sh</button></div>
+  <div class="cmd-explain">
+    <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> TreeMix format decoded</div>
+    <table>
+      <tr><td><span class="cmd-emoji">&#128202;</span>Allele counts not frequencies</td><td>TreeMix input uses raw allele counts (e.g. "14,36" means 14 copies of allele 1 and 36 copies of allele 2 in that population) rather than frequencies. This allows TreeMix to properly account for sample size differences between populations when estimating the covariance matrix. Populations with more individuals get more statistical weight.</td></tr>
+      <tr><td><span class="cmd-emoji">&#128196;</span>bgzipped output</td><td>The output file must be bgzipped (block-compressed) — TreeMix reads it using the bgzf library for efficiency. Regular gzip files will cause TreeMix to crash. If plink2treemix.py does not bgzip automatically, run: <code>bgzip hgdp_treemix.treemix</code></td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- ------------------------------------------------------------------ -->
+<!-- STEP 3 — RUN TREEMIX M=0 TO M=10                                   -->
+<!-- ------------------------------------------------------------------ -->
+<section id="step3" class="mb-5">
+  <h2 class="section-divider">Step 3 — Run TreeMix for M=0 to M=10</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash — TreeMix loop: pure tree through 10 migration edges</span><button class="btn-copy">Copy</button></div>
+<pre id="s3-treemix">######################################################################
+## STEP 3: Run TreeMix with 0 to 10 migration edges
+## We run multiple values of M (number of migration edges) to:
+##   1. Find out how many migrations improve the model fit
+##   2. Identify when adding more edges stops helping (diminishing returns)
+## We also run multiple replicates per M to check reproducibility
+## (TreeMix uses a random starting tree, so results vary between runs)
+######################################################################
+
+## TreeMix installation: https://bitbucket.org/nygcresearch/treemix/wiki/Home
+## Or via conda: conda install -c bioconda treemix
+
+INPUT="2_treemix_input/hgdp_treemix.treemix.gz"
+OUTGROUP="Yoruba"   # root the tree using an African population as outgroup
+
+## --- Run 5 replicates for each value of M from 0 to 10 ---
+## Running multiple replicates lets us check if the same topology is recovered
+## consistently (reproducible = more reliable result)
+for M in $(seq 0 10); do
+    mkdir -p 3_runs/m${M}
+
+    for REP in $(seq 1 5); do
+        echo "Running M=${M}, replicate ${REP}..."
+
+        ## treemix flags explained:
+        ## -i  : input file (bgzipped TreeMix format from Step 2)
+        ## -o  : output file prefix (creates multiple output files)
+        ## -root : population to use as tree root/outgroup
+        ## -m   : number of migration edges to add after the base tree
+        ##   (M=0 = pure tree with no gene flow)
+        ## -k 500 : block size for jackknife standard error estimation
+        ##   (blocks of 500 SNPs; accounts for LD in standard error)
+        ## -seed : random seed for reproducibility within replicate
+        ##   (different seeds give different starting trees)
+        ## -global : run global rearrangements (slower but more thorough)
+        ##   (recommended for >20 populations to avoid local optima)
+        treemix \
+            -i ${INPUT} \
+            -o 3_runs/m${M}/hgdp_m${M}_rep${REP} \
+            -root ${OUTGROUP} \
+            -m ${M} \
+            -k 500 \
+            -seed $((M * 100 + REP)) \
+            -global
+
+        echo "  Output: 3_runs/m${M}/hgdp_m${M}_rep${REP}.*"
+    done
+done
+
+echo "All TreeMix runs complete."
+
+## --- Check log likelihood for each run ---
+## Higher log-likelihood = better model fit
+## Compare across replicates of the same M (similar = converged)
+for M in $(seq 0 10); do
+    echo -n "M=${M} log-likelihoods: "
+    for REP in $(seq 1 5); do
+        tail -1 3_runs/m${M}/hgdp_m${M}_rep${REP}.llik | awk '{printf "%.1f ", $1}'
+    done
+    echo ""
+done</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s3-treemix" data-filename="03_run_treemix.sh"><i class="bi bi-download me-1"></i>03_run_treemix.sh</button></div>
+  <div class="cmd-explain">
+    <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> TreeMix run flags decoded</div>
+    <table>
+      <tr><td><span class="cmd-emoji">&#127795;</span>-root Yoruba</td><td>Specifies the outgroup population to root the tree. TreeMix builds an unrooted tree then places the root on the branch leading to this population. For human datasets, an African population (Yoruba, Mbuti) is used because modern humans originated in Africa — this places the root correctly on the African branch.</td></tr>
+      <tr><td><span class="cmd-emoji">&#128202;</span>-k 500</td><td>Block size (in SNPs) for the block jackknife standard error estimation. Larger blocks = more conservative (wider) confidence intervals but capture more LD structure. 500 SNPs (~250 kb for humans) is the standard for human datasets. For species with less LD (e.g. plants), use smaller blocks (100&ndash;200).</td></tr>
+      <tr><td><span class="cmd-emoji">&#127758;</span>-global</td><td>After each migration edge is added, TreeMix performs global rearrangements — trying all possible tree topologies, not just local modifications. This is computationally expensive but avoids being trapped in local optima. Essential when analysing &gt;20 populations where many tree topologies are possible.</td></tr>
+      <tr><td><span class="cmd-emoji">&#127975;</span>Multiple replicates</td><td>TreeMix starts from a random neighbour-joining tree and optimises from there. Different starting trees can give different final topologies (local optima). Running 5&ndash;10 replicates and taking the best log-likelihood (or checking that replicates agree) is essential for confidence in the result.</td></tr>
+    </table>
+  </div>
+  <div class="fun-tip"><span class="fun-tip-icon">&#128336;</span><div><strong>Runtime:</strong> For 53 populations and ~500k SNPs, each TreeMix run with M=5 takes ~2&ndash;10 minutes. Running 5 replicates for M=0 to M=10 = 55 total runs. Submit as a SLURM job array for efficiency: <code>--array=0-10</code> with M=$SLURM_ARRAY_TASK_ID.</div></div>
+</section>
+
+<!-- ------------------------------------------------------------------ -->
+<!-- STEP 4 — OPTIMAL M WITH optM                                        -->
+<!-- ------------------------------------------------------------------ -->
+<section id="step4" class="mb-5">
+  <h2 class="section-divider">Step 4 — Select Optimal M with optM</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>R — Determine optimal number of migration events using optM</span><button class="btn-copy">Copy</button></div>
+<pre id="s4-optm">######################################################################
+## STEP 4: Use the optM R package to determine the optimal number of
+## migration edges (M).
+## optM evaluates three criteria to select the best M:
+##   1. Likelihood improvement: does adding another edge improve the fit?
+##   2. Explained variance: what fraction of variance is explained?
+##   3. Second-order rate of change (Evanno-like): elbow detection
+######################################################################
+
+## Install optM: install.packages("optM")
+library(optM)
+library(ggplot2)
+
+## --- Read all TreeMix output files ---
+## optM::optM() reads .llik files (log-likelihoods) from each run
+## and computes the statistics to select optimal M
+
+## Specify the directory containing all TreeMix runs
+## optM expects a naming convention: *_m[0-10]_rep[1-5].*
+runs_dir <- "3_runs/"
+
+## Run optM analysis
+## folder : directory containing TreeMix output files
+## tsv    : file listing all output prefixes (one per line)
+##   Create this list with:
+##   find 3_runs/ -name "*.llik" > 3_runs/all_runs.txt
+
+## Generate the file list
+system("find 3_runs/ -name '*.llik' | sed 's/.llik//' > 3_runs/all_prefixes.txt")
+
+## Run optM
+opt_result <- optM(
+    folder = runs_dir,
+    tsv    = "3_runs/all_prefixes.txt"
+)
+
+## --- View the results table ---
+## Columns: m, mean_lnL, stdev_lnL, Lm, Lm', Lm'', delta_m, pct_variance
+print(opt_result)
+
+## The optimal M is at the elbow of the Lm'' curve (like Evanno method for STRUCTURE)
+## OR at the M where pct_variance levels off (no longer improves substantially)
+cat("\nRecommended M:", opt_result$m[which.max(opt_result$Lm2)], "\n")
+cat("% variance explained at recommended M:",
+    opt_result$pct_var[which.max(opt_result$Lm2)], "\n")
+
+## --- Plot the optM diagnostic figure ---
+## This shows all three criteria together on one plot
+plot_optM(opt_result,
+          method = "Evanno",   # Evanno method = second derivative approach
+          pdf.file = "5_plots/optM_plot.pdf")
+
+## Also save as PNG for easier viewing
+## (re-plot using ggplot2 for customisation)
+df <- data.frame(
+    m         = opt_result$m,
+    mean_lnL  = opt_result$mean_lnL,
+    pct_var   = opt_result$pct_var,
+    delta_m   = opt_result$Lm2       # second-order rate of change (Evanno-like)
+)
+
+## Panel 1: Log-likelihood improvement per migration edge
+p1 <- ggplot(df, aes(x=m, y=mean_lnL)) +
+    geom_line(color="steelblue", linewidth=1) +
+    geom_point(color="steelblue", size=3) +
+    geom_errorbar(aes(ymin=mean_lnL-opt_result$stdev_lnL,
+                      ymax=mean_lnL+opt_result$stdev_lnL), width=0.2) +
+    labs(x="Migration events (M)", y="Mean log-likelihood",
+         title="Log-likelihood by number of migration edges") +
+    theme_bw(base_size=12)
+
+## Panel 2: Percentage variance explained
+p2 <- ggplot(df, aes(x=m, y=pct_var)) +
+    geom_line(color="forestgreen", linewidth=1) +
+    geom_point(color="forestgreen", size=3) +
+    labs(x="Migration events (M)", y="% variance explained") +
+    theme_bw(base_size=12)
+
+## Panel 3: Second-order rate of change (peak = optimal M)
+p3 <- ggplot(df[-1,], aes(x=m[-1], y=delta_m[-1])) +
+    geom_line(color="firebrick", linewidth=1) +
+    geom_point(color="firebrick", size=3) +
+    geom_vline(xintercept=df$m[which.max(df$delta_m)],
+               linetype="dashed", color="black") +
+    labs(x="Migration events (M)", y="Delta M (2nd derivative)") +
+    theme_bw(base_size=12)
+
+library(patchwork)
+ggsave("5_plots/optM_plot.png", p1 / p2 / p3, width=8, height=12, dpi=150)</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s4-optm" data-filename="04_optM_selection.R"><i class="bi bi-download me-1"></i>04_optM_selection.R</button></div>
+  <div class="cmd-explain">
+    <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> optM selection decoded</div>
+    <table>
+      <tr><td><span class="cmd-emoji">&#128200;</span>Second derivative (Evanno method)</td><td>The second-order rate of change of the log-likelihood identifies the M where adding more edges stops improving the model. This &ldquo;elbow&rdquo; is analogous to the Evanno method for choosing K in STRUCTURE. The M at the peak of the Lm&rdquo; curve is statistically optimal.</td></tr>
+      <tr><td><span class="cmd-emoji">&#127919;</span>% variance explained</td><td>TreeMix also reports the fraction of variance in the allele frequency covariance matrix explained by the model. When this plateaus (&lt;1% improvement per additional M), you have enough migration edges. For the HGDP dataset, M=5&ndash;6 typically explains &gt;99.9% of variance.</td></tr>
+    </table>
+  </div>
+  <div class="fun-tip"><span class="fun-tip-icon">&#127775;</span><div><strong>Expected HGDP result:</strong> For the original HGDP TreeMix dataset, M=5&ndash;6 is typically optimal. The five major migration events recovered are: (1) Mozabite admixture (North African Berber + European), (2) Uyghur admixture (East Asian + European/Central Asian), (3) Americas connection to East Asia, (4) Kalash isolation + gene flow, and (5) San/Mbuti deepening. These match Figure 2 of Pickrell &amp; Pritchard 2012.</div></div>
+</section>
+
+<!-- ------------------------------------------------------------------ -->
+<!-- STEP 5 — VISUALISE POPULATION GRAPH                                 -->
+<!-- ------------------------------------------------------------------ -->
+<section id="step5" class="mb-5">
+  <h2 class="section-divider">Step 5 — Visualise Population Graph</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>R — Plot TreeMix population graph with migration arrows</span><button class="btn-copy">Copy</button></div>
+<pre id="s5-plot">######################################################################
+## STEP 5: Visualise the TreeMix population graph
+## TreeMix comes with R plotting scripts (plotting_funcs.R)
+## We use these to create the tree + migration arrow plot
+## Migration arrows: coloured by weight (0 = weak, 1 = complete admixture)
+######################################################################
+
+## Source the TreeMix plotting functions
+## These are distributed with TreeMix in the src/ folder
+source("plotting_funcs.R")   # adjust path to where you installed TreeMix
+
+## Choose the best replicate for the optimal M (highest log-likelihood)
+## For this example: M=5, replicate 1
+M_BEST  <- 5
+REP_BEST <- 1
+PREFIX  <- paste0("3_runs/m", M_BEST, "/hgdp_m", M_BEST, "_rep", REP_BEST)
+
+## --- Plot the tree with migration edges ---
+## plot_tree() is from plotting_funcs.R
+## it reads: PREFIX.treeout.gz, PREFIX.vertices.gz, PREFIX.edges.gz
+## and produces a tree diagram with:
+##   - Branch lengths proportional to genetic drift
+##   - Dashed arrows = migration edges
+##   - Arrow colour = migration weight (0 = cold/blue to 1 = hot/red)
+png("5_plots/tree_m5.png", width=1600, height=1200, res=120)
+plot_tree(
+    cex      = 0.8,          # text size for population labels
+    PREFIX   = PREFIX,       # path to TreeMix output files (without extension)
+    o        = "Yoruba",     # outgroup population (roots the tree visually)
+    ybar     = 0.1           # extra vertical space for migration arrows
+)
+title(paste0("HGDP TreeMix: M=", M_BEST, " migration events"))
+dev.off()
+cat("Tree plot saved: 5_plots/tree_m5.png\n")
+
+## --- Also plot the no-migration (M=0) tree for comparison ---
+PREFIX_M0 <- "3_runs/m0/hgdp_m0_rep1"
+png("5_plots/tree_m0.png", width=1200, height=1000, res=120)
+plot_tree(cex=0.8, PREFIX=PREFIX_M0, o="Yoruba")
+title("HGDP TreeMix: M=0 (pure tree, no migration)")
+dev.off()
+cat("Tree M=0 saved: 5_plots/tree_m0.png\n")</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s5-plot" data-filename="05_plot_treemix.R"><i class="bi bi-download me-1"></i>05_plot_treemix.R</button></div>
+  <div class="cmd-explain">
+    <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> Population graph visualisation decoded</div>
+    <table>
+      <tr><td><span class="cmd-emoji">&#128200;</span>Branch lengths = genetic drift</td><td>In TreeMix, branch lengths represent the amount of genetic drift that occurred along each lineage — longer branch = more drift = smaller population size or longer time. This is different from a molecular clock tree where branch length = time. A long branch to an isolated population (e.g. Papuans) indicates a small effective size or long isolation.</td></tr>
+      <tr><td><span class="cmd-emoji">&#127752;</span>Migration arrow colour</td><td>Migration arrow colours encode the weight of the migration event: cold colours (blue/green) = low weight (small fraction of ancestry from that source), warm colours (orange/red) = high weight (large fraction). An arrow from population A to population B with weight 0.15 means: 15% of B&rsquo;s ancestry came from a lineage close to A.</td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- ------------------------------------------------------------------ -->
+<!-- STEP 6 — RESIDUAL ANALYSIS                                          -->
+<!-- ------------------------------------------------------------------ -->
+<section id="step6" class="mb-5">
+  <h2 class="section-divider">Step 6 — Residual Analysis</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>R — Plot residuals to identify missing migration events</span><button class="btn-copy">Copy</button></div>
+<pre id="s6-residuals">######################################################################
+## STEP 6: Analyse TreeMix residuals
+## Residuals = difference between observed allele frequency covariance
+##             and what the fitted tree+migration model predicts
+## Large positive residuals for a pair of populations mean:
+##   those two populations share MORE alleles than the model explains
+##   = evidence of additional unmodelled gene flow between them
+## This tells you WHERE to add the next migration edge
+######################################################################
+
+## Source plotting functions again (if not already loaded)
+source("plotting_funcs.R")
+
+PREFIX  <- "3_runs/m5/hgdp_m5_rep1"    # optimal M=5 model
+OUTGROUP <- "Yoruba"
+
+## --- Plot residuals matrix ---
+## plot_resid() produces a heatmap of residuals
+## Red = covariance higher than expected (missing gene flow)
+## Blue = covariance lower than expected (overfitting/negative drift)
+## Pairs to watch: if two populations are red = add a migration edge between them
+png("5_plots/residuals_m5.png", width=1400, height=1200, res=120)
+plot_resid(
+    stem = PREFIX,       # path prefix for TreeMix output
+    pop_order = OUTGROUP # reference population for ordering the matrix
+)
+title("TreeMix residuals: M=5 (red = unexplained shared drift)")
+dev.off()
+cat("Residuals plot saved: 5_plots/residuals_m5.png\n")
+
+## --- Extract the largest residuals programmatically ---
+## The residuals are stored in PREFIX.modelcov.gz (model covariance)
+## and PREFIX.cov.gz (observed covariance)
+## Compute residuals manually in R for more control:
+library(tidyverse)
+
+## Read observed and model covariance matrices
+obs_cov   <- as.matrix(read.table(gzfile(paste0(PREFIX, ".cov.gz"))))
+model_cov <- as.matrix(read.table(gzfile(paste0(PREFIX, ".modelcov.gz"))))
+
+## Compute residuals matrix
+resid_mat <- obs_cov - model_cov
+
+## Get population names from vertex file
+vertices  <- read.table(gzfile(paste0(PREFIX, ".vertices.gz")), header=TRUE)
+leaf_pops <- vertices$pop[vertices$leaf == "TRUE"]
+rownames(resid_mat) <- colnames(resid_mat) <- leaf_pops
+
+## Convert to long format and find the top 10 pairs with largest residuals
+resid_long <- as.data.frame(as.table(resid_mat)) %>%
+    rename(pop1=Var1, pop2=Var2, residual=Freq) %>%
+    filter(pop1 != pop2,                          # exclude diagonal (self-comparisons)
+           as.character(pop1) < as.character(pop2)) %>%  # avoid duplicate pairs
+    arrange(desc(residual))
+
+cat("Top 10 population pairs with unexplained covariance (candidates for next migration):\n")
+print(head(resid_long, 10))</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s6-residuals" data-filename="06_residuals.R"><i class="bi bi-download me-1"></i>06_residuals.R</button></div>
+  <div class="cmd-explain">
+    <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> Residual analysis decoded</div>
+    <table>
+      <tr><td><span class="cmd-emoji">&#128202;</span>Residuals = obs &minus; model covariance</td><td>TreeMix fits a model to the observed allele frequency covariance between populations. The residual for a population pair is how much their actual covariance exceeds what the model predicts. Positive residual = those populations are more closely related than the tree+migration model accounts for. The population pair with the largest positive residual is the most likely candidate for an additional migration edge.</td></tr>
+      <tr><td><span class="cmd-emoji">&#127919;</span>Using residuals to guide model building</td><td>Rather than running M=0 through M=10 blindly, experienced users look at residuals after M=0, identify the two populations with the largest residual, then add a migration edge between them for M=1. Repeat iteratively. This directed approach finds biologically meaningful migration events faster than blind M scanning.</td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- ------------------------------------------------------------------ -->
+<!-- STEP 7 — BOOTSTRAP CONFIDENCE                                       -->
+<!-- ------------------------------------------------------------------ -->
+<section id="step7" class="mb-5">
+  <h2 class="section-divider">Step 7 — Bootstrap Confidence for Migration Edges</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash + R — Bootstrap TreeMix to assess migration edge reliability</span><button class="btn-copy">Copy</button></div>
+<pre id="s7-bootstrap">######################################################################
+## STEP 7: Bootstrap TreeMix to determine if migration edges are
+## statistically supported.
+## Strategy: resample SNP blocks with replacement and re-run TreeMix.
+## If a migration edge appears in >50% of bootstrap replicates,
+## it is considered well-supported.
+######################################################################
+
+INPUT="2_treemix_input/hgdp_treemix.treemix.gz"
+M_BEST=5
+mkdir -p 4_bootstrap/m${M_BEST}
+
+## --- Generate 100 bootstrap replicates ---
+## -bootstrap flag: TreeMix resamples SNP blocks (size = -k) with replacement
+## Run 100 replicates (submit as SLURM array for speed)
+for i in $(seq 1 100); do
+    ## -bootstrap : enable block bootstrap resampling
+    ## -k 500     : bootstrap block size (same as the main analysis)
+    ## -seed      : different seed per replicate for independent resampling
+    treemix \
+        -i ${INPUT} \
+        -o 4_bootstrap/m${M_BEST}/boot_rep${i} \
+        -root Yoruba \
+        -m ${M_BEST} \
+        -k 500 \
+        -seed ${i} \
+        -bootstrap \
+        -global
+done
+
+echo "Bootstrap replicates complete."
+
+## --- Compute support for each migration edge in R ---
+## Count what fraction of bootstrap replicates contain each migration edge
+
+## Source TreeMix plotting functions
+source("plotting_funcs.R")
+
+## get_f() computes the fraction of variance explained by each migration edge
+## across all bootstrap replicates
+bootstrap_support <- get_f(
+    stem      = paste0("4_bootstrap/m", M_BEST, "/boot_rep"),
+    nrep      = 100,             # number of bootstrap replicates
+    fprefix   = paste0("3_runs/m", M_BEST, "/hgdp_m", M_BEST, "_rep1"),
+    bootstrap = TRUE
+)
+
+## View results
+## Each row = one migration event in the best tree
+## f_boot = fraction of bootstrap replicates where this event was inferred
+print(bootstrap_support)
+cat("Migration edges with > 50% bootstrap support:\n")
+print(bootstrap_support[bootstrap_support$f_boot > 0.5, ])</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s7-bootstrap" data-filename="07_bootstrap.sh"><i class="bi bi-download me-1"></i>07_bootstrap.sh</button></div>
+  <div class="cmd-explain">
+    <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> Bootstrap support decoded</div>
+    <table>
+      <tr><td><span class="cmd-emoji">&#128200;</span>-bootstrap flag</td><td>Enables block bootstrap resampling: SNP blocks of size -k are sampled with replacement to create a new dataset of the same total size. Variation across 100 bootstrap runs reflects uncertainty in the migration edge placement due to finite SNP sampling. This is analogous to bootstrap support values on phylogenetic trees.</td></tr>
+      <tr><td><span class="cmd-emoji">&#127919;</span>&gt;50% bootstrap support threshold</td><td>Migration edges appearing in &gt;50% of bootstrap replicates are considered moderately supported; &gt;80% is strong support. Edges with &lt;50% bootstrap support should be treated with caution — they may reflect statistical noise rather than real gene flow events. For publication, report bootstrap support for all migration edges.</td></tr>
+    </table>
+  </div>
+  <div class="fun-tip"><span class="fun-tip-icon">&#128640;</span><div><strong>Final interpretation tip:</strong> TreeMix identifies the most likely population graph given your data, but it cannot determine the <em>direction</em> of gene flow (is the arrow pointing the right way?) or the <em>timing</em> (when did migration happen?). Use D-statistics and qpGraph (ADMIXTOOLS2) to confirm direction and estimate f-statistics for each identified migration event.</div></div>
+</section>
+
+<!-- Navigation -->
+<section class="mb-5">
+  <div class="d-flex justify-content-between">
+    <a href="popgen-abba-baba-introgression.html" class="btn btn-outline-secondary rounded-pill px-4">
+      <i class="bi bi-arrow-left me-2"></i>ABBA-BABA &amp; Introgression
+    </a>
+    <a href="popgen-vcftools-plink-filtering.html" class="btn btn-primary rounded-pill px-4">
+      Back to Start: VCF Filtering <i class="bi bi-arrow-right ms-2"></i>
+    </a>
+  </div>
+</section>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-lg-6"><h5 class="text-white fw-bold mb-3"><span style="color:#ff9933;">Indian</span><span style="color:var(--ieb-primary);">Elucid</span><span style="color:var(--ieb-accent);">Biology</span></h5><p class="small">Free, interactive bioinformatics tutorials. Open source and community-driven.</p></div>
+      <div class="col-lg-6 text-lg-end"><p class="small mb-1">Founded by <strong>Ankush Sharma</strong></p><div class="d-flex gap-3 justify-content-lg-end"><a href="https://github.com/ank-man" target="_blank" class="text-white fs-5"><i class="bi bi-github"></i></a><a href="https://www.linkedin.com/in/ankush-sharma-290307/" target="_blank" class="text-white fs-5"><i class="bi bi-linkedin"></i></a><a href="mailto:mr.ank2999@gmail.com" class="text-white fs-5"><i class="bi bi-envelope"></i></a></div></div>
+    </div>
+    <hr class="border-secondary mt-4 mb-3">
+    <p class="text-center small mb-0">&copy; 2025 IndianElucidBiology &mdash; Made with <span style="color:#e25555;">&#9829;</span> for the bioinformatics community.</p>
+  </div>
+</footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/main.js"></script>
+</body>
+</html>

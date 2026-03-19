@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RNA-seq Analysis with HISAT2, featureCounts and DESeq2 | IndianElucidBiology</title>
+  <meta name="description" content="Complete RNA-seq tutorial using Arabidopsis atrx-1 mutant dataset (PRJNA348194). QC with FastQC/MultiQC, splice-aware alignment with HISAT2, read counting with featureCounts, and differential expression with DESeq2. Includes real output examples, volcano plots, and MA plots.">
+  <link rel="canonical" href="https://indianelucidbiology.github.io/tutorials/rnaseq-genome-hisat2-deseq2.html">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="../css/style.css" rel="stylesheet">
+</head>
+<body>
+<div class="progress-tracker"></div>
+<nav class="navbar navbar-expand-lg fixed-top">
+  <div class="container">
+    <a class="navbar-brand" href="../index.html"><span class="brand-indian">Indian</span><span class="brand-elucid">Elucid</span><span class="brand-biology">Biology</span></a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav"><span class="navbar-toggler-icon"></span></button>
+    <div class="collapse navbar-collapse" id="mainNav">
+      <ul class="navbar-nav ms-auto me-3">
+        <li class="nav-item"><a class="nav-link" href="../index.html">Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="index.html">Tutorial Library</a></li>
+      </ul>
+      <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode">&#9790;</button>
+    </div>
+  </div>
+</nav>
+
+<section class="tutorial-hero">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-lg-8">
+        <nav aria-label="breadcrumb"><ol class="breadcrumb mb-3" style="--bs-breadcrumb-divider-color:rgba(255,255,255,0.5);"><li class="breadcrumb-item"><a href="../index.html" class="text-white-50 text-decoration-none">Home</a></li><li class="breadcrumb-item"><a href="index.html" class="text-white-50 text-decoration-none">Tutorials</a></li><li class="breadcrumb-item active text-white">RNA-seq Analysis</li></ol></nav>
+        <h1 class="display-5 fw-bold text-white mb-3">RNA-seq Analysis with HISAT2, featureCounts &amp; DESeq2</h1>
+        <p class="lead text-white-50 mb-4">Complete end-to-end pipeline using the <em>Arabidopsis thaliana atrx-1</em> mutant dataset &mdash; from raw FASTQ to volcano plots and differentially expressed gene lists.</p>
+        <div class="d-flex gap-3 flex-wrap">
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-clock me-1"></i>~120 min</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-database me-1"></i>PRJNA348194</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-bar-chart me-1"></i>Intermediate</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-terminal me-1"></i>Bash + R</span>
+        </div>
+      </div>
+      <div class="col-lg-4 text-center d-none d-lg-block">
+        <img src="../img/Byte3.png" alt="Byte" class="img-fluid" style="max-height:220px;filter:drop-shadow(0 10px 30px rgba(0,0,0,0.4));">
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="container py-5">
+  <div class="row">
+    <!-- TOC -->
+    <div class="col-lg-3 d-none d-lg-block">
+      <div class="toc-sidebar">
+        <h6 class="fw-bold text-muted text-uppercase small mb-3">On this page</h6>
+        <nav class="nav flex-column">
+          <a class="nav-link" href="#overview">Overview</a>
+          <a class="nav-link" href="#dataset">Dataset</a>
+          <a class="nav-link" href="#step1">1. Download Data</a>
+          <a class="nav-link" href="#step2">2. Quality Check</a>
+          <a class="nav-link" href="#step3">3. HISAT2 Alignment</a>
+          <a class="nav-link" href="#step4">4. featureCounts</a>
+          <a class="nav-link" href="#step5">5. DESeq2 Analysis</a>
+          <a class="nav-link" href="#step6">6. Visualizations</a>
+          <a class="nav-link" href="#results">Expected Results</a>
+          <a class="nav-link" href="#errors">Troubleshooting</a>
+        </nav>
+      </div>
+    </div>
+
+    <div class="col-lg-9">
+      <div class="tutorial-content">
+
+        <!-- OVERVIEW -->
+        <section id="overview" class="mb-5">
+          <h2 class="section-divider">Overview</h2>
+          <p>RNA-seq experiments measure transcriptome-wide gene expression changes. This tutorial covers the complete pipeline for RNA-seq data from a genome-guided mapping approach:</p>
+          <div class="d-flex flex-column gap-2 mb-4">
+            <div class="d-flex align-items-start gap-3 p-3 rounded-3" style="background:var(--bs-tertiary-bg)">
+              <span class="badge bg-primary rounded-pill mt-1">1</span><div><strong>QC</strong> &mdash; FastQC per-sample quality reports aggregated with MultiQC</div>
+            </div>
+            <div class="d-flex align-items-start gap-3 p-3 rounded-3" style="background:var(--bs-tertiary-bg)">
+              <span class="badge bg-primary rounded-pill mt-1">2</span><div><strong>Alignment</strong> &mdash; HISAT2 splice-aware alignment to the <em>Arabidopsis</em> TAIR10 genome</div>
+            </div>
+            <div class="d-flex align-items-start gap-3 p-3 rounded-3" style="background:var(--bs-tertiary-bg)">
+              <span class="badge bg-primary rounded-pill mt-1">3</span><div><strong>Quantification</strong> &mdash; featureCounts assigns mapped reads to annotated genes</div>
+            </div>
+            <div class="d-flex align-items-start gap-3 p-3 rounded-3" style="background:var(--bs-tertiary-bg)">
+              <span class="badge bg-primary rounded-pill mt-1">4</span><div><strong>DE Analysis</strong> &mdash; DESeq2 identifies differentially expressed genes (WT vs atrx-1 mutant)</div>
+            </div>
+          </div>
+          <div class="byte-callout">
+            <img src="../img/Byte1.png" alt="Byte">
+            <div><strong>Why HISAT2 and not BWA or Bowtie2?</strong> RNA-seq reads come from processed mRNA — they span intron-exon boundaries. Generic aligners cannot handle these spliced reads correctly. HISAT2 is <em>splice-aware</em> and was designed specifically for this purpose, making it the gold-standard for genome-guided RNA-seq alignment.</div>
+          </div>
+        </section>
+
+        <!-- DIRECTORY STRUCTURE -->
+        <section id="dirstructure" class="mb-5">
+          <h2 class="section-divider">Ideal Directory Structure</h2>
+          <p>Set up your project folder like this before running any commands. Keeping data, indices, alignments, and results in separate numbered directories makes it easy to find outputs and re-run individual steps without overwriting anything.</p>
+          <div class="dir-tree">
+            <div class="dir-tree-header"><i class="bi bi-folder2-open"></i> rnaseq_atrx_project/</div>
+<span class="tree-folder">rnaseq_atrx_project/</span>
+├── <span class="tree-folder">0_index/</span>          <span class="tree-note"># genome FASTA + GFF + HISAT2 index files (.ht2)</span>
+├── <span class="tree-folder tree-active">1_data/</span>           <span class="tree-note"># raw FASTQ files (input — never modify!)</span>
+│   ├── <span class="tree-file">SRR4420293_1.fastq.gz</span>
+│   ├── <span class="tree-file">SRR4420293_2.fastq.gz</span>
+│   └── <span class="tree-note">... (12 files total)</span>
+├── <span class="tree-folder">2_fastqc/</span>         <span class="tree-note"># FastQC HTML reports + MultiQC summary</span>
+├── <span class="tree-folder">3_bam/</span>            <span class="tree-note"># sorted BAM files + .bai index files</span>
+│   ├── <span class="tree-output">SRR4420293.bam</span>
+│   ├── <span class="tree-output">SRR4420293.bam.bai</span>
+│   └── <span class="tree-note">... (6 BAM + 6 BAI)</span>
+├── <span class="tree-folder">4_counts/</span>         <span class="tree-note"># featureCounts output matrix</span>
+│   └── <span class="tree-output">At_count.txt</span>      <span class="tree-note"># gene × sample count table</span>
+├── <span class="tree-folder">5_deseq2/</span>         <span class="tree-note"># R analysis outputs</span>
+│   ├── <span class="tree-output">DESeq2_results.csv</span>
+│   ├── <span class="tree-output">volcano_plot.png</span>
+│   └── <span class="tree-output">MA_plot.png</span>
+└── <span class="tree-file">scripts/</span>          <span class="tree-note"># your .sh and .R script files</span>
+          </div>
+          <div class="fun-tip"><span class="fun-tip-icon">💡</span><div><strong>Pro tip:</strong> Number your folders (0_, 1_, 2_...) so <code>ls</code> always shows them in pipeline order. Put raw data in <code>1_data/</code> and never write to it — treat it as read-only. This way you can always re-run the whole pipeline from scratch by deleting folders 2 onwards.</div></div>
+        </section>
+
+        <!-- DATASET -->
+        <section id="dataset" class="mb-5">
+          <h2 class="section-divider">Dataset</h2>
+          <p>This tutorial uses a published <em>Arabidopsis thaliana</em> dataset comparing wild-type (WT) plants to <em>atrx-1</em> loss-of-function mutants. ATRX is a histone chaperone that regulates gene expression epigenetically.</p>
+          <div class="param-table">
+            <table class="table table-striped mb-0">
+              <thead><tr><th>Condition</th><th>Replicate</th><th>SRA ID (R1)</th><th>SRA ID (R2)</th></tr></thead>
+              <tbody>
+                <tr><td>Wild-type (WT)</td><td>Rep 1</td><td>SRR4420293_1.fastq.gz</td><td>SRR4420293_2.fastq.gz</td></tr>
+                <tr><td>Wild-type (WT)</td><td>Rep 2</td><td>SRR4420294_1.fastq.gz</td><td>SRR4420294_2.fastq.gz</td></tr>
+                <tr><td>Wild-type (WT)</td><td>Rep 3</td><td>SRR4420295_1.fastq.gz</td><td>SRR4420295_2.fastq.gz</td></tr>
+                <tr><td>atrx-1 mutant</td><td>Rep 1</td><td>SRR4420296_1.fastq.gz</td><td>SRR4420296_2.fastq.gz</td></tr>
+                <tr><td>atrx-1 mutant</td><td>Rep 2</td><td>SRR4420297_1.fastq.gz</td><td>SRR4420297_2.fastq.gz</td></tr>
+                <tr><td>atrx-1 mutant</td><td>Rep 3</td><td>SRR4420298_1.fastq.gz</td><td>SRR4420298_2.fastq.gz</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="mt-2 small text-muted">Paired-end Illumina HiSeq 2500 reads. BioProject: <a href="https://www.ncbi.nlm.nih.gov/bioproject/PRJNA348194" target="_blank">PRJNA348194</a></p>
+        </section>
+
+        <!-- STEP 1: DOWNLOAD -->
+        <section id="step1" class="mb-5">
+          <h2 class="section-divider">Step 1 — Download Data</h2>
+          <p>Download reads directly from ENA (fastest option — no conversion needed):</p>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash — Download reads from ENA</span><button class="btn-copy">Copy</button></div>
+<pre id="s1-download">mkdir -p 1_data && cd 1_data
+
+# Download all 6 paired-end samples (12 files total)
+wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR442/003/SRR4420293/SRR4420293_1.fastq.gz
+wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR442/003/SRR4420293/SRR4420293_2.fastq.gz
+wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR442/004/SRR4420294/SRR4420294_1.fastq.gz
+wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR442/004/SRR4420294/SRR4420294_2.fastq.gz
+wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR442/005/SRR4420295/SRR4420295_1.fastq.gz
+wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR442/005/SRR4420295/SRR4420295_2.fastq.gz
+wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR442/006/SRR4420296/SRR4420296_1.fastq.gz
+wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR442/006/SRR4420296/SRR4420296_2.fastq.gz
+wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR442/007/SRR4420297/SRR4420297_1.fastq.gz
+wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR442/007/SRR4420297/SRR4420297_2.fastq.gz
+wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR442/008/SRR4420298/SRR4420298_1.fastq.gz
+wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR442/008/SRR4420298/SRR4420298_2.fastq.gz
+cd ..
+
+# Download Arabidopsis TAIR10 genome and annotation from NCBI
+mkdir -p 0_index && cd 0_index
+wget https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/001/735/GCF_000001735.4_TAIR10.1/GCF_000001735.4_TAIR10.1_genomic.fna.gz
+wget https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/001/735/GCF_000001735.4_TAIR10.1/GCF_000001735.4_TAIR10.1_genomic.gff.gz
+gzip -d *.gz
+cd ..</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s1-download" data-filename="01_download_data.sh"><i class="bi bi-download me-1"></i>01_download_data.sh</button></div>
+          <div class="cmd-explain">
+            <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> What does each command do?</div>
+            <table>
+              <tr><td><span class="cmd-emoji">📁</span>mkdir -p 1_data</td><td>Creates the <code>1_data</code> folder. The <code>-p</code> flag means "make all parent directories too and don't complain if it already exists" — safe to run multiple times.</td></tr>
+              <tr><td><span class="cmd-emoji">⬇️</span>wget &lt;url&gt;</td><td>Downloads a file from a URL. Think of it as a command-line browser that saves files directly to disk. We use ENA (European Nucleotide Archive) because it provides direct FTP/HTTPS links — faster than NCBI's SRA download tools.</td></tr>
+              <tr><td><span class="cmd-emoji">🗜️</span>gzip -d *.gz</td><td>Decompresses all <code>.gz</code> files in the current directory. The <code>-d</code> flag means "decompress" (opposite of the default compress). The <code>*</code> wildcard matches every .gz file so you don't have to name them one by one.</td></tr>
+            </table>
+          </div>
+          <div class="fun-tip"><span class="fun-tip-icon">🎯</span><div><strong>Why ENA and not NCBI SRA?</strong> Both host the same data, but ENA provides plain FASTQ files directly accessible via wget/curl. NCBI SRA requires the <code>fastq-dump</code> or <code>fasterq-dump</code> tools which are slower and need additional setup. ENA = instant gratification!</div></div>
+        </section>
+
+        <!-- STEP 2: QC -->
+        <section id="step2" class="mb-5">
+          <h2 class="section-divider">Step 2 — Quality Control with FastQC &amp; MultiQC</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash — FastQC + MultiQC (SLURM)</span><button class="btn-copy">Copy</button></div>
+<pre id="s2-qc">#!/bin/bash
+#SBATCH -N 1
+#SBATCH --ntasks-per-node=16
+#SBATCH --time=2:00:00
+#SBATCH --job-name=fastqc_multiqc
+#SBATCH --output=fastqc.%j.out
+#SBATCH --error=fastqc.%j.err
+
+module load fastqc
+module load parallel
+module load py-multiqc   # or: pip install multiqc
+
+mkdir -p 2_fastqc
+OUTDIR=2_fastqc
+
+# Run FastQC on all files in parallel
+parallel "fastqc {} -o ${OUTDIR}" ::: 1_data/*.fastq.gz
+
+# Aggregate all reports into one HTML summary
+cd ${OUTDIR}
+multiqc .
+# Output: multiqc_report.html  &  multiqc_data/</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s2-qc" data-filename="02_fastqc_multiqc.sh"><i class="bi bi-download me-1"></i>02_fastqc_multiqc.sh</button></div>
+          <div class="cmd-explain">
+            <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> What does each command do?</div>
+            <table>
+              <tr><td><span class="cmd-emoji">⚡</span>parallel "fastqc {}"</td><td>Runs FastQC on multiple files <em>simultaneously</em> using GNU Parallel. The <code>{}</code> is a placeholder — parallel replaces it with each filename in turn. Without parallel you'd have to run FastQC once per file in a loop (12× slower).</td></tr>
+              <tr><td><span class="cmd-emoji">🔬</span>fastqc {} -o $OUTDIR</td><td>Generates a quality report HTML file for each FASTQ. Checks: per-base quality scores, GC content, adapter contamination, duplication rates. Think of it as a full health checkup for your sequencing data.</td></tr>
+              <tr><td><span class="cmd-emoji">📊</span>multiqc .</td><td>Scans the current directory (<code>.</code>) for any FastQC output files and combines them into a single interactive HTML report. The dot just means "look in the current folder". One report beats twelve!</td></tr>
+            </table>
+          </div>
+          <div class="thumb-rule mt-3">
+            <strong>What to check in FastQC/MultiQC:</strong> Per-base quality should stay in the green zone (Q &ge; 28). Adapter content should be minimal. A high percentage of duplicate reads in RNA-seq is <em>normal</em> (high-expression genes produce many identical reads). Do not over-trim — modern aligners handle low-quality tails gracefully.
+          </div>
+          <p class="mt-3">A real MultiQC report for this dataset is available as an embedded example:</p>
+          <div class="ratio ratio-4x3 border rounded-3 overflow-hidden mt-2" style="max-height:500px;">
+            <iframe src="../../assets/Atrx_multiqc_report.html" title="MultiQC Report" loading="lazy"></iframe>
+          </div>
+          <p class="text-muted small mt-1">Real MultiQC output from the Atrx dataset. Adapter content and quality scores visible.</p>
+        </section>
+
+        <!-- STEP 3: HISAT2 -->
+        <section id="step3" class="mb-5">
+          <h2 class="section-divider">Step 3 — HISAT2 Splice-Aware Alignment</h2>
+          <p>HISAT2 requires a genome index before alignment. Build once, reuse for all samples.</p>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash — HISAT2 Genome Indexing (SLURM)</span><button class="btn-copy">Copy</button></div>
+<pre id="s3-index">#!/bin/bash
+#SBATCH -N 1
+#SBATCH --ntasks-per-node=16
+#SBATCH --time=1:00:00
+#SBATCH --job-name=hisat2_index
+#SBATCH --output=hisat2_index.%j.out
+#SBATCH --error=hisat2_index.%j.err
+
+module load hisat2
+
+GENOME_FNA="0_index/GCF_000001735.4_TAIR10.1_genomic.fna"
+GENOME_PREFIX="0_index/GCF_000001735.4_TAIR10.1_genomic"
+
+hisat2-build ${GENOME_FNA} ${GENOME_PREFIX}
+
+# Expected output: 8 index files (.1.ht2 through .8.ht2)
+ls 0_index/*.ht2</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s3-index" data-filename="03a_hisat2_index.sh"><i class="bi bi-download me-1"></i>03a_hisat2_index.sh</button></div>
+          <div class="cmd-explain">
+            <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> What does each command do?</div>
+            <table>
+              <tr><td><span class="cmd-emoji">🗺️</span>hisat2-build</td><td>Builds a compressed index of the genome so HISAT2 can align reads to it lightning-fast. Think of it like building a book's index — you do it once, then finding any word (read) is instant. Without an index, HISAT2 would have to scan the entire 135 Mb genome for every single read.</td></tr>
+              <tr><td><span class="cmd-emoji">📂</span>GENOME_FNA</td><td>The input: your genome assembly in FASTA format. One sequence per chromosome.</td></tr>
+              <tr><td><span class="cmd-emoji">🏷️</span>GENOME_PREFIX</td><td>The output prefix: HISAT2 will create 8 files named <code>prefix.1.ht2</code> through <code>prefix.8.ht2</code>. Keep these in the same folder — HISAT2 needs all 8 to align.</td></tr>
+            </table>
+          </div>
+
+          <p class="mt-4">After indexing, align each sample. The script below loops over all pairs:</p>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash — HISAT2 Alignment Loop (SLURM)</span><button class="btn-copy">Copy</button></div>
+<pre id="s3-align">#!/bin/bash
+#SBATCH -N 1
+#SBATCH --ntasks-per-node=16
+#SBATCH --time=24:00:00
+#SBATCH --job-name=hisat2_align
+#SBATCH --output=hisat2_align.%j.out
+#SBATCH --error=hisat2_align.%j.err
+
+module load hisat2
+module load samtools
+
+GENOME="0_index/GCF_000001735.4_TAIR10.1_genomic"
+OUTDIR="3_bam"
+mkdir -p ${OUTDIR}
+p=8   # threads per alignment
+
+for fq1 in 1_data/*_1.fastq.gz; do
+    fq2="${fq1/_1.fastq.gz/_2.fastq.gz}"
+    SAMPLE=$(basename ${fq1} _1.fastq.gz)
+
+    echo "Aligning: ${SAMPLE}"
+
+    hisat2 -p ${p} \
+        -x ${GENOME} \
+        -1 ${fq1} \
+        -2 ${fq2} \
+        -S ${OUTDIR}/${SAMPLE}.sam \
+        2> ${OUTDIR}/${SAMPLE}.log
+
+    # Convert SAM to sorted BAM and remove SAM
+    samtools view --threads ${p} -bS ${OUTDIR}/${SAMPLE}.sam \
+        | samtools sort --threads ${p} -o ${OUTDIR}/${SAMPLE}.bam
+
+    samtools index ${OUTDIR}/${SAMPLE}.bam
+    rm ${OUTDIR}/${SAMPLE}.sam
+    echo "  Done: ${SAMPLE}.bam"
+done
+
+# Check alignment rates
+for log in ${OUTDIR}/*.log; do
+    echo "=== $(basename ${log} .log) ===" && grep "overall alignment" ${log}
+done</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s3-align" data-filename="03b_hisat2_align.sh"><i class="bi bi-download me-1"></i>03b_hisat2_align.sh</button></div>
+          <div class="cmd-explain">
+            <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> HISAT2 flags decoded</div>
+            <table>
+              <tr><td><span class="cmd-emoji">🧵</span>-p 8</td><td><strong>p</strong>arallel threads — use 8 CPU cores simultaneously. Doubles speed compared to -p 4. Match this to the cores you requested in your SLURM header (<code>--ntasks-per-node</code>).</td></tr>
+              <tr><td><span class="cmd-emoji">🗺️</span>-x $GENOME</td><td>The genome inde<strong>x</strong> prefix — point to the prefix you used in hisat2-build (without the .1.ht2 extension).</td></tr>
+              <tr><td><span class="cmd-emoji">📖</span>-1 $fq1 -2 $fq2</td><td>Read <strong>1</strong> (forward) and read <strong>2</strong> (reverse) of your paired-end data. HISAT2 uses the pairing information to improve alignment accuracy — it knows both reads come from the same DNA fragment.</td></tr>
+              <tr><td><span class="cmd-emoji">💾</span>-S sample.sam</td><td>Output <strong>S</strong>AM file. SAM is human-readable text alignment format. We convert it to BAM immediately — SAM files are enormous (10–20 GB per sample!) so we never keep them.</td></tr>
+              <tr><td><span class="cmd-emoji">🔄</span>samtools view -bS</td><td>Converts SAM (<strong>S</strong>) to BAM (<strong>b</strong>) — a compressed binary version. Same information, 5–10× smaller.</td></tr>
+              <tr><td><span class="cmd-emoji">📑</span>samtools sort</td><td>Sorts alignments by genomic coordinate (chromosome + position). This is required by featureCounts and genome browsers like IGV. Unsorted BAMs are like a filing cabinet with folders in random order.</td></tr>
+              <tr><td><span class="cmd-emoji">🔍</span>samtools index</td><td>Creates a <code>.bai</code> index file alongside your BAM. Like a book index — lets tools jump directly to any chromosomal region without reading the whole BAM. Required by IGV and many GATK tools.</td></tr>
+            </table>
+          </div>
+          <div class="fun-tip"><span class="fun-tip-icon">🧹</span><div><strong>Why do we immediately <code>rm</code> the SAM file?</strong> A SAM file for 25M reads is ~15 GB of plain text. Your BAM is the same data compressed to ~2 GB. Always pipe SAM directly to <code>samtools sort</code> and delete the SAM — never let it linger on disk!</div></div>
+          <div class="param-table mt-3">
+            <table class="table table-striped mb-0">
+              <thead><tr><th>Sample</th><th>Mapped Pairs</th><th>Overall Rate</th></tr></thead>
+              <tbody>
+                <tr><td>SRR4420293 (WT rep1)</td><td>~23M</td><td>~96.5%</td></tr>
+                <tr><td>SRR4420294 (WT rep2)</td><td>~25M</td><td>~96.8%</td></tr>
+                <tr><td>SRR4420295 (WT rep3)</td><td>~22M</td><td>~96.3%</td></tr>
+                <tr><td>SRR4420296 (mut rep1)</td><td>~27M</td><td>~97.1%</td></tr>
+                <tr><td>SRR4420297 (mut rep2)</td><td>~24M</td><td>~96.7%</td></tr>
+                <tr><td>SRR4420298 (mut rep3)</td><td>~26M</td><td>~96.9%</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="small text-muted mt-1">Expected alignment rates for this high-quality Arabidopsis dataset. Values &ge;90% indicate good library quality.</p>
+        </section>
+
+        <!-- STEP 4: featureCounts -->
+        <section id="step4" class="mb-5">
+          <h2 class="section-divider">Step 4 — Read Counting with featureCounts</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash — featureCounts (SLURM)</span><button class="btn-copy">Copy</button></div>
+<pre id="s4-fc">#!/bin/bash
+#SBATCH -N 1
+#SBATCH --ntasks-per-node=16
+#SBATCH --time=4:00:00
+#SBATCH --job-name=featureCounts
+#SBATCH --output=featureCounts.%j.out
+#SBATCH --error=featureCounts.%j.err
+
+module load subread   # featureCounts is part of the subread package
+module load parallel
+
+ANNOT_GFF="0_index/GCF_000001735.4_TAIR10.1_genomic.gff"
+INDIR="3_bam"
+OUTDIR="4_counts"
+mkdir -p ${OUTDIR}
+
+# Run featureCounts on each BAM in parallel (4 jobs x 4 threads each)
+# -s 2 = reversely stranded (RiboMinus protocol used in this dataset)
+# -p    = paired-end
+# -t gene, -g ID = count at gene level using the ID attribute
+parallel -j 4 \
+    "featureCounts -T 4 -s 2 -p -t gene -g ID \
+     -a ${ANNOT_GFF} \
+     -o ${OUTDIR}/{/.}.gene.txt {}" \
+    ::: ${INDIR}/*.bam
+
+# Merge all sample count files into one matrix
+paste \
+    <(awk 'BEGIN{OFS="\t"} {print $1,$7}' ${OUTDIR}/SRR4420293.gene.txt) \
+    <(awk 'BEGIN{OFS="\t"} {print $7}' ${OUTDIR}/SRR4420294.gene.txt) \
+    <(awk 'BEGIN{OFS="\t"} {print $7}' ${OUTDIR}/SRR4420295.gene.txt) \
+    <(awk 'BEGIN{OFS="\t"} {print $7}' ${OUTDIR}/SRR4420296.gene.txt) \
+    <(awk 'BEGIN{OFS="\t"} {print $7}' ${OUTDIR}/SRR4420297.gene.txt) \
+    <(awk 'BEGIN{OFS="\t"} {print $7}' ${OUTDIR}/SRR4420298.gene.txt) \
+    | grep -v '^\#' > ${OUTDIR}/At_count.txt
+
+echo "Count matrix created: ${OUTDIR}/At_count.txt"
+head -5 ${OUTDIR}/At_count.txt</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s4-fc" data-filename="04_featurecounts.sh"><i class="bi bi-download me-1"></i>04_featurecounts.sh</button></div>
+          <div class="cmd-explain">
+            <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> featureCounts flags decoded</div>
+            <table>
+              <tr><td><span class="cmd-emoji">🧵</span>-T 4</td><td>Use 4 CPU <strong>T</strong>hreads per featureCounts job. We run 4 jobs in parallel (via GNU parallel -j 4), so total = 16 cores — matching the SLURM request.</td></tr>
+              <tr><td><span class="cmd-emoji">↩️</span>-s 2</td><td><strong>S</strong>trandedness: <code>0</code>=unstranded, <code>1</code>=forward, <code>2</code>=reverse. This dataset used the RiboMinus protocol which generates reverse-stranded libraries. Wrong strandedness = ~50% of reads miscounted!</td></tr>
+              <tr><td><span class="cmd-emoji">👫</span>-p</td><td>Tells featureCounts the data is <strong>p</strong>aired-end — count a fragment only once (not twice, once per read). Essential for paired-end libraries.</td></tr>
+              <tr><td><span class="cmd-emoji">🔖</span>-t gene</td><td>Count at the <strong>t</strong>ype "gene" in the GFF. Could also use "exon" to count individual exons instead of the whole gene locus.</td></tr>
+              <tr><td><span class="cmd-emoji">🏷️</span>-g ID</td><td>The GFF attribute to use as the <strong>g</strong>ene identifier in the output matrix. For NCBI GFFs, the <code>ID</code> field holds the gene name (e.g., <code>gene0</code>, <code>AT1G01010</code>).</td></tr>
+              <tr><td><span class="cmd-emoji">📄</span>-a $ANNOT</td><td>The <strong>a</strong>nnotation file (GFF/GTF) that tells featureCounts where each gene lives on the genome.</td></tr>
+              <tr><td><span class="cmd-emoji">🗂️</span>paste + awk</td><td>featureCounts outputs one file per sample. <code>paste</code> merges them side-by-side into a single matrix, and <code>awk</code> extracts only column 7 (the count column) from each file.</td></tr>
+            </table>
+          </div>
+
+          <p class="mt-3">Expected count matrix header (first 8 rows):</p>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Expected Output — At_count.txt</span></div>
+<pre>Geneid  S293    S294    S295    S296    S297    S298
+gene0   11      1       10      28      11      13
+gene1   37      3       26      88      22      17
+gene2   0       0       0       0       0       0
+gene3   6       2       12      40      13      13
+gene4   35      6       22      170     53      32
+gene7   49      15      67      258     83      45</pre>
+          </div>
+          <div class="thumb-rule mt-3">
+            <strong>Strandedness matters.</strong> This dataset used the plant RiboMinus kit, which produces a reverse-strand library. Using <code>-s 2</code> (reversely stranded) is critical. Using the wrong strandedness setting can cut detected genes in half. Always check with <a href="https://infer-experiment.readthedocs.io/" target="_blank">RSeQC infer_experiment.py</a> or the <code>Identify_Strandedness_Information.md</code> protocol in the workbook.
+          </div>
+        </section>
+
+        <!-- STEP 5: DESeq2 -->
+        <section id="step5" class="mb-5">
+          <h2 class="section-divider">Step 5 — Differential Expression with DESeq2</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R — DESeq2 Differential Expression</span><button class="btn-copy">Copy</button></div>
+<pre id="s5-deseq2">## RNA-seq Differential Expression Analysis with DESeq2
+## Dataset: Arabidopsis atrx-1 mutant vs WT (PRJNA348194)
+## Original analysis: Siva Chudalayandi
+
+# Install if needed:
+# BiocManager::install("DESeq2")
+# install.packages(c("RColorBrewer", "gplots", "ggplot2", "ggrepel"))
+
+library(DESeq2)
+library(RColorBrewer)
+library(gplots)
+library(ggplot2)
+library(ggrepel)
+
+setwd("4_counts/")
+
+# 1. Load count matrix
+dat <- read.table("At_count.txt", header=TRUE, quote="", row.names=1)
+dat <- as.matrix(dat)
+head(dat)
+
+# 2. Define experimental design
+condition <- factor(c(rep("WT",3), rep("Mut",3)))
+condition <- relevel(condition, ref="WT")   # WT is the reference
+coldata   <- data.frame(row.names=colnames(dat), condition)
+
+# 3. Build DESeq2 object and run pipeline
+dds <- DESeqDataSetFromMatrix(countData=dat, colData=coldata, design=~condition)
+dds <- DESeq(dds)
+
+# 4. Dispersion plot (QC)
+png("qc-dispersions.png", 1000, 1000, pointsize=20)
+plotDispEsts(dds, main="Dispersion plot")
+dev.off()
+
+# 5. rlog transformation for PCA/clustering
+rld <- rlogTransformation(dds)
+
+# 6. PCA plot
+pca_data <- plotPCA(rld, intgroup="condition", returnData=TRUE)
+pct_var  <- round(100 * attr(pca_data, "percentVar"))
+ggplot(pca_data, aes(PC1, PC2, color=condition)) +
+    geom_point(size=4) +
+    xlab(paste0("PC1: ", pct_var[1], "% variance")) +
+    ylab(paste0("PC2: ", pct_var[2], "% variance")) +
+    theme_bw() +
+    ggtitle("PCA - WT vs atrx-1 mutant")
+ggsave("PCA.png", width=6, height=5)
+
+# 7. Sample distance heatmap
+mycols      <- brewer.pal(8, "Dark2")[1:length(unique(condition))]
+sampleDists <- as.matrix(dist(t(assay(rld))))
+png("qc-heatmap-samples.png", 1000, 1000, pointsize=20)
+heatmap.2(sampleDists, key=FALSE, trace="none",
+          col=colorpanel(100, "black", "white"),
+          ColSideColors=mycols[condition],
+          RowSideColors=mycols[condition],
+          margin=c(10,10), main="Sample Distance Matrix")
+dev.off()
+
+# 8. Get DE results
+res     <- results(dds)
+res     <- res[order(res$padj), ]
+resdata <- merge(as.data.frame(res),
+                  as.data.frame(counts(dds, normalized=TRUE)),
+                  by="row.names", sort=FALSE)
+names(resdata)[1] <- "Gene"
+
+write.csv(resdata, file="diffexpr-results.csv", quote=FALSE, row.names=FALSE)
+
+# Summary
+cat("Total genes tested:", nrow(res), "\n")
+cat("DE genes (padj < 0.05):", sum(res$padj < 0.05, na.rm=TRUE), "\n")
+
+#   FALSE  TRUE
+#   6712   204</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s5-deseq2" data-filename="05_deseq2_analysis.R"><i class="bi bi-download me-1"></i>05_deseq2_analysis.R</button></div>
+          <div class="cmd-explain">
+            <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> DESeq2 pipeline decoded</div>
+            <table>
+              <tr><td><span class="cmd-emoji">🏗️</span>DESeqDataSetFromMatrix()</td><td>Packages your count matrix + sample metadata into a DESeq2 object. The <code>design=~condition</code> formula tells DESeq2 which column in your metadata to use as the grouping variable for testing.</td></tr>
+              <tr><td><span class="cmd-emoji">🚀</span>DESeq(dds)</td><td>The workhorse — runs three steps in one: (1) estimates size factors (normalizes library sizes), (2) estimates gene-wise dispersion, (3) fits a negative binomial model and runs the Wald test for each gene. Your ~6 min coffee break!</td></tr>
+              <tr><td><span class="cmd-emoji">📐</span>relevel(condition, ref="WT")</td><td>Sets WT as the reference level so fold changes are calculated as Mut÷WT. Without this, DESeq2 uses alphabetical order ("Mut" < "WT" alphabetically, so it would flip the comparison).</td></tr>
+              <tr><td><span class="cmd-emoji">🌡️</span>rlogTransformation()</td><td>Regularized log transformation — shrinks counts of lowly-expressed genes towards the mean to avoid them dominating PCA and clustering. Better than simple log2 for visualization (not for DE testing).</td></tr>
+              <tr><td><span class="cmd-emoji">📊</span>plotDispEsts()</td><td>QC plot showing per-gene dispersion estimates before and after shrinkage. The red trend line should curve smoothly downward. Wild outliers = potential quality issues in that gene.</td></tr>
+              <tr><td><span class="cmd-emoji">📋</span>results(dds)</td><td>Extracts a table with: baseMean, log2FoldChange, lfcSE, stat, pvalue, padj (BH-corrected). Sort by <code>padj</code> to find your top hits.</td></tr>
+            </table>
+          </div>
+          <div class="fun-tip"><span class="fun-tip-icon">🎯</span><div><strong>padj vs pvalue:</strong> Always use <code>padj</code> (adjusted p-value), never raw <code>pvalue</code>! When testing 27,000 genes simultaneously, ~1,350 genes will appear significant by chance at p&lt;0.05 even if nothing is truly different. Benjamini-Hochberg correction controls the false discovery rate so your hit list is trustworthy.</div></div>
+        </section>
+
+        <!-- STEP 6: VISUALIZATIONS -->
+        <section id="step6" class="mb-5">
+          <h2 class="section-divider">Step 6 — Volcano Plot &amp; MA Plot</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R — Volcano Plot and MA Plot</span><button class="btn-copy">Copy</button></div>
+<pre id="s6-plots">## Volcano Plot
+resdata <- read.csv("diffexpr-results.csv")
+
+png("diffexpr-volcanoplot.png", 1200, 1000, pointsize=20)
+with(resdata, plot(log2FoldChange, -log10(pvalue), pch=20,
+                   main="Volcano Plot: WT vs atrx-1", cex=0.5, col="grey"))
+with(subset(resdata, padj < 0.05),
+     points(log2FoldChange, -log10(pvalue), pch=20, col="red", cex=0.8))
+with(subset(resdata, abs(log2FoldChange) > 2),
+     points(log2FoldChange, -log10(pvalue), pch=20, col="orange", cex=0.8))
+with(subset(resdata, padj < 0.05 & abs(log2FoldChange) > 2),
+     points(log2FoldChange, -log10(pvalue), pch=20, col="green", cex=1.2))
+legend("topright", legend=c("FDR<0.05", "|Log2FC|>2", "Both"),
+       pch=20, col=c("red","orange","green"), bty="n")
+dev.off()
+
+## MA Plot (log2 fold change vs mean expression)
+png("diffexpr-maplot.png", 1500, 1000, pointsize=20)
+with(resdata, plot(log(baseMean), log2FoldChange, pch=20,
+                   cex=0.5, col="grey50", main="MA Plot"))
+with(subset(resdata, padj < 0.05),
+     points(log(baseMean), log2FoldChange, col="red", pch=20, cex=1))
+abline(h=c(-1,1), col="blue", lty=2)
+dev.off()</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s6-plots" data-filename="06_visualization.R"><i class="bi bi-download me-1"></i>06_visualization.R</button></div>
+          <div class="row g-3 mt-2">
+            <div class="col-md-6">
+              <img src="../../assets/RNAseq_2.png" alt="RNA-seq overview" class="img-fluid rounded-3 border">
+              <p class="text-muted small text-center mt-1">RNA-seq workflow overview</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- RESULTS -->
+        <section id="results" class="mb-5">
+          <h2 class="section-divider">Expected Results</h2>
+          <div class="param-table">
+            <table class="table table-striped mb-0">
+              <thead><tr><th>Output File</th><th>Content</th><th>Key Value</th></tr></thead>
+              <tbody>
+                <tr><td><code>multiqc_report.html</code></td><td>Aggregated QC for all 12 FASTQ files</td><td>All samples pass; Q30 &gt; 90%</td></tr>
+                <tr><td><code>*.bam</code></td><td>Sorted, indexed alignments</td><td>~96% overall alignment rate</td></tr>
+                <tr><td><code>At_count.txt</code></td><td>Gene count matrix (6917 x 6)</td><td>~6900 expressed genes</td></tr>
+                <tr><td><code>diffexpr-results.csv</code></td><td>DESeq2 DE results</td><td><strong>204 DE genes</strong> (padj &lt; 0.05)</td></tr>
+                <tr><td><code>PCA.png</code></td><td>PCA of rlog-transformed counts</td><td>WT and mutant clusters separate on PC1</td></tr>
+                <tr><td><code>diffexpr-volcanoplot.png</code></td><td>Volcano plot</td><td>Downregulated genes in mutant visible</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="mt-2">The top DE gene (<code>gene32459</code>) has log2FC = -2.06, padj = 5.9e-9. The ATRX loss-of-function primarily downregulates genes involved in chromatin organization.</p>
+        </section>
+
+        <!-- TROUBLESHOOTING -->
+        <section id="errors" class="mb-5">
+          <h2 class="fw-bold"><i class="bi bi-exclamation-triangle me-2 text-warning"></i>Troubleshooting</h2>
+          <div class="error-box">
+            <h6>featureCounts: very few reads assigned (&lt;50%)</h6>
+            <p>Most likely a strandedness mismatch. Try all three options: <code>-s 0</code> (unstranded), <code>-s 1</code> (stranded), <code>-s 2</code> (reverse-stranded). The one producing the most assigned reads is correct. Also check the GFF <code>-t</code> and <code>-g</code> attributes match your annotation format.</p>
+          </div>
+          <div class="error-box">
+            <h6>DESeq2: "all samples belong to the same group"</h6>
+            <p>The column names in the count matrix must match the row names in <code>coldata</code> exactly. Check with <code>all(rownames(coldata) == colnames(dat))</code> — must return <code>TRUE</code>.</p>
+          </div>
+          <div class="error-box">
+            <h6>HISAT2: &lt;70% alignment rate</h6>
+            <p>Check if reads are still adapter-contaminated (run FastQC first), whether the correct genome species was used, or if reads are from a different library type (e.g., total RNA with rRNA). Run <code>hisat2 --summary-file</code> for detailed stats per sample.</p>
+          </div>
+        </section>
+
+        <!-- NAV -->
+        <div class="d-flex justify-content-between mt-4">
+          <a href="index.html" class="btn btn-outline-secondary rounded-pill px-4"><i class="bi bi-arrow-left me-2"></i>Tutorial Library</a>
+          <a href="wgcna-gene-coexpression-network.html" class="btn btn-primary rounded-pill px-4">Next: WGCNA Networks <i class="bi bi-arrow-right ms-2"></i></a>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-lg-6"><h5 class="text-white fw-bold mb-3"><span style="color:#ff9933;">Indian</span><span style="color:var(--ieb-primary);">Elucid</span><span style="color:var(--ieb-accent);">Biology</span></h5><p class="small">Free tutorials using real public datasets. Based on the Bioinformatics Workbook (Iowa State University GIF).</p></div>
+      <div class="col-lg-6 text-lg-end"><p class="small mb-1">Founded by <strong>Ankush Sharma</strong></p><div class="d-flex gap-3 justify-content-lg-end"><a href="https://github.com/ank-man" target="_blank" class="text-white fs-5"><i class="bi bi-github"></i></a><a href="https://www.linkedin.com/in/ankush-sharma-290307/" target="_blank" class="text-white fs-5"><i class="bi bi-linkedin"></i></a></div></div>
+    </div>
+    <hr class="border-secondary mt-4 mb-3">
+    <p class="text-center small mb-0">&copy; 2025 IndianElucidBiology. Tutorial content adapted from <a href="https://bioinformaticsworkbook.org" class="text-white-50" target="_blank">bioinformaticsworkbook.org</a> (ISU GIF).</p>
+  </div>
+</footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/main.js"></script>
+</body>
+</html>

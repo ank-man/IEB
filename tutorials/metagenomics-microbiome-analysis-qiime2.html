@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Metagenomics &amp; Microbiome Analysis with QIIME2 &amp; Kraken2 | IndianElucidBiology</title>
+  <meta name="description" content="Complete metagenomics and microbiome tutorial covering 16S rRNA amplicon analysis with QIIME2 and shotgun metagenomics with Kraken2/Bracken. Alpha and beta diversity, taxonomic profiling, differential abundance, and visualization.">
+  <meta name="keywords" content="metagenomics tutorial, QIIME2 16S rRNA, Kraken2 shotgun metagenomics, microbiome analysis, alpha beta diversity, amplicon sequencing DADA2, taxonomic profiling, IndianElucidBiology">
+  <meta name="author" content="IndianElucidBiology">
+  <link rel="canonical" href="https://indianelucidbiology.github.io/tutorials/metagenomics-microbiome-analysis-qiime2.html">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="../css/style.css" rel="stylesheet">
+</head>
+<body>
+
+<div class="progress-tracker"></div>
+
+<nav class="navbar navbar-expand-lg fixed-top bg-body-tertiary">
+  <div class="container">
+    <a class="navbar-brand" href="../index.html"><span class="brand-indian">Indian</span><span class="brand-elucid">Elucid</span><span class="brand-biology">Biology</span></a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav"><span class="navbar-toggler-icon"></span></button>
+    <div class="collapse navbar-collapse" id="mainNav">
+      <ul class="navbar-nav ms-auto me-3">
+        <li class="nav-item"><a class="nav-link" href="../index.html">Home</a></li>
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle active" href="#" role="button" data-bs-toggle="dropdown">Tutorials</a>
+          <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="rnaseq-differential-expression-deseq2-guide.html">RNA-Seq &amp; DESeq2</a></li>
+            <li><a class="dropdown-item" href="gene-coexpression-network-wgcna-tutorial.html">WGCNA Networks</a></li>
+            <li><a class="dropdown-item" href="bioinformatics-data-visualization-ggplot2-R.html">Data Visualization</a></li>
+            <li><a class="dropdown-item" href="single-cell-rna-seq-seurat-analysis-tutorial.html">Single-Cell RNA-Seq</a></li>
+            <li><a class="dropdown-item" href="variant-calling-gatk-bcftools-pipeline.html">Variant Calling</a></li>
+            <li><a class="dropdown-item active" href="metagenomics-microbiome-analysis-qiime2.html">Metagenomics</a></li>
+          </ul>
+        </li>
+      </ul>
+      <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode">&#9790;</button>
+    </div>
+  </div>
+</nav>
+
+<section class="tutorial-hero">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-lg-8">
+        <nav aria-label="breadcrumb"><ol class="breadcrumb mb-3" style="--bs-breadcrumb-divider-color:rgba(255,255,255,0.5);"><li class="breadcrumb-item"><a href="../index.html" class="text-white-50 text-decoration-none">Home</a></li><li class="breadcrumb-item active text-white">Metagenomics</li></ol></nav>
+        <h1 class="display-5 fw-bold text-white mb-3">Metagenomics &amp; Microbiome Analysis</h1>
+        <p class="lead text-white-50 mb-4">Profile microbial communities from 16S rRNA amplicon data with QIIME2 and from shotgun metagenomics with Kraken2. Diversity metrics, taxonomic composition, and differential abundance — all explained.</p>
+        <div class="d-flex gap-3 flex-wrap">
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-clock me-1"></i> ~60 min</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-bar-chart me-1"></i> Intermediate</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-terminal me-1"></i> Bash / Python / R</span>
+        </div>
+      </div>
+      <div class="col-lg-4 text-center d-none d-lg-block">
+        <img src="../img/Byte4.png" alt="Byte with networks" class="img-fluid" style="max-height:250px;filter:drop-shadow(0 10px 30px rgba(0,0,0,0.4));">
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="container py-5">
+  <div class="row">
+    <div class="col-lg-3 d-none d-lg-block">
+      <div class="toc-sidebar">
+        <h6 class="fw-bold text-muted text-uppercase small mb-3">On this page</h6>
+        <nav class="nav flex-column">
+          <a class="nav-link" href="#overview">Overview</a>
+          <a class="nav-link" href="#part1">Part 1: 16S with QIIME2</a>
+          <a class="nav-link" href="#q-import">Import Data</a>
+          <a class="nav-link" href="#q-denoise">Denoising (DADA2)</a>
+          <a class="nav-link" href="#q-taxonomy">Taxonomy</a>
+          <a class="nav-link" href="#q-diversity">Diversity Analysis</a>
+          <a class="nav-link" href="#part2">Part 2: Shotgun with Kraken2</a>
+          <a class="nav-link" href="#k-classify">Classification</a>
+          <a class="nav-link" href="#k-viz">Visualization</a>
+          <a class="nav-link" href="#diffab">Differential Abundance</a>
+          <a class="nav-link" href="#summary">Summary</a>
+        </nav>
+      </div>
+    </div>
+
+    <div class="col-lg-9">
+      <div class="tutorial-content">
+
+        <section id="overview" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">?</span> Amplicon vs. Shotgun Metagenomics</h2>
+          <p>Metagenomics studies the genetic material from entire microbial communities without culturing individual organisms. Two main approaches exist:</p>
+
+          <div class="row g-4 mt-3">
+            <div class="col-md-6">
+              <div class="p-4 rounded-3 bg-body-secondary h-100">
+                <h5 class="fw-bold text-primary">16S rRNA Amplicon</h5>
+                <ul class="small mb-0">
+                  <li>Sequences a single marker gene (16S rRNA for bacteria, ITS for fungi)</li>
+                  <li>Cheaper, lower computational demand</li>
+                  <li>Reveals <strong>who is there</strong> (taxonomy) and relative abundances</li>
+                  <li>Cannot tell you <strong>what they're doing</strong> (functional potential)</li>
+                  <li>Tool of choice: <strong>QIIME2</strong></li>
+                </ul>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="p-4 rounded-3 bg-body-secondary h-100">
+                <h5 class="fw-bold" style="color:#6f42c1;">Shotgun Metagenomics</h5>
+                <ul class="small mb-0">
+                  <li>Sequences all DNA in the sample (every organism, every gene)</li>
+                  <li>More expensive, computationally intensive</li>
+                  <li>Reveals <strong>who is there AND what they can do</strong> (functional pathways)</li>
+                  <li>Better species/strain-level resolution</li>
+                  <li>Tools: <strong>Kraken2</strong>, MetaPhlAn4, HUMAnN3</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div class="byte-callout byte-info mt-4">
+            <img src="../img/Byte3.png" alt="Byte key point">
+            <div>
+              <strong>Which Should You Use?</strong> If your question is purely "what microbes are present and how do they differ between groups?" — 16S is cost-effective and well-validated. If you need species-level resolution, strain tracking, antibiotic resistance genes, or metabolic pathway profiling — invest in shotgun metagenomics.
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================== PART 1: QIIME2 ==================== -->
+        <section id="part1" class="mb-5">
+          <h2 class="fw-bold display-6 text-primary"><i class="bi bi-1-circle me-2"></i> 16S rRNA Analysis with QIIME2</h2>
+        </section>
+
+        <section id="q-import" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">1</span> Install QIIME2 &amp; Import Data</h2>
+
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash</span><button class="btn-copy">Copy</button></div>
+<pre># Install QIIME2 via conda (check qiime2.org for latest version)
+wget https://data.qiime2.org/distro/amplicon/qiime2-amplicon-2024.5-py39-linux-conda.yml
+conda env create -n qiime2 --file qiime2-amplicon-2024.5-py39-linux-conda.yml
+conda activate qiime2
+
+# Verify
+qiime --version</pre>
+          </div>
+
+          <p>QIIME2 uses <strong>artifacts</strong> (<code>.qza</code> files) and <strong>visualizations</strong> (<code>.qzv</code> files). Data must be imported into this artifact system before processing.</p>
+
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash</span><button class="btn-copy">Copy</button></div>
+<pre># Import paired-end demultiplexed FASTQ files
+# Your files should be in Casava 1.8 format in a directory
+qiime tools import \
+  --type 'SampleData[PairedEndSequencesWithQuality]' \
+  --input-path raw_reads/ \
+  --input-format CasavaOneEightSingleLanePerSampleDirFmt \
+  --output-path demux-paired.qza
+
+# Visualize read quality
+qiime demux summarize \
+  --i-data demux-paired.qza \
+  --o-visualization demux-summary.qzv
+
+# View the visualization at https://view.qiime2.org or:
+qiime tools view demux-summary.qzv</pre>
+          </div>
+
+          <div class="byte-callout byte-tip">
+            <img src="../img/Byte1.png" alt="Byte tip">
+            <div>
+              <strong>Quality Profile is Critical:</strong> The <code>demux-summary.qzv</code> shows per-base quality scores for your forward and reverse reads. You'll use this to decide where to truncate reads in the denoising step. Look for where the median quality drops below Q20 — that's your truncation point.
+            </div>
+          </div>
+        </section>
+
+        <section id="q-denoise" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">2</span> Denoising with DADA2</h2>
+          <p>DADA2 corrects sequencing errors and produces <strong>Amplicon Sequence Variants (ASVs)</strong> — exact sequences resolved to single-nucleotide differences. ASVs have largely replaced OTUs (97% similarity clusters) as the modern standard.</p>
+
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash</span><button class="btn-copy">Copy</button></div>
+<pre>qiime dada2 denoise-paired \
+  --i-demultiplexed-seqs demux-paired.qza \
+  --p-trunc-len-f 240 \
+  --p-trunc-len-r 200 \
+  --p-trim-left-f 0 \
+  --p-trim-left-r 0 \
+  --p-max-ee-f 2.0 \
+  --p-max-ee-r 2.0 \
+  --p-n-threads 8 \
+  --o-table table.qza \
+  --o-representative-sequences rep-seqs.qza \
+  --o-denoising-stats denoising-stats.qza
+
+# Check how many reads passed each step
+qiime metadata tabulate \
+  --m-input-file denoising-stats.qza \
+  --o-visualization denoising-stats.qzv</pre>
+          </div>
+
+          <div class="decision-box">
+            <h5><i class="bi bi-signpost-split me-2"></i>How to Pick DADA2 Truncation Parameters</h5>
+            <div class="param-table mt-3">
+              <table class="table table-striped mb-0">
+                <thead><tr><th>Parameter</th><th>What It Does</th><th>How to Choose</th></tr></thead>
+                <tbody>
+                  <tr><td><code>--p-trunc-len-f</code></td><td>Truncate forward reads at this position</td><td>From the quality plot: where does median quality drop below ~Q25? Truncate there. For 300bp V3-V4 reads, typically 240–280.</td></tr>
+                  <tr><td><code>--p-trunc-len-r</code></td><td>Truncate reverse reads at this position</td><td>Reverse reads are lower quality. Usually truncate 20–50bp shorter than forward. Must retain enough overlap for merging (~20bp minimum).</td></tr>
+                  <tr><td><code>--p-trim-left-f/r</code></td><td>Trim bases from the start of reads</td><td>Use to remove primers if they weren't already removed. Set to primer length (e.g., 17–21bp for common 16S primers).</td></tr>
+                  <tr><td><code>--p-max-ee</code></td><td>Maximum expected errors — reads exceeding this are discarded</td><td>2.0 is standard. Decrease to 1.0 for stricter quality; increase to 3.0 if you're losing too many reads.</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="small mt-3 mb-0"><strong>Critical:</strong> After truncation, forward + reverse reads must still overlap by ≥ 20bp for DADA2 to merge them. Calculate: <code>trunc_f + trunc_r - amplicon_length ≥ 20</code>. For the V3-V4 region (~460bp), truncating at 240+200 = 440 gives about no overlap — you may need to adjust.</p>
+          </div>
+
+          <div class="byte-callout byte-wait">
+            <img src="../img/Byte2.png" alt="Byte waiting">
+            <div>
+              <strong>DADA2 is slow!</strong> For a typical 16S dataset with millions of reads, expect 30 minutes to several hours. Using <code>--p-n-threads 8</code> helps significantly. If you have many samples, consider running on a cluster.
+            </div>
+          </div>
+        </section>
+
+        <section id="q-taxonomy" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">3</span> Taxonomic Classification</h2>
+
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash</span><button class="btn-copy">Copy</button></div>
+<pre># Download a pre-trained classifier (Silva 138, V3-V4 region)
+# Check https://docs.qiime2.org for the latest classifiers
+wget https://data.qiime2.org/2024.5/common/silva-138-99-nb-classifier.qza
+
+# Classify ASVs
+qiime feature-classifier classify-sklearn \
+  --i-classifier silva-138-99-nb-classifier.qza \
+  --i-reads rep-seqs.qza \
+  --p-n-jobs 4 \
+  --o-classification taxonomy.qza
+
+# Visualize taxonomy
+qiime metadata tabulate \
+  --m-input-file taxonomy.qza \
+  --o-visualization taxonomy.qzv
+
+# Create a barplot of taxonomic composition
+qiime taxa barplot \
+  --i-table table.qza \
+  --i-taxonomy taxonomy.qza \
+  --m-metadata-file sample-metadata.tsv \
+  --o-visualization taxa-bar-plots.qzv</pre>
+          </div>
+
+          <div class="byte-callout byte-key">
+            <img src="../img/Byte3.png" alt="Byte key point">
+            <div>
+              <strong>Classifier Choice Matters:</strong>
+              <ul class="mb-0 mt-1">
+                <li><strong>Silva 138</strong> — most comprehensive for bacteria and archaea; standard choice for 16S</li>
+                <li><strong>Greengenes2</strong> — newer, phylogenetically consistent; gaining popularity</li>
+                <li><strong>UNITE</strong> — for ITS (fungal) amplicon data</li>
+                <li>Always use a classifier trained on <em>your specific primer region</em> (e.g., V3-V4, V4 only). A full-length 16S classifier on V4-only reads will perform worse.</li>
+              </ul>
+            </div>
+          </div>
+
+          <h5 class="fw-bold mt-4">Filter Out Non-Target Sequences</h5>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash</span><button class="btn-copy">Copy</button></div>
+<pre># Remove mitochondria, chloroplast, and unassigned sequences
+qiime taxa filter-table \
+  --i-table table.qza \
+  --i-taxonomy taxonomy.qza \
+  --p-exclude "mitochondria,chloroplast,Unassigned" \
+  --o-filtered-table table-filtered.qza</pre>
+          </div>
+        </section>
+
+        <section id="q-diversity" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">4</span> Diversity Analysis</h2>
+          <p>Diversity analysis answers two fundamental ecological questions:</p>
+          <ul>
+            <li><strong>Alpha diversity</strong> — how diverse is each sample? (within-sample richness &amp; evenness)</li>
+            <li><strong>Beta diversity</strong> — how different are communities between samples? (between-sample distance)</li>
+          </ul>
+
+          <h5 class="fw-bold mt-4">Rarefaction &amp; Core Metrics</h5>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash</span><button class="btn-copy">Copy</button></div>
+<pre># First, check the sampling depth distribution
+qiime feature-table summarize \
+  --i-table table-filtered.qza \
+  --o-visualization table-summary.qzv
+
+# Run core diversity metrics (rarefies to even depth)
+qiime diversity core-metrics-phylogenetic \
+  --i-phylogeny rooted-tree.qza \
+  --i-table table-filtered.qza \
+  --p-sampling-depth 10000 \
+  --m-metadata-file sample-metadata.tsv \
+  --output-dir core-metrics-results</pre>
+          </div>
+
+          <div class="decision-box">
+            <h5><i class="bi bi-signpost-split me-2"></i>How to Choose Rarefaction Depth</h5>
+            <ul>
+              <li>Look at the <code>table-summary.qzv</code> — it shows the read count per sample</li>
+              <li><strong>Goal:</strong> pick a depth that retains the most samples while capturing most of the diversity</li>
+              <li><strong>Rule of thumb:</strong> use the lowest sample's read count, but drop samples below ~1,000 reads (they're unreliable)</li>
+              <li><strong>Typical range:</strong> 5,000–50,000 depending on sequencing depth</li>
+              <li>Use a rarefaction curve (<code>qiime diversity alpha-rarefaction</code>) to confirm your chosen depth captures the diversity plateau</li>
+            </ul>
+          </div>
+
+          <h5 class="fw-bold mt-4">Statistical Tests</h5>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash</span><button class="btn-copy">Copy</button></div>
+<pre># Alpha diversity: compare richness between groups
+qiime diversity alpha-group-significance \
+  --i-alpha-diversity core-metrics-results/shannon_vector.qza \
+  --m-metadata-file sample-metadata.tsv \
+  --o-visualization shannon-significance.qzv
+
+# Beta diversity: PERMANOVA test (are communities different between groups?)
+qiime diversity beta-group-significance \
+  --i-distance-matrix core-metrics-results/weighted_unifrac_distance_matrix.qza \
+  --m-metadata-column treatment \
+  --m-metadata-file sample-metadata.tsv \
+  --p-method permanova \
+  --p-pairwise \
+  --o-visualization permanova-results.qzv</pre>
+          </div>
+
+          <div class="byte-callout byte-info">
+            <img src="../img/Byte3.png" alt="Byte explains">
+            <div>
+              <strong>Alpha Diversity Metrics Explained:</strong>
+              <ul class="mb-0 mt-1">
+                <li><strong>Observed Features</strong> — simple richness: how many unique ASVs are present</li>
+                <li><strong>Shannon Index</strong> — accounts for both richness and evenness; higher = more diverse</li>
+                <li><strong>Faith's PD</strong> — phylogenetic diversity; sums branch lengths on the phylogenetic tree; captures evolutionary breadth</li>
+              </ul>
+              <strong class="d-block mt-2">Beta Diversity Metrics:</strong>
+              <ul class="mb-0">
+                <li><strong>Bray-Curtis</strong> — abundance-based, non-phylogenetic; most common for general use</li>
+                <li><strong>Weighted UniFrac</strong> — incorporates phylogeny and abundance; best for detecting changes in dominant taxa</li>
+                <li><strong>Unweighted UniFrac</strong> — phylogenetic but presence/absence only; sensitive to rare taxa</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================== PART 2: KRAKEN2 ==================== -->
+        <section id="part2" class="mb-5">
+          <h2 class="fw-bold display-6" style="color:#6f42c1;"><i class="bi bi-2-circle me-2"></i> Shotgun Metagenomics with Kraken2</h2>
+        </section>
+
+        <section id="k-classify" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">5</span> Taxonomic Classification with Kraken2</h2>
+
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash</span><button class="btn-copy">Copy</button></div>
+<pre># Install
+conda install -c bioconda kraken2 bracken
+
+# Download a standard database (requires ~100GB disk for standard, or ~8GB for minikraken)
+kraken2-build --standard --db kraken2_standard_db --threads 16
+
+# Or use a smaller pre-built database
+# wget https://genome-idx.s3.amazonaws.com/kraken/k2_standard_08gb_20240605.tar.gz
+
+# Run Kraken2 classification
+kraken2 \
+  --db kraken2_standard_db \
+  --paired \
+  --threads 12 \
+  --output sample1.kraken.out \
+  --report sample1.kraken.report \
+  --minimum-hit-groups 3 \
+  --confidence 0.1 \
+  trimmed_R1.fastq.gz trimmed_R2.fastq.gz</pre>
+          </div>
+
+          <div class="param-table">
+            <table class="table table-striped mb-0">
+              <thead><tr><th>Parameter</th><th>Purpose</th><th>How to Choose</th></tr></thead>
+              <tbody>
+                <tr><td><code>--confidence 0.1</code></td><td>Minimum fraction of k-mers that must map to a taxon</td><td>0 = classify everything (more false positives). 0.1 = moderate. 0.2–0.5 = stringent. Start at 0.1 and increase if you see too many low-abundance false hits.</td></tr>
+                <tr><td><code>--minimum-hit-groups 3</code></td><td>Minimum distinct k-mer groups matching a taxon</td><td>Higher values reduce false positives at the cost of sensitivity. 2–3 is standard. Use 5 for high-confidence results.</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h5 class="fw-bold mt-4">Refine Abundances with Bracken</h5>
+          <p>Kraken2 assigns reads to the lowest common ancestor, which inflates higher taxonomic levels. Bracken redistributes reads to species level using a Bayesian approach.</p>
+
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash</span><button class="btn-copy">Copy</button></div>
+<pre># Build Bracken database (one-time, needs the Kraken2 DB)
+bracken-build -d kraken2_standard_db -t 16 -l 150
+
+# Run Bracken to estimate species-level abundances
+bracken \
+  -d kraken2_standard_db \
+  -i sample1.kraken.report \
+  -o sample1.bracken.out \
+  -w sample1.bracken.report \
+  -r 150 \
+  -l S \
+  -t 10</pre>
+          </div>
+
+          <div class="decision-box">
+            <h5><i class="bi bi-signpost-split me-2"></i>Bracken Parameters</h5>
+            <ul>
+              <li><code>-r 150</code> — read length (match to your actual read length)</li>
+              <li><code>-l S</code> — level to estimate: S = species, G = genus, F = family. Species-level requires sufficient database coverage.</li>
+              <li><code>-t 10</code> — minimum reads at the taxonomic level to report. Increase to 50–100 to remove very low-abundance noise.</li>
+            </ul>
+          </div>
+        </section>
+
+        <section id="k-viz" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">6</span> Visualization with Krona &amp; R</h2>
+
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash</span><button class="btn-copy">Copy</button></div>
+<pre># Interactive Krona chart
+conda install -c bioconda krona
+ktUpdateTaxonomy.sh
+
+# Convert Kraken report to Krona format
+cut -f2,3 sample1.kraken.out > sample1.krona.input
+ktImportTaxonomy sample1.krona.input -o sample1.krona.html
+
+# Open the interactive HTML in a browser</pre>
+          </div>
+
+          <h5 class="fw-bold mt-4">Stacked Bar Chart in R</h5>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre>library(tidyverse)
+
+# Read Bracken output for multiple samples (combine into one table)
+files &lt;- list.files(pattern = "*.bracken.out", full.names = TRUE)
+bracken_df &lt;- map_dfr(files, ~ read_tsv(.x) %>%
+  mutate(sample = gsub(".bracken.out", "", basename(.x))))
+
+# Top 15 species by mean abundance
+top_species &lt;- bracken_df %>%
+  group_by(name) %>%
+  summarize(mean_frac = mean(fraction_total_reads)) %>%
+  slice_max(mean_frac, n = 15) %>%
+  pull(name)
+
+bracken_df %>%
+  mutate(taxon = ifelse(name %in% top_species, name, "Other")) %>%
+  group_by(sample, taxon) %>%
+  summarize(abundance = sum(fraction_total_reads), .groups = "drop") %>%
+  ggplot(aes(x = sample, y = abundance, fill = taxon)) +
+  geom_col() +
+  scale_fill_brewer(palette = "Set3") +
+  theme_minimal(base_size = 14) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(title = "Taxonomic Composition (Species Level)",
+       x = NULL, y = "Relative Abundance", fill = "Species")</pre>
+          </div>
+        </section>
+
+        <section id="diffab" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">7</span> Differential Abundance Testing</h2>
+          <p>Which taxa are significantly enriched or depleted between your conditions? This requires compositional-aware methods because microbiome data is inherently relative (proportions that sum to 1).</p>
+
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre># ANCOM-BC2 (recommended for microbiome differential abundance)
+BiocManager::install("ANCOMBC")
+library(ANCOMBC)
+library(phyloseq)
+
+# Build a phyloseq object from your data
+# (OTU/ASV table, taxonomy table, sample metadata)
+ps &lt;- phyloseq(
+  otu_table(count_matrix, taxa_are_rows = TRUE),
+  tax_table(taxonomy_matrix),
+  sample_data(sample_metadata)
+)
+
+# Run ANCOM-BC2
+result &lt;- ancombc2(
+  data     = ps,
+  fix_formula = "treatment",
+  p_adj_method = "BH",
+  alpha    = 0.05,
+  group    = "treatment",
+  struc_zero = TRUE,     # handle structural zeros
+  neg_lb   = TRUE
+)
+
+# View significant taxa
+sig_taxa &lt;- result$res %>%
+  filter(diff_treatment == TRUE)
+print(sig_taxa)</pre>
+          </div>
+
+          <div class="byte-callout byte-warn">
+            <img src="../img/Byte5.png" alt="Byte warns">
+            <div>
+              <strong>Avoid These Common Mistakes:</strong>
+              <ul class="mb-0 mt-1">
+                <li><strong>Don't use standard t-tests or DESeq2 directly</strong> on relative abundance data — microbiome data is compositional; an increase in one taxon forces a decrease in others.</li>
+                <li><strong>Use compositional methods:</strong> ANCOM-BC2, ALDEx2, MaAsLin2, or LinDA — all handle the compositionality issue.</li>
+                <li><strong>Don't over-interpret rare taxa</strong> (< 0.1% abundance) — they're below the noise floor of most sequencing experiments.</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <section id="summary" class="mb-5">
+          <h2 class="fw-bold"><i class="bi bi-check-circle me-2"></i> Summary</h2>
+          <div class="byte-callout byte-tip">
+            <img src="../img/Byte0.png" alt="Byte">
+            <div>
+              <strong>What You Learned:</strong>
+              <ol class="mb-0 mt-1">
+                <li>The difference between 16S amplicon and shotgun metagenomics approaches</li>
+                <li>Import, denoise (DADA2), and classify 16S data with QIIME2</li>
+                <li>Choose DADA2 truncation parameters from quality profiles</li>
+                <li>Perform alpha and beta diversity analyses with appropriate metrics</li>
+                <li>Run Kraken2 + Bracken for shotgun metagenomic classification</li>
+                <li>Visualize taxonomic composition with Krona and ggplot2</li>
+                <li>Perform differential abundance testing with ANCOM-BC2</li>
+                <li>Avoid common pitfalls like using non-compositional statistics on microbiome data</li>
+              </ol>
+            </div>
+          </div>
+
+          <div class="d-flex justify-content-between mt-5">
+            <a href="variant-calling-gatk-bcftools-pipeline.html" class="btn btn-outline-secondary rounded-pill px-4"><i class="bi bi-arrow-left me-2"></i>Prev: Variant Calling</a>
+            <a href="../index.html" class="btn btn-primary rounded-pill px-4">Back to All Tutorials <i class="bi bi-arrow-right ms-2"></i></a>
+          </div>
+        </section>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-lg-6"><h5 class="text-white fw-bold mb-3"><span style="color:#ff9933;">Indian</span><span style="color:var(--ieb-primary);">Elucid</span><span style="color:var(--ieb-accent);">Biology</span></h5><p class="small">Free, interactive bioinformatics tutorials. Open source and community-driven.</p></div>
+      <div class="col-lg-6 text-lg-end"><p class="small mb-1">Founded by <strong>Ankush Sharma</strong></p><div class="d-flex gap-3 justify-content-lg-end"><a href="https://github.com/ank-man" target="_blank" class="text-white fs-5"><i class="bi bi-github"></i></a><a href="https://www.linkedin.com/in/ankush-sharma-290307/" target="_blank" class="text-white fs-5"><i class="bi bi-linkedin"></i></a><a href="mailto:mr.ank2999@gmail.com" class="text-white fs-5"><i class="bi bi-envelope"></i></a></div></div>
+    </div>
+    <hr class="border-secondary mt-4 mb-3">
+    <p class="text-center small mb-0">&copy; 2025 IndianElucidBiology — Founded by <a href="https://www.linkedin.com/in/ankush-sharma-290307/" class="text-white-50" target="_blank">Ankush Sharma</a>. Made with <span style="color:#e25555;">&#9829;</span> for the bioinformatics community.</p>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/main.js"></script>
+</body>
+</html>

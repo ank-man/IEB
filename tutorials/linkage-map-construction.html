@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Linkage Map Construction — From Genotype Data to Genetic Map | IndianElucidBiology</title>
+  <meta name="description" content="Build a genetic linkage map from scratch. Interactive Excel-style worksheets show every formula live: recombination frequency, LOD score, Kosambi/Haldane mapping functions, marker ordering, and chromosome grouping.">
+  <link rel="canonical" href="https://indianelucidbiology.github.io/tutorials/linkage-map-construction.html">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="../css/style.css" rel="stylesheet">
+  <link href="../css/live-spreadsheet.css" rel="stylesheet">
+</head>
+<body>
+<div class="progress-tracker"></div>
+
+<nav class="navbar navbar-expand-lg fixed-top">
+  <div class="container">
+    <a class="navbar-brand" href="../index.html">
+      <span class="brand-indian">Indian</span><span class="brand-elucid">Elucid</span><span class="brand-biology">Biology</span>
+    </a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="mainNav">
+      <ul class="navbar-nav ms-auto me-3">
+        <li class="nav-item"><a class="nav-link" href="../index.html">Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="index.html">Tutorial Library</a></li>
+        <li class="nav-item"><a class="nav-link" href="qtl-mapping-tutorial.html">QTL Mapping <i class="bi bi-arrow-right ms-1"></i></a></li>
+      </ul>
+      <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode">&#9790;</button>
+    </div>
+  </div>
+</nav>
+
+<section class="tutorial-hero">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-lg-8">
+        <nav aria-label="breadcrumb">
+          <ol class="breadcrumb mb-3" style="--bs-breadcrumb-divider-color:rgba(255,255,255,0.5);">
+            <li class="breadcrumb-item"><a href="../index.html" class="text-white-50 text-decoration-none">Home</a></li>
+            <li class="breadcrumb-item"><a href="index.html" class="text-white-50 text-decoration-none">Tutorials</a></li>
+            <li class="breadcrumb-item active text-white">Linkage Map Construction</li>
+          </ol>
+        </nav>
+        <h1 class="display-5 fw-bold text-white mb-3">Linkage Map Construction</h1>
+        <p class="lead text-white-50 mb-4">
+          Recombination frequency &rarr; LOD scores &rarr; Kosambi/Haldane distances &rarr; marker ordering &rarr; final map.
+          Every formula shown live &mdash; edit values in the interactive spreadsheets below and watch the calculations update in real time.
+        </p>
+        <div class="d-flex gap-3 flex-wrap">
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-clock me-1"></i>~120 min</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-bar-chart me-1"></i>Intermediate</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-file-earmark-spreadsheet me-1"></i>Live spreadsheets</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-terminal me-1"></i>R / JoinMap / CarthaGene</span>
+        </div>
+      </div>
+      <div class="col-lg-4 text-center d-none d-lg-block">
+        <img src="../img/Byte2.png" alt="Byte" class="img-fluid" style="max-height:230px;filter:drop-shadow(0 10px 30px rgba(0,0,0,0.4));">
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="container py-5">
+  <div class="row">
+
+    <!-- TOC -->
+    <div class="col-lg-3 d-none d-lg-block">
+      <div class="toc-sidebar">
+        <h6 class="fw-bold text-muted text-uppercase small mb-3">On this page</h6>
+        <nav class="nav flex-column">
+          <a class="nav-link" href="#concepts">Concepts: What Is a Linkage Map?</a>
+          <a class="nav-link" href="#recomb">1. Recombination Frequency</a>
+          <a class="nav-link" href="#lod">2. LOD Score for Linkage</a>
+          <a class="nav-link" href="#mapping-fn">3. cM: Mapping Functions</a>
+          <a class="nav-link" href="#grouping">4. Linkage Group Assignment</a>
+          <a class="nav-link" href="#ordering">5. Marker Ordering</a>
+          <a class="nav-link" href="#software">6. JoinMap / R/qtl2 Pipeline</a>
+          <a class="nav-link" href="#visualise">7. Map Visualisation in R</a>
+          <a class="nav-link" href="#pitfalls">Common Pitfalls</a>
+        </nav>
+      </div>
+    </div>
+
+    <!-- Content -->
+    <div class="col-lg-9">
+      <div class="tutorial-content">
+
+<!-- ============================================================ -->
+<section id="concepts" class="mb-5">
+  <h2 class="section-divider">What Is a Genetic Linkage Map?</h2>
+  <p>A genetic linkage map is a diagram of markers arranged in order along each chromosome, with distances measured in <strong>centiMorgans (cM)</strong> — a unit proportional to the <em>probability of recombination</em> between two points. Unlike a physical map (which measures base pairs), a genetic map measures biological crossing-over frequency.</p>
+  <div class="byte-callout">
+    <img src="../img/Byte1.png" alt="Byte">
+    <div>
+      <strong>Why build a linkage map?</strong>
+      <ul class="mb-0 mt-1 small">
+        <li><strong>QTL mapping:</strong> a linkage map is the coordinate system for all QTL analyses. Markers without known positions cannot be used for interval mapping.</li>
+        <li><strong>Marker-assisted selection:</strong> knowing the cM distance between a marker and a gene determines how often they will be separated by recombination in breeding.</li>
+        <li><strong>Genome assembly:</strong> linkage maps are used to order and orient scaffolds into pseudochromosomes.</li>
+        <li><strong>Comparative genomics:</strong> genetic distances reveal recombination hotspots and coldspots invisible from physical sequence.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="param-table mt-4">
+    <table class="table table-bordered mb-0">
+      <thead class="table-dark"><tr><th>Term</th><th>Definition</th><th>Units</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Recombination frequency (r)</strong></td><td>Proportion of offspring with a recombinant genotype between two markers</td><td>Fraction 0–0.5</td></tr>
+        <tr><td><strong>LOD score</strong></td><td>Logarithm of odds that two markers are linked vs. unlinked (r=0.5)</td><td>Dimensionless; threshold ≥ 3.0</td></tr>
+        <tr><td><strong>centiMorgan (cM)</strong></td><td>Genetic distance unit: 1 cM = 1% chance of recombination between two markers per meiosis. Calculated from r via a mapping function.</td><td>cM (or Morgans, M = cM/100)</td></tr>
+        <tr><td><strong>Mapping function</strong></td><td>Formula that converts r to cM, correcting for double crossovers (Haldane, Kosambi)</td><td>—</td></tr>
+        <tr><td><strong>Linkage group</strong></td><td>Set of markers that all show pairwise LOD ≥ 3 with at least one other marker in the group = one chromosome</td><td>—</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section id="recomb" class="mb-5">
+  <h2 class="section-divider">Step 1 &mdash; Recombination Frequency</h2>
+  <p>The starting point for any linkage analysis is estimating the <strong>recombination frequency (r)</strong> between every pair of markers. For a RIL or F2 population, this is done by counting genotype combinations in the offspring.</p>
+
+  <div class="formula-explain">
+    <div class="fe-title"><i class="bi bi-calculator"></i> Formula: Recombination Frequency</div>
+    <div class="fe-equation">r = (N_recombinant) / (N_total)</div>
+    <div class="fe-terms">
+      <span class="fe-var">N_recombinant</span><span class="fe-def">Number of individuals with a recombinant genotype between the two markers (AB or BA in a RIL context — where parent 1 = AA and parent 2 = BB, a recombinant is any individual that has different parental alleles at the two markers)</span>
+      <span class="fe-var">N_total</span><span class="fe-def">Total number of individuals (excluding those with missing data at either marker)</span>
+      <span class="fe-var">r range</span><span class="fe-def">0 = completely linked (no recombination detected); 0.5 = unlinked (independent assortment, different chromosomes)</span>
+    </div>
+  </div>
+
+  <p>The interactive spreadsheet below shows the calculation for <strong>one pair of markers in a RIL population</strong>. Edit the four genotype-count cells to see the recombination frequency update live:</p>
+
+  <!-- LIVE SPREADSHEET 1: Recombination frequency -->
+  <div class="live-sheet" data-sheet='{
+    "title": "Recombination Frequency Calculator — Marker Pair (RIL Population)",
+    "legend": true,
+    "cols": [
+      {"id":"A","label":"Genotype combination","desc":"The two-marker genotype class"},
+      {"id":"B","label":"Count (N)","desc":"Number of individuals with this genotype combination (edit me!)"},
+      {"id":"C","label":"Recombinant?","desc":"Is this genotype class a recombinant between the two markers?"},
+      {"id":"D","label":"Recomb. count","desc":"=IF(C2=1, B2, 0) — contribution to recombinant count"}
+    ],
+    "rows": [
+      {"header":"Observed two-marker genotype counts (edit the N column):"},
+      {"rowNum":2,"cells":{"A":{"text":"AA / AA  (both markers homozygous parent 1)"},"B":{"input":62,"step":1,"min":0},"C":{"text":"0"},"D":{"formula":"=IF(C2=0, 0, B2)"}}},
+      {"rowNum":3,"cells":{"A":{"text":"AA / BB  (marker 1 = parent 1; marker 2 = parent 2)"},"B":{"input":18,"step":1,"min":0},"C":{"text":"1"},"D":{"formula":"=B3*1"}}},
+      {"rowNum":4,"cells":{"A":{"text":"BB / AA  (marker 1 = parent 2; marker 2 = parent 1)"},"B":{"input":14,"step":1,"min":0},"C":{"text":"1"},"D":{"formula":"=B4*1"}}},
+      {"rowNum":5,"cells":{"A":{"text":"BB / BB  (both markers homozygous parent 2)"},"B":{"input":56,"step":1,"min":0},"C":{"text":"0"},"D":{"formula":"=IF(C5=0, 0, B5)"}}},
+      {"header":"Calculated values:"},
+      {"rowNum":7,"cells":{"A":{"text":"Total individuals (N_total)"},"B":{"formula":"=B2+B3+B4+B5"},"C":{"text":""},"D":{"text":""}}},
+      {"rowNum":8,"cells":{"A":{"text":"Recombinant individuals (N_recomb)"},"B":{"formula":"=D3+D4"},"C":{"text":""},"D":{"text":""}}},
+      {"rowNum":9,"cells":{"A":{"text":"Recombination frequency  r = N_recomb / N_total"},"B":{"formula":"=ROUND(B8/B7, 4)"},"C":{"text":""},"D":{"text":""}}},
+      {"rowNum":10,"cells":{"A":{"text":"r interpretation (r < 0.5 = linked; r ≈ 0.5 = unlinked)"},"B":{"formula":"=IF(B9<0.5, IF(B9<0.1, 1, 2), 3)"},"C":{"text":"1=tightly linked; 2=loosely linked; 3=unlinked"},"D":{"text":""}}}
+    ],
+    "colDesc": [
+      {"col":"B (Count)", "desc":"Edit these four cells to represent your own marker pair counts from your cross."},
+      {"col":"D (Recomb count)", "desc":"Formula: =B_row * C_row  where C=1 if the genotype is recombinant and 0 if parental. Recombinant classes are AA/BB and BB/AA (one marker from each parent)."},
+      {"col":"B7 (N_total)", "desc":"=B2+B3+B4+B5  — sum of all four genotype class counts."},
+      {"col":"B9 (r)", "desc":"=ROUND(B8/B7, 4)  — recombination frequency rounded to 4 decimal places. If this equals 0.5 these markers are on different chromosomes (unlinked)."}
+    ]
+  }'></div>
+
+  <div class="fun-tip"><span class="fun-tip-icon">&#128161;</span><div><strong>Why can't r exceed 0.5?</strong> Even if two markers are on opposite ends of the same chromosome, each meiosis can produce at most one recombinant and one non-recombinant gamete type from a single crossover between them. When many crossovers occur between two distant markers, they average out to r=0.5. This is the upper limit of recombination frequency &mdash; markers with r=0.5 behave as if they are unlinked, even if they are on the same chromosome. This is why distant markers must be bridged by intervening markers when building linkage maps.</div></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="lod" class="mb-5">
+  <h2 class="section-divider">Step 2 &mdash; LOD Score for Linkage</h2>
+  <p>The LOD score tests whether two markers are <strong>significantly linked</strong> (r &lt; 0.5) versus independent (r = 0.5). It is the log<sub>10</sub> ratio of two likelihoods: the probability of observing the data if the markers are linked at frequency r, versus the probability if they are unlinked.</p>
+
+  <div class="formula-explain">
+    <div class="fe-title"><i class="bi bi-calculator"></i> Formula: LOD Score for Linkage (RIL population)</div>
+    <div class="fe-equation">LOD = log<sub>10</sub>[ L(r) / L(r=0.5) ]</div>
+    <div class="fe-equation" style="font-size:0.88rem;">LOD = N_NR &times; log<sub>10</sub>(1&minus;r) + N_R &times; log<sub>10</sub>(r) &minus; N_total &times; log<sub>10</sub>(0.5)</div>
+    <div class="fe-terms">
+      <span class="fe-var">N_NR</span><span class="fe-def">Number of non-recombinant individuals (parental genotype classes: AA/AA + BB/BB)</span>
+      <span class="fe-var">N_R</span><span class="fe-def">Number of recombinant individuals (AA/BB + BB/AA)</span>
+      <span class="fe-var">N_total</span><span class="fe-def">Total individuals = N_NR + N_R</span>
+      <span class="fe-var">r</span><span class="fe-def">Estimated recombination frequency = N_R / N_total</span>
+      <span class="fe-var">LOD ≥ 3</span><span class="fe-def">Conventional threshold for declaring significant linkage (corresponds to ~1000:1 odds in favour of linkage). Some software uses LOD ≥ 2.5 for dense marker sets.</span>
+    </div>
+  </div>
+
+  <!-- LIVE SPREADSHEET 2: LOD score -->
+  <div class="live-sheet" data-sheet='{
+    "title": "LOD Score Calculator — Two-Marker Linkage Test",
+    "legend": true,
+    "cols": [
+      {"id":"A","label":"Parameter","desc":"Parameter name"},
+      {"id":"B","label":"Value","desc":"Calculated or input value"},
+      {"id":"C","label":"Excel formula","desc":"The exact formula used in each cell"}
+    ],
+    "rows": [
+      {"header":"Input — edit these cells:"},
+      {"rowNum":2,"cells":{"A":{"text":"Non-recombinant count (N_NR)"},"B":{"input":118,"step":1,"min":1},"C":{"text":"=B2+B5 from recomb sheet  (AA/AA + BB/BB)"}}},
+      {"rowNum":3,"cells":{"A":{"text":"Recombinant count (N_R)"},"B":{"input":32,"step":1,"min":0},"C":{"text":"=B3+B4 from recomb sheet  (AA/BB + BB/AA)"}}},
+      {"header":"Calculated values:"},
+      {"rowNum":5,"cells":{"A":{"text":"N_total = N_NR + N_R"},"B":{"formula":"=B2+B3"},"C":{"text":"=B2+B3"}}},
+      {"rowNum":6,"cells":{"A":{"text":"r = N_R / N_total"},"B":{"formula":"=ROUND(B3/B5,5)"},"C":{"text":"=ROUND(B3/B5, 5)"}}},
+      {"rowNum":7,"cells":{"A":{"text":"1 - r"},"B":{"formula":"=1-B6"},"C":{"text":"=1-B6"}}},
+      {"rowNum":8,"cells":{"A":{"text":"log10(r)"},"B":{"formula":"=ROUND(LOG10(B6),6)"},"C":{"text":"=LOG10(B6)"}}},
+      {"rowNum":9,"cells":{"A":{"text":"log10(1-r)"},"B":{"formula":"=ROUND(LOG10(B7),6)"},"C":{"text":"=LOG10(1-B6)"}}},
+      {"rowNum":10,"cells":{"A":{"text":"log10(0.5) — null model constant"},"B":{"formula":"=ROUND(LOG10(0.5),6)"},"C":{"text":"=LOG10(0.5)  [always -0.30103]"}}},
+      {"rowNum":11,"cells":{"A":{"text":"LOD = N_NR×log10(1-r) + N_R×log10(r) - N_total×log10(0.5)"},"B":{"formula":"=ROUND(B2*B9 + B3*B8 - B5*B10, 4)"},"C":{"text":"=B2*LOG10(1-B6) + B3*LOG10(B6) - B5*LOG10(0.5)"}}},
+      {"header":"Decision:"},
+      {"rowNum":13,"cells":{"A":{"text":"Significance (LOD ≥ 3.0 = linked)"},"B":{"formula":"=IF(B11>=3, 1, IF(B11>=2.5, 2, 3))"},"C":{"text":"1=Significant(≥3); 2=Suggestive(≥2.5); 3=Not linked(<2.5)"}}}
+    ],
+    "colDesc": [
+      {"col":"B11 (LOD)", "desc":"=B2*LOG10(1-B6) + B3*LOG10(B6) - B5*LOG10(0.5). This is the log-likelihood ratio test. Each term adds the log-probability that N individuals would show the observed recombinant/non-recombinant pattern under the H1 (linked at r) minus the H0 (unlinked, r=0.5) model."},
+      {"col":"B13 (Decision)", "desc":"LOD ≥ 3.0: markers are significantly linked. LOD ≥ 2.5: suggestive linkage (use as threshold in dense marker sets). LOD < 2.5: no evidence of linkage — these two markers are on different chromosomes or very far apart."}
+    ]
+  }'></div>
+
+  <div class="byte-callout" style="border-left-color:#198754;">
+    <img src="../img/Byte2.png" alt="Byte">
+    <div><strong>LOD score is NOT a p-value.</strong> LOD = 3.0 means the observed data is <em>10<sup>3</sup> = 1000 times</em> more probable under the hypothesis that the two markers are linked at recombination frequency r than under the null hypothesis that they are unlinked (r=0.5). To convert LOD to a p-value: p &asymp; 10<sup>&minus;LOD</sup> / 2. For LOD=3: p &asymp; 0.0005. The threshold LOD=3 gives a false positive rate of roughly 5% across a full genome scan (accounting for the number of pairwise tests).</div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section id="mapping-fn" class="mb-5">
+  <h2 class="section-divider">Step 3 &mdash; Converting r to cM: Mapping Functions</h2>
+  <p>Recombination frequency <em>r</em> is not linearly proportional to physical distance because <strong>double crossovers</strong> cancel each other out. Two mapping functions correct for this:</p>
+  <ul>
+    <li><strong>Haldane (1919):</strong> assumes crossovers occur independently (no interference). Overestimates distances for short intervals. Used for organisms where interference is not established.</li>
+    <li><strong>Kosambi (1944):</strong> assumes positive interference (one crossover reduces the probability of a nearby second crossover). More realistic for most eukaryotes. <em>The default in JoinMap and most plant mapping software.</em></li>
+  </ul>
+
+  <div class="formula-explain">
+    <div class="fe-title"><i class="bi bi-calculator"></i> Mapping Functions: r to cM</div>
+    <div class="fe-equation">Haldane:  d = &minus;50 &times; ln(1 &minus; 2r)     [cM]</div>
+    <div class="fe-equation">Kosambi:  d = 25 &times; ln((1+2r)/(1&minus;2r))   [cM]</div>
+    <div class="fe-terms">
+      <span class="fe-var">r</span><span class="fe-def">Recombination frequency (0 to 0.5)</span>
+      <span class="fe-var">d</span><span class="fe-def">Genetic distance in centiMorgans (cM)</span>
+      <span class="fe-var">ln</span><span class="fe-def">Natural logarithm (LOG in Excel, LN in R)</span>
+      <span class="fe-var">Relationship</span><span class="fe-def">1 cM = 1% recombination only when r is very small (&lt;0.05). At r=0.1, Kosambi gives d=10.2 cM; Haldane gives d=10.5 cM. At r=0.3, Kosambi=32.6 cM; Haldane=40.5 cM — diverge substantially at large distances.</span>
+    </div>
+  </div>
+
+  <!-- LIVE SPREADSHEET 3: Mapping functions -->
+  <div class="live-sheet" data-sheet='{
+    "title": "Mapping Function Calculator — r to cM (Haldane & Kosambi) — Edit the r value!",
+    "legend": true,
+    "cols": [
+      {"id":"A","label":"r (recomb freq)","desc":"Recombination frequency — EDIT THIS"},
+      {"id":"B","label":"Haldane (cM)","desc":"=-50*LN(1-2*r)"},
+      {"id":"C","label":"Kosambi (cM)","desc":"=25*LN((1+2*r)/(1-2*r))"},
+      {"id":"D","label":"Difference (cM)","desc":"Haldane minus Kosambi — shows where they diverge"},
+      {"id":"E","label":"Which to use?","desc":"Kosambi = 1 (better for most organisms); Haldane = 2 (when no interference known)"}
+    ],
+    "rows": [
+      {"header":"Edit the r values in column A — all formulas update instantly:"},
+      {"rowNum":2,"cells":{"A":{"input":0.05,"step":0.01,"min":0.001,"max":0.499},"B":{"formula":"=ROUND(-50*LN(1-2*A2),3)"},"C":{"formula":"=ROUND(25*LN((1+2*A2)/(1-2*A2)),3)"},"D":{"formula":"=ROUND(B2-C2,3)"},"E":{"formula":"=IF(A2<0.35,1,2)"}}},
+      {"rowNum":3,"cells":{"A":{"input":0.10,"step":0.01,"min":0.001,"max":0.499},"B":{"formula":"=ROUND(-50*LN(1-2*A3),3)"},"C":{"formula":"=ROUND(25*LN((1+2*A3)/(1-2*A3)),3)"},"D":{"formula":"=ROUND(B3-C3,3)"},"E":{"formula":"=IF(A3<0.35,1,2)"}}},
+      {"rowNum":4,"cells":{"A":{"input":0.15,"step":0.01,"min":0.001,"max":0.499},"B":{"formula":"=ROUND(-50*LN(1-2*A4),3)"},"C":{"formula":"=ROUND(25*LN((1+2*A4)/(1-2*A4)),3)"},"D":{"formula":"=ROUND(B4-C4,3)"},"E":{"formula":"=IF(A4<0.35,1,2)"}}},
+      {"rowNum":5,"cells":{"A":{"input":0.20,"step":0.01,"min":0.001,"max":0.499},"B":{"formula":"=ROUND(-50*LN(1-2*A5),3)"},"C":{"formula":"=ROUND(25*LN((1+2*A5)/(1-2*A5)),3)"},"D":{"formula":"=ROUND(B5-C5,3)"},"E":{"formula":"=IF(A5<0.35,1,2)"}}},
+      {"rowNum":6,"cells":{"A":{"input":0.25,"step":0.01,"min":0.001,"max":0.499},"B":{"formula":"=ROUND(-50*LN(1-2*A6),3)"},"C":{"formula":"=ROUND(25*LN((1+2*A6)/(1-2*A6)),3)"},"D":{"formula":"=ROUND(B6-C6,3)"},"E":{"formula":"=IF(A6<0.35,1,2)"}}},
+      {"rowNum":7,"cells":{"A":{"input":0.30,"step":0.01,"min":0.001,"max":0.499},"B":{"formula":"=ROUND(-50*LN(1-2*A7),3)"},"C":{"formula":"=ROUND(25*LN((1+2*A7)/(1-2*A7)),3)"},"D":{"formula":"=ROUND(B7-C7,3)"},"E":{"formula":"=IF(A7<0.35,1,2)"}}},
+      {"rowNum":8,"cells":{"A":{"input":0.40,"step":0.01,"min":0.001,"max":0.499},"B":{"formula":"=ROUND(-50*LN(1-2*A8),3)"},"C":{"formula":"=ROUND(25*LN((1+2*A8)/(1-2*A8)),3)"},"D":{"formula":"=ROUND(B8-C8,3)"},"E":{"formula":"=IF(A8<0.35,1,2)"}}},
+      {"header":"Inverse — convert cM back to r (Kosambi):"},
+      {"rowNum":10,"cells":{"A":{"text":"cM (input)"},"B":{"text":"r_Kosambi = 0.5*tanh(d/50)"},"C":{"text":"r_Haldane = 0.5*(1-exp(-d/50))"},"D":{"text":""},"E":{"text":""}}},
+      {"rowNum":11,"cells":{"A":{"input":20,"step":1,"min":0.01,"max":200},"B":{"formula":"=ROUND(0.5*(EXP(A11/25)-1)/(EXP(A11/25)+1),5)"},"C":{"formula":"=ROUND(0.5*(1-EXP(-A11/50)),5)"},"D":{"formula":"=ROUND(B11-C11,5)"},"E":{"text":""}}}
+    ],
+    "colDesc": [
+      {"col":"B (Haldane)", "desc":"=-50*LN(1-2*r). The Haldane formula assumes complete interference absence. Distances grow to infinity as r approaches 0.5."},
+      {"col":"C (Kosambi)", "desc":"=25*LN((1+2*r)/(1-2*r)). Kosambi is additive for map distances under positive interference. This is the formula used by JoinMap (default), R/qtl, and most plant/animal mapping software."},
+      {"col":"D (Difference)", "desc":"Haldane always gives larger distances than Kosambi. The difference is negligible below r=0.1 but becomes substantial at larger distances. For most purposes, use Kosambi."},
+      {"col":"B11 (inverse Kosambi)", "desc":"=0.5*(EXP(d/25)-1)/(EXP(d/25)+1). This is the tanh inverse function. Use this to convert a cM distance back to an estimated recombination frequency — useful for predicting how often a flanking marker will be separated from your gene of interest in a breeding programme."}
+    ]
+  }'></div>
+
+  <div class="fun-tip"><span class="fun-tip-icon">&#127381;</span><div><strong>Map function key insight:</strong> The Kosambi function is <em>additive</em> under positive interference, meaning d<sub>AC</sub> = d<sub>AB</sub> + d<sub>BC</sub> when B is between A and C (if interference is positive). Haldane distances are additive only when there is no interference. This is why Kosambi is preferred: map distances computed from adjacent marker intervals can be summed to give total chromosome length. Haldane distances cannot be summed naively for long intervals.</div></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="grouping" class="mb-5">
+  <h2 class="section-divider">Step 4 &mdash; Linkage Group Assignment</h2>
+  <p>Before ordering markers, you must assign them to <strong>linkage groups</strong> (= chromosomes). Two markers belong to the same linkage group if their LOD score exceeds the threshold (typically LOD &ge; 3) <em>and</em> their recombination frequency is below a maximum (typically r &le; 0.35&ndash;0.40). The threshold combination LOD=3 / r=0.35 is the JoinMap default.</p>
+
+  <!-- LIVE SPREADSHEET 4: Linkage group membership -->
+  <div class="live-sheet" data-sheet='{
+    "title": "Linkage Group Assignment — Pairwise LOD & r Matrix (5 markers)",
+    "legend": true,
+    "cols": [
+      {"id":"A","label":"Marker pair","desc":"The two markers being tested"},
+      {"id":"B","label":"r (recomb freq)","desc":"Estimated recombination frequency — edit to test different scenarios"},
+      {"id":"C","label":"N_total","desc":"Total individuals scored for this pair"},
+      {"id":"D","label":"LOD score","desc":"=N_NR*LOG10(1-r)+N_R*LOG10(r)-N*LOG10(0.5)"},
+      {"id":"E","label":"Same group?","desc":"LOD>=3 AND r<=0.35 => YES (same linkage group)"},
+      {"id":"F","label":"Decision","desc":"Group assignment based on LOD+r criteria"}
+    ],
+    "rows": [
+      {"header":"Edit r (col B) to simulate different marker pair scenarios:"},
+      {"rowNum":2,"cells":{"A":{"text":"M1 vs M2"},"B":{"input":0.08,"step":0.01,"min":0.001,"max":0.499},"C":{"input":150,"step":1,"min":10},"D":{"formula":"=ROUND((C2*(1-B2))*LOG10(1-B2)+(C2*B2)*LOG10(B2)-C2*LOG10(0.5),3)"},"E":{"formula":"=IF(D2>=3,IF(B2<=0.35,1,0),0)"},"F":{"formula":"=IF(E2=1,1,2)"}}},
+      {"rowNum":3,"cells":{"A":{"text":"M1 vs M3"},"B":{"input":0.22,"step":0.01,"min":0.001,"max":0.499},"C":{"input":150,"step":1,"min":10},"D":{"formula":"=ROUND((C3*(1-B3))*LOG10(1-B3)+(C3*B3)*LOG10(B3)-C3*LOG10(0.5),3)"},"E":{"formula":"=IF(D3>=3,IF(B3<=0.35,1,0),0)"},"F":{"formula":"=IF(E3=1,1,2)"}}},
+      {"rowNum":4,"cells":{"A":{"text":"M2 vs M3"},"B":{"input":0.15,"step":0.01,"min":0.001,"max":0.499},"C":{"input":150,"step":1,"min":10},"D":{"formula":"=ROUND((C4*(1-B4))*LOG10(1-B4)+(C4*B4)*LOG10(B4)-C4*LOG10(0.5),3)"},"E":{"formula":"=IF(D4>=3,IF(B4<=0.35,1,0),0)"},"F":{"formula":"=IF(E4=1,1,2)"}}},
+      {"rowNum":5,"cells":{"A":{"text":"M1 vs M4 (different chr?)"},"B":{"input":0.49,"step":0.01,"min":0.001,"max":0.499},"C":{"input":150,"step":1,"min":10},"D":{"formula":"=ROUND((C5*(1-B5))*LOG10(1-B5)+(C5*B5)*LOG10(B5)-C5*LOG10(0.5),3)"},"E":{"formula":"=IF(D5>=3,IF(B5<=0.35,1,0),0)"},"F":{"formula":"=IF(E5=1,1,3)"}}},
+      {"rowNum":6,"cells":{"A":{"text":"M3 vs M4 (different chr?)"},"B":{"input":0.48,"step":0.01,"min":0.001,"max":0.499},"C":{"input":150,"step":1,"min":10},"D":{"formula":"=ROUND((C6*(1-B6))*LOG10(1-B6)+(C6*B6)*LOG10(B6)-C6*LOG10(0.5),3)"},"E":{"formula":"=IF(D6>=3,IF(B6<=0.35,1,0),0)"},"F":{"formula":"=IF(E6=1,1,3)"}}},
+      {"rowNum":7,"cells":{"A":{"text":"M4 vs M5 (same chr as M4)"},"B":{"input":0.12,"step":0.01,"min":0.001,"max":0.499},"C":{"input":150,"step":1,"min":10},"D":{"formula":"=ROUND((C7*(1-B7))*LOG10(1-B7)+(C7*B7)*LOG10(B7)-C7*LOG10(0.5),3)"},"E":{"formula":"=IF(D7>=3,IF(B7<=0.35,1,0),0)"},"F":{"formula":"=IF(E7=1,1,3)"}}}
+    ],
+    "colDesc": [
+      {"col":"D (LOD)", "desc":"=ROUND((N_total*(1-r))*LOG10(1-r) + (N_total*r)*LOG10(r) - N_total*LOG10(0.5), 3). Approximates the full LOD formula by distributing N proportionally between recombinant and non-recombinant classes. For the exact formula, use the N_R and N_NR counts from the Step 1 spreadsheet."},
+      {"col":"E (Same group?)", "desc":"=IF(D>=3, IF(r<=0.35, 1, 0), 0). Returns 1 (YES, same linkage group) only if BOTH criteria are met: LOD score ≥ 3.0 AND recombination frequency ≤ 0.35. This is the JoinMap default grouping rule."},
+      {"col":"F (Decision)", "desc":"1 = same linkage group as reference; 2 = different group (LOD or r threshold not met); 3 = different linkage group. In practice, single-linkage clustering is applied: if M1-M2 and M2-M3 are both in the same group, then M1, M2, and M3 are all placed in that group even if M1-M3 is only marginally linked."}
+    ]
+  }'></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="ordering" class="mb-5">
+  <h2 class="section-divider">Step 5 &mdash; Marker Ordering: Sum of Adjacent Recombination Frequencies</h2>
+  <p>Once markers are assigned to linkage groups, they must be ordered along the chromosome to minimise the total map length. The simplest criterion is to find the order of markers that minimises the <strong>sum of adjacent recombination frequencies (SARF)</strong> or equivalently the total map length in cM.</p>
+
+  <div class="formula-explain">
+    <div class="fe-title"><i class="bi bi-calculator"></i> Objective: Minimise Total Map Length</div>
+    <div class="fe-equation">Total length = &sum; d(M<sub>i</sub>, M<sub>i+1</sub>)  for all adjacent pairs</div>
+    <div class="fe-terms">
+      <span class="fe-var">d(M<sub>i</sub>, M<sub>i+1</sub>)</span><span class="fe-def">Kosambi distance between consecutive markers i and i+1</span>
+      <span class="fe-var">Optimal order</span><span class="fe-def">The permutation of markers that gives the smallest total length. For small numbers of markers (&lt;12), all permutations can be tried. For larger sets, heuristic algorithms (ripple, simulated annealing) are used by JoinMap and CarthaGene.</span>
+    </div>
+  </div>
+
+  <!-- LIVE SPREADSHEET 5: Marker ordering -->
+  <div class="live-sheet" data-sheet='{
+    "title": "Marker Ordering — Compare Two Alternative Orders for 4 Markers on One Linkage Group",
+    "legend": true,
+    "cols": [
+      {"id":"A","label":"Interval","desc":"Adjacent marker pair in the proposed order"},
+      {"id":"B","label":"r (observed)","desc":"Recombination frequency between this pair"},
+      {"id":"C","label":"Kosambi cM","desc":"=25*LN((1+2*r)/(1-2*r))"},
+      {"id":"D","label":"Order 2 r","desc":"Same pair in alternative marker order"},
+      {"id":"E","label":"Order 2 cM","desc":"Kosambi cM for order 2"}
+    ],
+    "rows": [
+      {"header":"Order 1: M1 — M2 — M3 — M4"},
+      {"rowNum":2,"cells":{"A":{"text":"M1 — M2"},"B":{"input":0.08,"step":0.01,"min":0.001,"max":0.499},"C":{"formula":"=ROUND(25*LN((1+2*B2)/(1-2*B2)),2)"},"D":{"input":0.08,"step":0.01,"min":0.001,"max":0.499},"E":{"formula":"=ROUND(25*LN((1+2*D2)/(1-2*D2)),2)"}}},
+      {"rowNum":3,"cells":{"A":{"text":"M2 — M3"},"B":{"input":0.12,"step":0.01,"min":0.001,"max":0.499},"C":{"formula":"=ROUND(25*LN((1+2*B3)/(1-2*B3)),2)"},"D":{"input":0.22,"step":0.01,"min":0.001,"max":0.499},"E":{"formula":"=ROUND(25*LN((1+2*D3)/(1-2*D3)),2)"}}},
+      {"rowNum":4,"cells":{"A":{"text":"M3 — M4"},"B":{"input":0.18,"step":0.01,"min":0.001,"max":0.499},"C":{"formula":"=ROUND(25*LN((1+2*B4)/(1-2*B4)),2)"},"D":{"input":0.12,"step":0.01,"min":0.001,"max":0.499},"E":{"formula":"=ROUND(25*LN((1+2*D4)/(1-2*D4)),2)"}}},
+      {"header":"Order 2: M1 — M3 — M2 — M4  (M2 and M3 swapped)"},
+      {"rowNum":6,"cells":{"A":{"text":"Total map length (cM)"},"B":{"formula":"=ROUND(C2+C3+C4,2)"},"C":{"text":"← Order 1 total"},"D":{"formula":"=ROUND(E2+E3+E4,2)"},"E":{"text":"← Order 2 total"}}},
+      {"rowNum":7,"cells":{"A":{"text":"Preferred order (shorter = better)"},"B":{"formula":"=IF(B6<=D6,1,2)"},"C":{"text":"1=Order1 better; 2=Order2 better"},"D":{"text":""},"E":{"text":""}}}
+    ],
+    "colDesc": [
+      {"col":"C (Kosambi cM)", "desc":"=25*LN((1+2*r)/(1-2*r)). Applied to each adjacent pair in the proposed marker order."},
+      {"col":"B6 (Total length)", "desc":"=C2+C3+C4. Sum of all adjacent interval Kosambi distances. The correct marker order minimises this total. In practice, software tests all permutations or uses simulated annealing to find the minimum."},
+      {"col":"B7 (Decision)", "desc":"=IF(B6<=D6, 1, 2). Chooses the order with the shorter total map length. Try different r values in the D column to see when swapping markers changes the preferred order."}
+    ]
+  }'></div>
+
+  <div class="fun-tip"><span class="fun-tip-icon">&#129516;</span><div><strong>The marker ordering problem is NP-hard!</strong> For n markers there are n!/2 possible orders. With 20 markers that is over 6 &times; 10<sup>16</sup> possibilities &mdash; impossible to enumerate. JoinMap uses a <em>nearest-neighbour</em> heuristic seeded by the best 3-marker triple, then refines it with a <em>ripple algorithm</em> that swaps adjacent markers and keeps improvements. CarthaGene uses simulated annealing and branch-and-bound. For &gt;200 markers per group, the ordering is always heuristic and may not be globally optimal. This is why replicate mapping populations are valuable: consistent ordering across independent maps validates the result.</div></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="software" class="mb-5">
+  <h2 class="section-divider">Step 6 &mdash; JoinMap / R/qtl2 Pipeline</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>R — Build linkage map from raw genotype matrix using R/qtl + ASMap</span><button class="btn-copy">Copy</button></div>
+<pre id="s6-rcode">######################################################################
+## STEP 6: R pipeline for linkage map construction
+## Tools: R/qtl (read cross, check data) + ASMap (fast MSTmap algorithm)
+## ASMap (https://cran.r-project.org/package=ASMap) wraps the MSTmap
+## algorithm — the fastest and most accurate marker ordering method
+## for large SNP datasets (handles thousands of markers).
+##
+## Install: install.packages(c("qtl", "ASMap"))
+######################################################################
+
+library(qtl)
+library(ASMap)
+library(ggplot2)
+
+## ================================================================
+## FORMAT: R/qtl CSV format
+## ================================================================
+## Row 1: marker names (columns) and phenotype column names
+## Row 2: chromosome assignment (use NA until map is built)
+## Row 3: position in cM (use NA until map is built)
+## Rows 4+: individual ID + genotype codes
+##
+## Genotype codes for RIL:
+##   A = homozygous parent 1 (AA)
+##   B = homozygous parent 2 (BB)
+##   - = missing data
+##
+## Genotype codes for F2:
+##   A = AA, H = AB (heterozygous), B = BB, - = missing
+
+## Example: read a RIL cross from CSV
+## cross <- read.cross("csv",
+##     file = "myRIL_genotypes.csv",
+##     genfile = NULL,
+##     na.strings = c("-", "NA"),
+##     genotypes = c("A","H","B"))
+
+## Using the built-in soybean RIL dataset for illustration:
+data(soybean)           ## From R/qtl: 105 markers, 95 RIL individuals, 3 traits
+print(soybean)
+## "f2": has H class — this is actually an F2 in the soybean dataset.
+## Convert to RIL-style analysis by treating H as missing:
+## soybean <- convert2bcsft(soybean, BC.gen=0, F.gen=6)
+
+## ================================================================
+## STEP 6a: Data quality checks before mapping
+## ================================================================
+## 1. Check for genotyping error: markers with > 20% missing data
+##    are unreliable and should be removed.
+## 2. Check for duplicate individuals (identical genotype vectors)
+## 3. Check for segregation distortion (marker deviated from expected
+##    50:50 or 25:50:25 ratio — may indicate selection)
+
+## Per-marker missing data
+geno_freq <- summary(soybean)$genotyped.pct
+low_geno <- names(geno_freq[geno_freq < 80])     ## < 80% genotyped = problematic
+cat("Markers with >20% missing data:", length(low_geno), "\n")
+if (length(low_geno) > 0) print(low_geno)
+
+## Remove problematic markers
+if (length(low_geno) > 0) {
+    soybean <- drop.markers(soybean, low_geno)
+    cat("Cleaned cross:", totmar(soybean), "markers remaining\n")
+}
+
+## Check for duplicate markers (same genotype vector = remove one)
+## dup_marks <- findDupMarkers(soybean, exact.only=TRUE)
+## soybean   <- drop.markers(soybean, unlist(dup_marks))
+
+## Segregation distortion chi-sq test
+gt  <- geno.table(soybean)
+seg_dist <- gt[gt$P.value < 0.001,]     ## markers distorted at p < 0.001
+cat("Markers with segregation distortion (p<0.001):", nrow(seg_dist), "\n")
+
+## ================================================================
+## STEP 6b: Linkage group formation using ASMap
+## ================================================================
+## mstmap: fast minimum spanning tree marker ordering
+## p.value = 1e-6  : LOD ~ 6.0 threshold for grouping (strict)
+## p.value = 1e-3  : LOD ~ 3.0 (permissive, good for smaller populations)
+## dist.fun = "kosambi" : Kosambi mapping function (default; recommended)
+## trace = TRUE    : print progress
+
+soybean_map <- mstmap.cross(
+    soybean,
+    bychr       = FALSE,       ## FALSE: let ASMap find linkage groups automatically
+    trace       = TRUE,
+    p.value     = 1e-4,        ## LOD ≈ 4 threshold for linkage grouping
+    noMap.dist  = 15,          ## maximum gap (cM) before splitting a linkage group
+    noMap.size  = 0,           ## minimum markers per group (0 = no minimum)
+    anchor      = FALSE,
+    detectBadData = TRUE,      ## flag likely genotyping errors automatically
+    dist.fun    = "kosambi"    ## mapping function
+)
+
+## ================================================================
+## STEP 6c: Examine the genetic map
+## ================================================================
+## summary: number of chromosomes, markers per LG, total length
+summary(soybean_map)
+
+## Total map length
+total_len <- sum(chrlen(soybean_map))
+cat("Total map length:", round(total_len,1), "cM\n")
+cat("Number of linkage groups:", nchr(soybean_map), "\n")
+cat("Markers per linkage group:\n")
+print(nmar(soybean_map))
+
+## ================================================================
+## STEP 6d: Visualise the linkage map
+## ================================================================
+## plotMap: standard R/qtl map plot
+png("linkage_map.png", width=1200, height=600, res=120)
+plotMap(soybean_map,
+        main = "Genetic Linkage Map",
+        show.marker.names = FALSE)    ## set TRUE if few markers
+dev.off()
+
+## ================================================================
+## STEP 6e: Export map positions for downstream QTL analysis
+## ================================================================
+## Save the genetic map as a CSV
+map_positions <- do.call(rbind, lapply(names(soybean_map$gmap), function(chr) {
+    positions <- soybean_map$gmap[[chr]]
+    data.frame(marker=names(positions), chr=chr,
+               pos_cM=round(positions,3), stringsAsFactors=FALSE)
+}))
+write.csv(map_positions, "genetic_map_positions.csv", row.names=FALSE)
+cat("Map saved: genetic_map_positions.csv\n")
+head(map_positions, 10)</pre>
+  </div>
+  <div class="download-bar">
+    <span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span>
+    <button class="btn-download-script" data-script-id="s6-rcode" data-filename="06_linkage_map_ASMap.R"><i class="bi bi-download me-1"></i>06_linkage_map_ASMap.R</button>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section id="visualise" class="mb-5">
+  <h2 class="section-divider">Step 7 &mdash; Map Visualisation in R</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>R — Publication-quality linkage map with ggplot2</span><button class="btn-copy">Copy</button></div>
+<pre id="s7-viz">######################################################################
+## STEP 7: Publication-quality linkage map visualisation
+## Creates a chromosome-stick plot with marker tick marks,
+## chromosome lengths, and grouped by linkage group
+######################################################################
+
+library(ggplot2)
+library(dplyr)
+
+## Load the exported map positions (or use from soybean_map above)
+map_df <- read.csv("genetic_map_positions.csv")
+
+## Ensure chromosomes are ordered numerically
+map_df$chr <- factor(map_df$chr, levels=gtools::mixedsort(unique(map_df$chr)))
+
+## Per-chromosome summary for drawing chromosome sticks
+chr_summary <- map_df %>%
+    group_by(chr) %>%
+    summarise(
+        total_cM   = max(pos_cM),
+        n_markers  = n(),
+        .groups = "drop"
+    )
+cat("Chromosome summary:\n")
+print(chr_summary)
+
+## ----------------------------------------------------------------
+## Plot: chromosome sticks with marker ticks
+## ----------------------------------------------------------------
+ggplot() +
+    ## Chromosome backbone (thick vertical line)
+    geom_segment(data=chr_summary,
+                 aes(x=chr, xend=chr, y=0, yend=total_cM),
+                 linewidth=3, color="#2c3e50", lineend="round") +
+    ## Marker tick marks
+    geom_segment(data=map_df,
+                 aes(x=as.numeric(chr)-0.18,
+                     xend=as.numeric(chr)+0.18,
+                     y=pos_cM, yend=pos_cM),
+                 linewidth=0.35, color="#e74c3c", alpha=0.8) +
+    ## Chromosome labels at top
+    geom_text(data=chr_summary,
+              aes(x=chr, y=-3, label=paste0("LG", chr)),
+              size=3, fontface="bold", vjust=1) +
+    ## Chromosome length label at bottom
+    geom_text(data=chr_summary,
+              aes(x=chr, y=total_cM+3,
+                  label=paste0(round(total_cM,0), " cM")),
+              size=2.5, color="#7f8c8d", vjust=0) +
+    scale_y_reverse(name="Map position (cM)") +
+    scale_x_discrete(name=NULL) +
+    labs(
+        title    = "Genetic Linkage Map",
+        subtitle = paste0(nrow(map_df), " markers — ",
+                          nlevels(map_df$chr), " linkage groups — ",
+                          round(sum(chr_summary$total_cM),0), " cM total")
+    ) +
+    theme_minimal(base_size=12) +
+    theme(
+        axis.text.x  = element_blank(),
+        axis.ticks.x = element_blank(),
+        panel.grid   = element_blank(),
+        plot.title   = element_text(face="bold")
+    )
+ggsave("linkage_map_publication.png", width=10, height=7, dpi=200)
+cat("Saved: linkage_map_publication.png\n")</pre>
+  </div>
+  <div class="download-bar">
+    <span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span>
+    <button class="btn-download-script" data-script-id="s7-viz" data-filename="07_linkage_map_plot.R"><i class="bi bi-download me-1"></i>07_linkage_map_plot.R</button>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section id="pitfalls" class="mb-5">
+  <h2 class="section-divider">Common Pitfalls &amp; How to Fix Them</h2>
+  <div class="param-table">
+    <table class="table table-bordered mb-0">
+      <thead class="table-dark"><tr><th>Problem</th><th>Symptom</th><th>Diagnosis &amp; Fix</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Too many linkage groups</strong></td><td>More groups than expected chromosomes</td><td>LOD threshold is too high. Lower from LOD=6 to LOD=3 in <code>mstmap(p.value=1e-3)</code>. Also check for missing data: markers with &gt;30% missing inflate estimated r and break groups.</td></tr>
+        <tr><td><strong>Too few linkage groups</strong></td><td>Markers from different chromosomes grouped together</td><td>LOD threshold is too low OR maximum r threshold too high. Try LOD=4 / r&le;0.35. Also check for contamination — a mixed-up sample with wrong parental alleles forces distant markers to look linked.</td></tr>
+        <tr><td><strong>Inverted marker order</strong></td><td>LOD profile or QTL peaks on wrong side of chromosome</td><td>The orientation of a linkage group (left-right) is arbitrary. Flip the chromosome: <code>map$chr1 &lt;- max(map$chr1) - rev(map$chr1)</code>. Compare to physical map or known marker anchors to choose the correct orientation.</td></tr>
+        <tr><td><strong>Very long gaps in the map</strong></td><td>One interval &gt;30–40 cM while others are &lt;10 cM</td><td>Missing markers in that region. Check if any markers failed QC that span the gap. Add more markers (GBS, KASP) targeting that chromosomal region. Gaps &gt;50 cM are unreliable for QTL interval mapping — QTL confidence intervals will be inflated.</td></tr>
+        <tr><td><strong>Segregation distortion hotspot</strong></td><td>Region of chromosome with consistently skewed allele frequencies</td><td>May be a real biological signal (locus affecting viability/fertility). Do NOT remove distorted markers — they provide important positional information. JoinMap handles distorted markers in its maximum likelihood framework. Report the distortion in your manuscript.</td></tr>
+        <tr><td><strong>Double crossover artefacts</strong></td><td>Single individual shows recombination in two very close intervals</td><td>Likely a genotyping error, not a true double crossover. R/qtl <code>calc.errorlod()</code> flags such individuals. Set error rate to 0.01–0.05 in <code>calc.genoprob(error.prob=0.01)</code> to downweight suspect genotypes in QTL analysis.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="mb-5">
+  <div class="d-flex justify-content-between">
+    <a href="index.html" class="btn btn-outline-secondary rounded-pill px-4"><i class="bi bi-grid me-2"></i>All Tutorials</a>
+    <a href="qtl-mapping-tutorial.html" class="btn btn-primary rounded-pill px-4">QTL Mapping <i class="bi bi-arrow-right ms-2"></i></a>
+  </div>
+</section>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-lg-6"><h5 class="text-white fw-bold mb-3"><span style="color:#ff9933;">Indian</span><span style="color:var(--ieb-primary);">Elucid</span><span style="color:var(--ieb-accent);">Biology</span></h5><p class="small">Free, interactive bioinformatics tutorials. Open source and community-driven.</p></div>
+      <div class="col-lg-6 text-lg-end"><p class="small mb-1">Founded by <strong>Ankush Sharma</strong></p><div class="d-flex gap-3 justify-content-lg-end"><a href="https://github.com/ank-man" target="_blank" class="text-white fs-5"><i class="bi bi-github"></i></a><a href="https://www.linkedin.com/in/ankush-sharma-290307/" target="_blank" class="text-white fs-5"><i class="bi bi-linkedin"></i></a><a href="mailto:mr.ank2999@gmail.com" class="text-white fs-5"><i class="bi bi-envelope"></i></a></div></div>
+    </div>
+    <hr class="border-secondary mt-4 mb-3">
+    <p class="text-center small mb-0">&copy; 2025 IndianElucidBiology &mdash; Made with <span style="color:#e25555;">&#9829;</span> for the bioinformatics community.</p>
+  </div>
+</footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/main.js"></script>
+<script src="../js/live-spreadsheet.js"></script>
+</body>
+</html>

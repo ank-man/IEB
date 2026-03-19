@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Universal Variant Filtering Pipeline: VQSR, Hard Filters &amp; bcftools | IndianElucidBiology</title>
+  <meta name="description" content="A universal variant filtering pipeline that works for WGS, WES, RNA-seq variants, and non-model organisms. Covers GATK VQSR, hard filters, bcftools filtering, automated Python scripts, and filtering decision trees.">
+  <meta name="keywords" content="variant filtering, VQSR, hard filter, GATK, bcftools, VCF filtering, QD, MQ, FS, SOR, MQRankSum, ReadPosRankSum, Ti/Tv, genotype filtering, variant quality">
+  <link rel="canonical" href="https://indianelucidbiology.github.io/tutorials/variant-filtering-pipeline.html">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="../css/style.css" rel="stylesheet">
+  <link href="../css/live-spreadsheet.css" rel="stylesheet">
+</head>
+<body>
+<div class="progress-tracker"></div>
+
+<nav class="navbar navbar-expand-lg fixed-top">
+  <div class="container">
+    <a class="navbar-brand" href="../index.html">
+      <span class="brand-indian">Indian</span><span class="brand-elucid">Elucid</span><span class="brand-biology">Biology</span>
+    </a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="mainNav">
+      <ul class="navbar-nav ms-auto me-3">
+        <li class="nav-item"><a class="nav-link" href="../index.html">Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="index.html">Tutorial Library</a></li>
+        <li class="nav-item"><a class="nav-link" href="snpeff-snpsift-variant-annotation.html"><i class="bi bi-arrow-left me-1"></i>SnpEff</a></li>
+        <li class="nav-item"><a class="nav-link" href="qtl-mapping-tutorial.html">QTL Mapping<i class="bi bi-arrow-right ms-1"></i></a></li>
+      </ul>
+      <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode">&#9790;</button>
+    </div>
+  </div>
+</nav>
+
+<section class="tutorial-hero">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-lg-8">
+        <nav aria-label="breadcrumb">
+          <ol class="breadcrumb mb-3" style="--bs-breadcrumb-divider-color:rgba(255,255,255,0.5);">
+            <li class="breadcrumb-item"><a href="../index.html" class="text-white-50 text-decoration-none">Home</a></li>
+            <li class="breadcrumb-item"><a href="index.html" class="text-white-50 text-decoration-none">Tutorials</a></li>
+            <li class="breadcrumb-item active text-white">Universal Variant Filtering</li>
+          </ol>
+        </nav>
+        <h1 class="display-5 fw-bold text-white mb-3">Universal Variant Filtering Pipeline</h1>
+        <p class="lead text-white-50 mb-4">
+          VQSR for human WGS &middot; hard filters for small cohorts &amp; non-model organisms &middot; RNA-seq variant filters &middot; bcftools filter &middot; genotype-level filtering &middot; automated Python pipeline &middot; decision tree guide
+        </p>
+        <div class="d-flex gap-3 flex-wrap">
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-clock me-1"></i> ~100 min</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-bar-chart me-1"></i> Intermediate–Advanced</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-terminal me-1"></i> Bash / Python</span>
+        </div>
+      </div>
+      <div class="col-lg-4 text-center d-none d-lg-block">
+        <img src="../img/Byte3.png" alt="Byte" class="img-fluid" style="max-height:230px;filter:drop-shadow(0 10px 30px rgba(0,0,0,0.4));">
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="container py-5">
+  <div class="row">
+    <div class="col-lg-3 d-none d-lg-block">
+      <div class="toc-sidebar">
+        <h6 class="fw-bold text-muted text-uppercase small mb-3">On this page</h6>
+        <nav class="nav flex-column">
+          <a class="nav-link" href="#decision">Filtering Decision Tree</a>
+          <a class="nav-link" href="#concepts">Key QC Metrics Explained</a>
+          <a class="nav-link" href="#step1">1. GATK VQSR (Human WGS)</a>
+          <a class="nav-link" href="#step2">2. Hard Filters (Non-model / Small cohort)</a>
+          <a class="nav-link" href="#step3">3. Genotype-Level Filtering</a>
+          <a class="nav-link" href="#step4">4. RNA-seq Variant Filters</a>
+          <a class="nav-link" href="#step5">5. bcftools Universal Filter</a>
+          <a class="nav-link" href="#step6">6. Automated Python Pipeline</a>
+          <a class="nav-link" href="#step7">7. Validation: Ti/Tv &amp; dbSNP overlap</a>
+        </nav>
+      </div>
+    </div>
+
+    <div class="col-lg-9">
+      <div class="tutorial-content">
+
+<!-- ================================================================ -->
+<section id="decision" class="mb-5">
+  <h2 class="section-divider">Filtering Decision Tree</h2>
+  <p>The <strong>biggest mistake</strong> in variant calling is applying the wrong filtering strategy for your data. Use this decision tree before writing a single filter command:</p>
+
+  <div class="param-table">
+    <table class="table table-bordered mb-0">
+      <thead class="table-dark"><tr><th>Your Data</th><th>Strategy</th><th>Why</th></tr></thead>
+      <tbody>
+        <tr class="table-success"><td>Human/mouse WGS, &ge;30 samples</td><td><strong>GATK VQSR</strong></td><td>Machine-learning on Gaussian mixture model trained on known variants. Most accurate for well-annotated genomes.</td></tr>
+        <tr class="table-warning"><td>Human WES, &ge;30 samples</td><td><strong>GATK VQSR</strong> (reduced resource)</td><td>Same as WGS but with reduced truth sensitivity — WES has sparser coverage and fewer SNPs per sample for training.</td></tr>
+        <tr class="table-info"><td>Any organism, &lt;30 samples, OR non-model organism without dbSNP/HapMap</td><td><strong>Hard filters</strong></td><td>VQSR requires training data (dbSNP, HapMap, 1000G) and enough variants to fit a model. Without these, hard filters are more reliable.</td></tr>
+        <tr class="table-info"><td>Non-model organism (crop, wildlife, marine, insect)</td><td><strong>Hard filters + bcftools</strong></td><td>No resource files exist. Hard filters with organism-appropriate thresholds are the standard approach.</td></tr>
+        <tr><td>RNA-seq variant calling</td><td><strong>RNA-seq specific hard filters</strong></td><td>RNA editing artefacts, mapping bias near junctions, and strand-specific errors require different thresholds than DNA.</td></tr>
+        <tr><td>Single sample (solo) or trios</td><td><strong>Hard filters</strong></td><td>VQSR cannot be run on fewer than ~30 samples. Use hard filters + DeepVariant for best accuracy.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ================================================================ -->
+<section id="concepts" class="mb-5">
+  <h2 class="section-divider">Key QC Metrics Explained</h2>
+  <p>Every VCF INFO field used in filtering has a biological or statistical interpretation. Understanding these lets you tune thresholds intelligently rather than blindly copying defaults.</p>
+
+  <div class="param-table">
+    <table class="table table-striped mb-0">
+      <thead><tr><th>Metric</th><th>Full Name</th><th>What it measures</th><th>Filter direction</th><th>GATK default (SNP)</th></tr></thead>
+      <tbody>
+        <tr><td><code>QD</code></td><td>Quality by Depth</td><td>Variant quality / allele depth. Normalises QUAL by coverage — prevents high-depth sites from having spuriously high QUAL.</td><td>REMOVE if QD &lt; 2</td><td>&lt; 2.0</td></tr>
+        <tr><td><code>MQ</code></td><td>Mapping Quality</td><td>RMS mapping quality of reads at the variant site. Low MQ = reads are mapping poorly = likely false positive from mis-alignment.</td><td>REMOVE if MQ &lt; 40</td><td>&lt; 40.0</td></tr>
+        <tr><td><code>FS</code></td><td>Fisher Strand Bias</td><td>Phred-scaled p-value from Fisher's exact test for strand bias. True variants should appear on both strands equally; artefacts tend to appear on only one strand.</td><td>REMOVE if FS &gt; 60</td><td>&gt; 60.0 (SNP) &gt; 200.0 (indel)</td></tr>
+        <tr><td><code>SOR</code></td><td>Strand Odds Ratio</td><td>More sophisticated strand bias metric; less sensitive to high coverage than FS. Measures ratio of reads on each strand for ref vs alt allele.</td><td>REMOVE if SOR &gt; 3</td><td>&gt; 3.0</td></tr>
+        <tr><td><code>MQRankSum</code></td><td>MQ Rank Sum Test</td><td>Z-score from Wilcoxon rank sum test comparing mapping qualities of ref-supporting vs alt-supporting reads. Very negative = alt reads map poorly = likely misalignment artefact.</td><td>REMOVE if &lt; &minus;12.5</td><td>&lt; &minus;12.5</td></tr>
+        <tr><td><code>ReadPosRankSum</code></td><td>Read Position Rank Sum Test</td><td>Z-score comparing position of ref vs alt allele within reads. Artefacts tend to appear at read ends (polymerase error); true variants appear throughout the read.</td><td>REMOVE if &lt; &minus;8</td><td>&lt; &minus;8.0</td></tr>
+        <tr><td><code>QUAL</code></td><td>Phred-scaled variant quality</td><td>Log-probability that the genotype call is wrong. QUAL 30 = 0.1% error rate.</td><td>REMOVE if &lt; 30</td><td>Site-specific</td></tr>
+        <tr><td><code>DP</code></td><td>Depth</td><td>Total read depth across all samples at this site. Very high depth = repetitive region (paralogous mapping); very low = insufficient evidence.</td><td>REMOVE if DP &lt; 5 or DP &gt; mean×3</td><td>Data-specific</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p class="mt-4">Use the live spreadsheet below to check whether your variant's INFO field values would pass or fail standard hard filters. Enter the values from a single VCF line to see the decision for each metric instantly:</p>
+
+  <div class="live-sheet" data-sheet='{
+    "title": "Live VCF Hard-Filter Decision Tool — paste your variant INFO values into the yellow cells",
+    "legend": true,
+    "cols": [
+      {"id":"A","label":"Metric","desc":"VCF INFO field name"},
+      {"id":"B","label":"Your value","desc":"Value from your VCF — EDIT these"},
+      {"id":"C","label":"SNP threshold","desc":"GATK recommended SNP filter cutoff"},
+      {"id":"D","label":"Indel threshold","desc":"GATK recommended Indel filter cutoff"},
+      {"id":"E","label":"SNP pass?","desc":"1=PASS 0=FAIL for SNP"},
+      {"id":"F","label":"Indel pass?","desc":"1=PASS 0=FAIL for indel"}
+    ],
+    "rows": [
+      {"header":"Enter your variant\u2019s INFO field values in column B:"},
+      {"rowNum":2,"cells":{"A":{"text":"QD (Quality by Depth)"},"B":{"input":18.5,"step":0.1,"min":0},"C":{"text":"FAIL if < 2.0"},"D":{"text":"FAIL if < 2.0"},"E":{"formula":"=IF(B2>=2,1,0)"},"F":{"formula":"=IF(B2>=2,1,0)"}}},
+      {"rowNum":3,"cells":{"A":{"text":"MQ (Mapping Quality RMS)"},"B":{"input":58.2,"step":0.1,"min":0,"max":60},"C":{"text":"FAIL if < 40.0"},"D":{"text":"not applied"},"E":{"formula":"=IF(B3>=40,1,0)"},"F":{"formula":"=1"}}},
+      {"rowNum":4,"cells":{"A":{"text":"FS (Fisher Strand Bias, Phred)"},"B":{"input":12.4,"step":0.1,"min":0},"C":{"text":"FAIL if > 60.0"},"D":{"text":"FAIL if > 200.0"},"E":{"formula":"=IF(B4<=60,1,0)"},"F":{"formula":"=IF(B4<=200,1,0)"}}},
+      {"rowNum":5,"cells":{"A":{"text":"SOR (Strand Odds Ratio)"},"B":{"input":1.8,"step":0.1,"min":0},"C":{"text":"FAIL if > 3.0"},"D":{"text":"FAIL if > 10.0"},"E":{"formula":"=IF(B5<=3,1,0)"},"F":{"formula":"=IF(B5<=10,1,0)"}}},
+      {"rowNum":6,"cells":{"A":{"text":"MQRankSum (Z-score)"},"B":{"input":-1.2,"step":0.1},"C":{"text":"FAIL if < -12.5"},"D":{"text":"not applied"},"E":{"formula":"=IF(B6>=-12.5,1,0)"},"F":{"formula":"=1"}}},
+      {"rowNum":7,"cells":{"A":{"text":"ReadPosRankSum (Z-score)"},"B":{"input":-0.8,"step":0.1},"C":{"text":"FAIL if < -8.0"},"D":{"text":"FAIL if < -20.0"},"E":{"formula":"=IF(B7>=-8,1,0)"},"F":{"formula":"=IF(B7>=-20,1,0)"}}},
+      {"rowNum":8,"cells":{"A":{"text":"QUAL (Phred-scaled quality)"},"B":{"input":245,"step":1,"min":0},"C":{"text":"FAIL if < 30"},"D":{"text":"FAIL if < 30"},"E":{"formula":"=IF(B8>=30,1,0)"},"F":{"formula":"=IF(B8>=30,1,0)"}}},
+      {"header":"Overall decision (all metrics must PASS = 1):"},
+      {"rowNum":10,"cells":{"A":{"text":"OVERALL SNP decision (all 1 = PASS)"},"B":{"formula":"=IF(E2*E3*E4*E5*E6*E7*E8=1,1,0)"},"C":{"text":"1 = variant PASSES all SNP filters"},"D":{"text":""},"E":{"text":""},"F":{"text":""}}},
+      {"rowNum":11,"cells":{"A":{"text":"OVERALL Indel decision (all 1 = PASS)"},"B":{"formula":"=IF(F2*F3*F4*F5*F6*F7*F8=1,1,0)"},"C":{"text":"1 = variant PASSES all indel filters"},"D":{"text":""},"E":{"text":""},"F":{"text":""}}},
+      {"rowNum":12,"cells":{"A":{"text":"Number of metrics FAILING (SNP)"},"B":{"formula":"=7-(E2+E3+E4+E5+E6+E7+E8)"},"C":{"text":"0 = clean variant; 1-2 = borderline; 3+ = likely artefact"},"D":{"text":""},"E":{"text":""},"F":{"text":""}}}
+    ],
+    "colDesc": [
+      {"col":"E (SNP pass?)", "desc":"Each cell is an IF formula: e.g. E2=IF(B2>=2,1,0) for QD. Returns 1 if the metric passes the GATK SNP hard-filter threshold, 0 if it fails. The overall pass (row 10) multiplies all flags: any single 0 makes the product 0 (FAIL). This is equivalent to GATK SelectVariants + VariantFiltration logic."},
+      {"col":"B10 (Overall)", "desc":"=IF(E2*E3*E4*E5*E6*E7*E8=1, 1, 0). Product of all individual pass flags. Only returns 1 (PASS) when every single metric passes. This directly mirrors the GATK hard-filter expression: QD < 2.0 || MQ < 40.0 || FS > 60.0 || SOR > 3.0 || MQRankSum < -12.5 || ReadPosRankSum < -8.0 — any ONE failure = variant is filtered."}
+    ]
+  }'></div>
+
+</section>
+
+<!-- ================================================================ -->
+<section id="step1" class="mb-5">
+  <h2 class="section-divider">Step 1 — GATK VQSR (Human WGS ≥30 Samples)</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash — GATK4 VariantRecalibrator + ApplyVQSR for SNPs and indels</span><button class="btn-copy">Copy</button></div>
+<pre id="s1-vqsr">######################################################################
+## STEP 1: GATK Variant Quality Score Recalibration (VQSR)
+## VQSR trains a Gaussian mixture model using known-variant truth sets
+## (HapMap, Omni, 1000G, dbSNP) to assign a recalibration score to
+## each variant. This score reflects the probability that the variant
+## is a true polymorphism rather than a sequencing/mapping artefact.
+##
+## MUST run SNPs and indels SEPARATELY with different truth resources
+## and different annotation sets. SNPs: 5 annotations; indels: 3.
+######################################################################
+
+module load gatk/4.4.0
+
+## Resource files (download from GATK Resource Bundle gs://gatk-best-practices)
+HAPMAP="hapmap_3.3.hg38.vcf.gz"          # truth=true, training=true, prior=15
+OMNI="1000G_omni2.5.hg38.vcf.gz"         # truth=true, training=true, prior=12
+G1000="1000G_phase1.snps.high_confidence.hg38.vcf.gz"  # truth=false, training=true, prior=10
+DBSNP="dbsnp_146.hg38.vcf.gz"            # truth=false, training=false, prior=7 (known)
+MILLS="Mills_and_1000G_gold_standard.indels.hg38.vcf.gz"  # truth=true, training=true, prior=12 (indels)
+AXIOM="Axiom_Exome_Plus.genotypes.all_populations.poly.hg38.vcf.gz"  # indel training
+
+JOINT_VCF="joint_genotyped.vcf.gz"
+REF="Homo_sapiens_assembly38.fasta"
+
+## ================================================================
+## PART A: SNP RECALIBRATION
+## ================================================================
+
+## Step A1: Build the SNP recalibration model
+## -resource:NAME,truth,training,known,prior=VALUE
+##   truth    = used to evaluate sensitivity (are these truly real variants?)
+##   training = used to train the Gaussian model
+##   known    = used for titv calculation and reporting only
+##   prior    = how much weight to give this resource (higher = more trusted)
+## -an : annotations to use for the model
+##   QD, MQ, MQRankSum, ReadPosRankSum, FS, SOR are the 6 key annotations
+## --mode SNP : this run is for SNPs only
+## -tranche : which sensitivity tranches to output
+##   99.5% tranche = keeps 99.5% of true SNPs (5% of filtered variants are false positives)
+## --max-gaussians 6 : fit 6 Gaussian components (reduce to 4 if you get convergence errors)
+gatk VariantRecalibrator \
+    -R ${REF} \
+    -V ${JOINT_VCF} \
+    -resource:hapmap,known=false,training=true,truth=true,prior=15.0 ${HAPMAP} \
+    -resource:omni,known=false,training=true,truth=true,prior=12.0 ${OMNI} \
+    -resource:1000G,known=false,training=true,truth=false,prior=10.0 ${G1000} \
+    -resource:dbsnp,known=true,training=false,truth=false,prior=7.0 ${DBSNP} \
+    -an QD -an MQ -an MQRankSum -an ReadPosRankSum -an FS -an SOR \
+    --mode SNP \
+    --max-gaussians 6 \
+    -tranche 100.0 -tranche 99.95 -tranche 99.9 -tranche 99.5 -tranche 99.0 -tranche 90.0 \
+    -O snp_recal.vcf.gz \
+    --tranches-file snp_recal.tranches \
+    --rscript-file snp_recal.R \
+    2>&1 | tee snp_vqsr.log
+
+## Step A2: Apply SNP recalibration
+## --truth-sensitivity-filter-level 99.5 : keep variants in the top 99.5% sensitivity tranche
+## This means: FILTER PASS = variant is called with 99.5% of true SNPs in training data
+## Variants in lower tranches (90%, 99.0%) are marked with their tranche label, not removed
+## --mode SNP : must match the mode used in VariantRecalibrator
+gatk ApplyVQSR \
+    -R ${REF} \
+    -V ${JOINT_VCF} \
+    --recal-file snp_recal.vcf.gz \
+    --tranches-file snp_recal.tranches \
+    --truth-sensitivity-filter-level 99.5 \
+    --mode SNP \
+    -O snp_vqsr_applied.vcf.gz
+
+## ================================================================
+## PART B: INDEL RECALIBRATION
+## ================================================================
+## Indels use fewer annotations (-an) because MQRankSum is not reliable for indels
+gatk VariantRecalibrator \
+    -R ${REF} \
+    -V snp_vqsr_applied.vcf.gz \
+    -resource:mills,known=false,training=true,truth=true,prior=12.0 ${MILLS} \
+    -resource:axiom,known=false,training=true,truth=false,prior=10.0 ${AXIOM} \
+    -resource:dbsnp,known=true,training=false,truth=false,prior=2.0 ${DBSNP} \
+    -an QD -an MQRankSum -an ReadPosRankSum -an FS -an SOR \
+    --mode INDEL \
+    --max-gaussians 4 \
+    -tranche 100.0 -tranche 99.9 -tranche 99.0 -tranche 90.0 \
+    -O indel_recal.vcf.gz \
+    --tranches-file indel_recal.tranches
+
+gatk ApplyVQSR \
+    -R ${REF} \
+    -V snp_vqsr_applied.vcf.gz \
+    --recal-file indel_recal.vcf.gz \
+    --tranches-file indel_recal.tranches \
+    --truth-sensitivity-filter-level 99.0 \
+    --mode INDEL \
+    -O final_vqsr_filtered.vcf.gz
+
+## Count PASS variants
+echo "PASS SNPs after VQSR:"
+bcftools view -f PASS --type snps -H final_vqsr_filtered.vcf.gz | wc -l
+echo "PASS indels after VQSR:"
+bcftools view -f PASS --type indels -H final_vqsr_filtered.vcf.gz | wc -l</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s1-vqsr" data-filename="01_gatk_vqsr.sh"><i class="bi bi-download me-1"></i>01_gatk_vqsr.sh</button></div>
+  <div class="cmd-explain">
+    <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> VQSR tranche sensitivity decoded</div>
+    <table>
+      <tr><td><span class="cmd-emoji">&#128200;</span>99.5% vs 99.0% sensitivity</td><td>The tranche sensitivity is NOT the false positive rate. It means &ldquo;99.5% of the variants in our truth set (HapMap + Omni) are called at or above this score.&rdquo; By setting --truth-sensitivity-filter-level 99.5, you keep everything that scores as well as or better than the bottom 0.5% of truth-set variants. For SNPs: 99.5% is standard. For indels: 99.0% because indel calling is inherently less accurate.</td></tr>
+      <tr><td><span class="cmd-emoji">&#127919;</span>--max-gaussians convergence error</td><td>If VariantRecalibrator fails with &ldquo;NaN&rdquo; or &ldquo;convergence&rdquo; errors, reduce --max-gaussians from 6 to 4 (SNPs) or from 4 to 2 (indels). This happens with too few variants (WES or small cohort) or when the variant set is very clean with little training data. If it still fails with 2 Gaussians, switch to hard filters instead.</td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- ================================================================ -->
+<section id="step2" class="mb-5">
+  <h2 class="section-divider">Step 2 — Hard Filters (Non-model Organisms &amp; Small Cohorts)</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash — GATK hard filters for SNPs and indels; organism-specific thresholds</span><button class="btn-copy">Copy</button></div>
+<pre id="s2-hardfilter">######################################################################
+## STEP 2: Hard filters — the universal alternative to VQSR
+## Use when: non-model organism, <30 samples, no resource files
+## Strategy:
+##   - Filter SNPs and indels separately (different annotation distributions)
+##   - Use GATK's recommended thresholds as STARTING POINTS
+##   - Always EXAMINE your annotation distributions first (histograms!)
+##   - Then adjust thresholds based on where YOUR data has clear bimodal splits
+##   NEVER copy-paste hard filter thresholds without examining your own data.
+######################################################################
+
+module load gatk/4.4.0
+module load bcftools/1.17
+
+JOINT_VCF="joint_genotyped.vcf.gz"
+REF="genome.fasta"
+
+## ================================================================
+## CRITICAL: Examine annotation distributions BEFORE setting thresholds
+## ================================================================
+## Extract annotation values to histograms in R
+gatk VariantFiltration \
+    -V ${JOINT_VCF} \
+    -R ${REF} \
+    --filter-expression "true" \
+    --filter-name "PLACEHOLDER" \
+    -O /dev/null 2>/dev/null || true
+
+## Extract INFO fields to a table for distribution plots
+gatk VariantsToTable \
+    -V ${JOINT_VCF} \
+    -F CHROM -F POS -F TYPE -F QUAL \
+    -F QD -F MQ -F FS -F SOR -F MQRankSum -F ReadPosRankSum \
+    -O annotation_distributions.tsv
+
+## THEN plot distributions in R to choose thresholds:
+cat << 'RSCRIPT' > plot_distributions.R
+library(tidyverse)
+df <- read.delim("annotation_distributions.tsv") %>%
+    separate(TYPE, into=c("TYPE"), sep=",", extra="drop")
+## Plot each annotation for SNPs and indels
+metrics <- c("QD","MQ","FS","SOR","MQRankSum","ReadPosRankSum")
+for (m in metrics) {
+    if (!m %in% colnames(df)) next
+    df_plot <- df %>% filter(!is.na(.data[[m]]))
+    p <- ggplot(df_plot, aes(.data[[m]], fill=TYPE)) +
+        geom_histogram(bins=100, alpha=0.6, position="identity") +
+        facet_wrap(~TYPE, scales="free") +
+        labs(title=paste("Distribution:", m)) +
+        theme_bw()
+    ggsave(paste0("dist_", m, ".png"), p, width=8, height=4)
+}
+cat("Distribution plots saved.\n")
+RSCRIPT
+Rscript plot_distributions.R
+echo "Open dist_*.png to examine annotation distributions before choosing thresholds"
+
+## ================================================================
+## APPLY HARD FILTERS — SNPs
+## ================================================================
+## Step 1: Extract SNPs
+gatk SelectVariants -R ${REF} -V ${JOINT_VCF} --select-type-to-include SNP -O snps_raw.vcf.gz
+
+## Step 2: Apply filters
+## VariantFiltration: adds FILTER tags to failing variants (does NOT remove them)
+## Each --filter-expression gets a --filter-name tag
+## Variants not failing any filter remain: FILTER=PASS
+## IMPORTANT: these thresholds are GATK defaults for human WGS
+## For plant genomes (lower heterozygosity): consider MQ > 50 instead of 40
+## For highly inbred lines: consider QD > 5 instead of 2
+gatk VariantFiltration \
+    -R ${REF} \
+    -V snps_raw.vcf.gz \
+    --filter-expression "QD < 2.0"            --filter-name "QD2" \
+    --filter-expression "MQ < 40.0"           --filter-name "MQ40" \
+    --filter-expression "FS > 60.0"           --filter-name "FS60" \
+    --filter-expression "SOR > 3.0"           --filter-name "SOR3" \
+    --filter-expression "MQRankSum < -12.5"   --filter-name "MQRankSum-12.5" \
+    --filter-expression "ReadPosRankSum < -8.0" --filter-name "ReadPosRankSum-8" \
+    -O snps_hardfiltered.vcf.gz
+
+## Step 3: Keep only PASS
+bcftools view -f PASS snps_hardfiltered.vcf.gz -O z -o snps_PASS.vcf.gz
+tabix -p vcf snps_PASS.vcf.gz
+echo "PASS SNPs: $(bcftools view -H snps_PASS.vcf.gz | wc -l)"
+
+## ================================================================
+## APPLY HARD FILTERS — Indels
+## ================================================================
+gatk SelectVariants -R ${REF} -V ${JOINT_VCF} --select-type-to-include INDEL -O indels_raw.vcf.gz
+
+## Indel-specific thresholds: stricter FS (200 not 60) because strand bias
+## is more common for indels; MQRankSum not used (less reliable for indels)
+gatk VariantFiltration \
+    -R ${REF} \
+    -V indels_raw.vcf.gz \
+    --filter-expression "QD < 2.0"              --filter-name "QD2" \
+    --filter-expression "FS > 200.0"            --filter-name "FS200" \
+    --filter-expression "SOR > 10.0"            --filter-name "SOR10" \
+    --filter-expression "ReadPosRankSum < -20.0" --filter-name "ReadPosRankSum-20" \
+    -O indels_hardfiltered.vcf.gz
+
+bcftools view -f PASS indels_hardfiltered.vcf.gz -O z -o indels_PASS.vcf.gz
+tabix -p vcf indels_PASS.vcf.gz
+echo "PASS indels: $(bcftools view -H indels_PASS.vcf.gz | wc -l)"
+
+## ================================================================
+## MERGE FILTERED SNPs AND INDELS
+## ================================================================
+bcftools concat -a snps_PASS.vcf.gz indels_PASS.vcf.gz | \
+    bcftools sort -O z -o final_hardfiltered.vcf.gz
+tabix -p vcf final_hardfiltered.vcf.gz
+echo "Final PASS variants (SNP + indel): $(bcftools view -H final_hardfiltered.vcf.gz | wc -l)"</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s2-hardfilter" data-filename="02_hard_filters.sh"><i class="bi bi-download me-1"></i>02_hard_filters.sh</button></div>
+  <div class="fun-tip"><span class="fun-tip-icon">&#128204;</span><div><strong>Never copy-paste thresholds blindly!</strong> The GATK hard filter thresholds were derived from human WGS data. For plants with very low heterozygosity (selfing crops like rice, soybean, barley), the FS distribution shifts and MQ distributions differ. Always plot dist_*.png first, look for bimodal distributions, and place your threshold at the valley between the two peaks — that's the optimal cutoff for your specific data.</div></div>
+</section>
+
+<!-- ================================================================ -->
+<section id="step3" class="mb-5">
+  <h2 class="section-divider">Step 3 — Genotype-Level Filtering</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash — Filter individual genotypes by depth and GQ, then remove low-call-rate sites</span><button class="btn-copy">Copy</button></div>
+<pre id="s3-genotype">######################################################################
+## STEP 3: Genotype-level filtering (per-sample, not per-site)
+## Site-level filters (VQSR/hard filters) assess the VARIANT as a whole.
+## Genotype-level filters assess EACH SAMPLE's genotype call:
+##   - A site may PASS site-level filters but have some sample genotypes
+##     supported by only 2 reads — those individual genotypes should be set to missing
+##   - After masking low-quality genotypes, re-filter sites with too much missingness
+##
+## This two-step approach (genotype filter → missingness filter) is
+## more powerful than site-only filtering.
+######################################################################
+
+## --- Step 3a: Mask low-quality individual genotypes ---
+## gatk VariantFiltration --genotype-filter:
+##   GQ < 20 : genotype quality < 20 (< 99% confident in this specific genotype)
+##   DP < 5  : fewer than 5 reads supporting this genotype
+##   These individual genotypes are set to MISSING (./.)
+##   The variant SITE is NOT removed — just that sample's call is masked
+gatk VariantFiltration \
+    -V final_hardfiltered.vcf.gz \
+    --genotype-filter-expression "GQ < 20"  --genotype-filter-name "lowGQ" \
+    --genotype-filter-expression "DP < 5"   --genotype-filter-name "lowDP" \
+    --set-filtered-gt-to-nocall \
+    -O genotype_filtered.vcf.gz
+
+## --- Step 3b: Remove sites with too much missingness ---
+## After masking low-quality genotypes, some sites may now have:
+##   - 30%+ of samples with missing genotype
+##   - These sites are unreliable — too few samples support the allele frequency
+## --max-missing 0.8 : keep sites where 80%+ of samples have a genotype
+##   (= allow up to 20% missing data per site; adjust based on project)
+## --maf 0.01 : remove variants with MAF < 1% (very rare, unreliable)
+## --minQ 30  : remove sites with QUAL < 30
+vcftools \
+    --gzvcf genotype_filtered.vcf.gz \
+    --max-missing 0.8 \
+    --maf 0.01 \
+    --minQ 30 \
+    --recode --recode-INFO-all \
+    --out final_cleaned
+bgzip final_cleaned.recode.vcf
+tabix -p vcf final_cleaned.recode.vcf.gz
+echo "Final cleaned variants: $(bcftools view -H final_cleaned.recode.vcf.gz | wc -l)"
+
+## --- Step 3c: Check per-sample missingness after filtering ---
+## Any sample with >20% missing genotypes is likely a poor-quality sample
+vcftools --gzvcf final_cleaned.recode.vcf.gz \
+    --missing-indv \
+    --out sample_missingness
+echo "=== Samples with >20% missing genotypes (consider removing) ==="
+awk 'NR>1 && $5 > 0.2 {print $1, "Missing:", $5*100"%"}' sample_missingness.imiss</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s3-genotype" data-filename="03_genotype_filtering.sh"><i class="bi bi-download me-1"></i>03_genotype_filtering.sh</button></div>
+</section>
+
+<!-- ================================================================ -->
+<section id="step4" class="mb-5">
+  <h2 class="section-divider">Step 4 — RNA-seq Variant Filtering</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash — RNA-seq-specific hard filters for SNPs called from RNA-seq data</span><button class="btn-copy">Copy</button></div>
+<pre id="s4-rnaseq">######################################################################
+## STEP 4: Special filters for RNA-seq-derived variants
+## RNA-seq variant calling (e.g. GATK RNAseq best practices, GATK-SV)
+## requires different filters than DNA because:
+##   1. RNA editing (A-to-I): adenosine-to-inosine RNA editing creates
+##      apparent A>G variants. Must be recognised and filtered.
+##   2. Allele-specific expression: the REF allele may be expressed more
+##      than ALT due to allelic imbalance, not true heterozygosity.
+##   3. Splicing artefacts: reads spanning splice junctions have
+##      soft-clipped bases that can look like insertions/deletions.
+##   4. Strand bias: RNA-seq is directional — some strand bias is expected.
+##      Use higher FS threshold than DNA (FS > 30 not FS > 60).
+######################################################################
+
+## GATK RNA-seq variant calling best practices:
+## 1. STAR alignment with 2-pass mapping
+## 2. SplitNCigarReads (handles spliced reads)
+## 3. BQSR (same as DNA)
+## 4. HaplotypeCaller with --dont-use-soft-clipped-bases
+## 5. Hard filters (VQSR not recommended for RNA-seq)
+
+## RNA-seq-specific hard filters:
+## FS > 30.0          : lower strand bias tolerance (RNA-seq already has directionality)
+## DP < 10            : require more evidence (RNA-seq has higher depth at expressed regions)
+## QUAL < 20          : stricter quality threshold
+## Cluster of variants (--cluster-size 3 --cluster-window-size 35):
+##   Remove variants within 35 bp windows that contain 3+ SNPs
+##   (clusters of variants are often RT-PCR/splicing artefacts in RNA)
+gatk VariantFiltration \
+    -V rnaseq_raw_variants.vcf.gz \
+    --filter-expression "QD < 2.0"            --filter-name "QD2" \
+    --filter-expression "FS > 30.0"           --filter-name "FS30" \
+    --filter-expression "DP < 10"             --filter-name "DP10" \
+    --cluster-size 3 \
+    --cluster-window-size 35 \
+    -O rnaseq_filtered.vcf.gz
+
+## --- Remove known RNA editing sites ---
+## Download RNA editing database (REDIportal for human):
+## wget http://srv00.recas.ba.infn.it/atlas/hg38.txt.gz
+## Convert to VCF format for filtering:
+## (this is a simplified illustration — in practice, convert REDIportal to VCF)
+if [ -f rna_editing_sites.vcf.gz ]; then
+    bcftools isec \
+        -C rnaseq_filtered.vcf.gz \         # remove sites IN the editing database
+        rna_editing_sites.vcf.gz \
+        -p rna_editing_removed/
+    echo "Variants after RNA editing site removal:"
+    bcftools view -H rna_editing_removed/0000.vcf | wc -l
+fi
+
+## --- Count biallelic SNPs (most useful for downstream analysis) ---
+bcftools view \
+    -f PASS \
+    -v snps \
+    --max-alleles 2 \
+    rnaseq_filtered.vcf.gz \
+    -O z -o rnaseq_biallelic_snps.vcf.gz
+tabix -p vcf rnaseq_biallelic_snps.vcf.gz
+echo "Biallelic PASS SNPs from RNA-seq: $(bcftools view -H rnaseq_biallelic_snps.vcf.gz | wc -l)"</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s4-rnaseq" data-filename="04_rnaseq_variant_filter.sh"><i class="bi bi-download me-1"></i>04_rnaseq_variant_filter.sh</button></div>
+</section>
+
+<!-- ================================================================ -->
+<section id="step5" class="mb-5">
+  <h2 class="section-divider">Step 5 — bcftools Universal Filter (Works with Any Caller)</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash — bcftools filter for FreeBayes, DeepVariant, Strelka2, GATK output</span><button class="btn-copy">Copy</button></div>
+<pre id="s5-bcftools">######################################################################
+## STEP 5: bcftools filter — works with VCFs from ANY variant caller
+## bcftools uses an expression language similar to SnpSift.
+## Useful when you have output from:
+##   - FreeBayes (does not use GATK annotation fields)
+##   - DeepVariant (uses QUAL but different INFO fields)
+##   - Strelka2 (uses EVS/SomaticEVS scores)
+##   - GATK (when VQSR/VariantFiltration not available)
+######################################################################
+
+## --- Generic bcftools filter for any caller ---
+## -s LOWQUAL   : tag failing variants with LOWQUAL (not remove)
+## -m +         : use soft filter (add to existing FILTER column)
+## -e           : exclude expression (variants matching this are FILTERED)
+## --SnpGap 3   : filter SNPs within 3 bp of an indel (common artefact)
+## --IndelGap 10: filter indels within 10 bp of each other
+bcftools filter \
+    -s "LOWQUAL" \
+    -m "+" \
+    -e "QUAL<30 || INFO/DP<5" \
+    --SnpGap 3 \
+    --IndelGap 10 \
+    input.vcf.gz | \
+  bcftools filter \
+    -s "STDBIAS" \
+    -m "+" \
+    -e "INFO/MQ<40 || INFO/FS>60" \
+    -O z -o filtered.vcf.gz
+tabix -p vcf filtered.vcf.gz
+
+## --- Keep only PASS variants ---
+bcftools view -f PASS filtered.vcf.gz -O z -o PASS_only.vcf.gz
+tabix -p vcf PASS_only.vcf.gz
+
+## --- FreeBayes-specific filter ---
+## FreeBayes uses different INFO fields:
+##   QUAL         : variant quality
+##   INFO/DP      : total depth
+##   INFO/AF      : allele frequency (not in GATK standard output)
+##   INFO/AO      : alt allele observations
+##   INFO/QA      : sum of quality for alt observations
+## Apply a minimum quality + depth + alt observation filter
+bcftools filter \
+    -e "QUAL<20 || INFO/DP<10 || INFO/AO<5" \
+    freebayes_output.vcf.gz | \
+  bcftools view -f PASS -O z -o freebayes_filtered.vcf.gz
+
+## --- Remove multiallelic sites (often artefacts) ---
+## --max-alleles 2 : keep only biallelic sites
+## Multiallelic sites should be checked manually — they may be:
+##   1. Real multiallelic variants (common in humans/outbred populations)
+##   2. Alignment artefacts (spurious third allele from misalignment)
+bcftools view --max-alleles 2 PASS_only.vcf.gz | \
+    bcftools norm -m -any | \           # split multiallelic to biallelic
+    bcftools view -O z -o biallelic_PASS.vcf.gz
+tabix -p vcf biallelic_PASS.vcf.gz</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s5-bcftools" data-filename="05_bcftools_filter.sh"><i class="bi bi-download me-1"></i>05_bcftools_filter.sh</button></div>
+</section>
+
+<!-- ================================================================ -->
+<section id="step6" class="mb-5">
+  <h2 class="section-divider">Step 6 — Automated Python Filtering Pipeline</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Python — Smart auto-detection of organism type + adaptive threshold selection</span><button class="btn-copy">Copy</button></div>
+<pre id="s6-python">#!/usr/bin/env python3
+######################################################################
+## AUTOMATED VARIANT FILTERING PIPELINE
+## auto_filter_vcf.py - intelligently chooses filtering strategy
+## based on: number of samples, organism type, and available resource files
+##
+## Usage: python3 auto_filter_vcf.py --vcf input.vcf.gz \
+##                 --organism non_model \
+##                 --output filtered.vcf.gz
+######################################################################
+import argparse, subprocess, os, sys, json
+from pathlib import Path
+
+def count_samples(vcf):
+    """Count number of samples in VCF."""
+    result = subprocess.run(["bcftools", "query", "-l", vcf],
+                            capture_output=True, text=True)
+    return len(result.stdout.strip().split("\n")) if result.stdout.strip() else 0
+
+def get_annotation_stats(vcf, n_sites=10000):
+    """Extract annotation statistics from first N sites to auto-determine thresholds."""
+    import statistics
+    result = subprocess.run([
+        "bcftools", "query", "-f",
+        "%QD\t%MQ\t%FS\t%SOR\n",
+        "-i", "QD!=. && MQ!=. && FS!=. && SOR!=.",
+        "--regions-file", "/dev/stdin",
+        vcf
+    ], capture_output=True, text=True, input="")
+    
+    stats = {"QD": [], "MQ": [], "FS": [], "SOR": []}
+    for line in result.stdout.strip().split("\n")[:n_sites]:
+        vals = line.split("\t")
+        if len(vals) == 4 and all(v != "." for v in vals):
+            try:
+                stats["QD"].append(float(vals[0]))
+                stats["MQ"].append(float(vals[1]))
+                stats["FS"].append(float(vals[2]))
+                stats["SOR"].append(float(vals[3]))
+            except ValueError:
+                pass
+    
+    thresholds = {}
+    for metric, values in stats.items():
+        if values:
+            mean_val = statistics.mean(values)
+            sd_val   = statistics.stdev(values) if len(values) > 1 else 0
+            thresholds[metric] = {"mean": round(mean_val, 2), "sd": round(sd_val, 2)}
+    return thresholds
+
+def build_filter_expression(organism_type, n_samples):
+    """Return GATK VariantFiltration filter expressions tuned for organism type."""
+    
+    ## Base thresholds
+    thresholds = {
+        "human_wgs":    {"QD": 2.0, "MQ": 40.0, "FS": 60.0, "SOR": 3.0, "MQRankSum": -12.5, "ReadPosRankSum": -8.0},
+        "human_wes":    {"QD": 2.0, "MQ": 40.0, "FS": 60.0, "SOR": 3.0, "MQRankSum": -12.5, "ReadPosRankSum": -8.0},
+        "plant_inbred": {"QD": 2.0, "MQ": 50.0, "FS": 60.0, "SOR": 3.0, "MQRankSum": -12.5, "ReadPosRankSum": -8.0},
+        "non_model":    {"QD": 2.0, "MQ": 40.0, "FS": 60.0, "SOR": 3.0, "MQRankSum": -12.5, "ReadPosRankSum": -8.0},
+        "rnaseq":       {"QD": 2.0, "MQ": 40.0, "FS": 30.0, "SOR": 3.0, "MQRankSum": -12.5, "ReadPosRankSum": -8.0},
+    }
+    
+    t = thresholds.get(organism_type, thresholds["non_model"])
+    filters = [
+        (f"QD < {t['QD']}",                 "QD_filter"),
+        (f"MQ < {t['MQ']}",                 "MQ_filter"),
+        (f"FS > {t['FS']}",                 "FS_filter"),
+        (f"SOR > {t['SOR']}",               "SOR_filter"),
+        (f"MQRankSum < {t['MQRankSum']}",   "MQRankSum_filter"),
+        (f"ReadPosRankSum < {t['ReadPosRankSum']}", "ReadPosRankSum_filter"),
+    ]
+    return filters
+
+def run_hard_filter(vcf_in, vcf_out, organism_type, n_samples, gatk_jar, ref):
+    """Run GATK hard filters with organism-appropriate thresholds."""
+    filters = build_filter_expression(organism_type, n_samples)
+    cmd = ["java", "-Xmx4g", "-jar", gatk_jar,
+           "VariantFiltration", "-R", ref, "-V", vcf_in]
+    for expr, name in filters:
+        cmd += ["--filter-expression", expr, "--filter-name", name]
+    cmd += ["-O", vcf_out]
+    print(f"Running: {' '.join(cmd[:8])}...")
+    subprocess.run(cmd, check=True)
+    return vcf_out
+
+def main():
+    parser = argparse.ArgumentParser(description="Automated VCF filtering pipeline")
+    parser.add_argument("--vcf",      required=True, help="Input VCF.gz")
+    parser.add_argument("--organism", default="non_model",
+                        choices=["human_wgs","human_wes","plant_inbred","non_model","rnaseq"],
+                        help="Organism/data type for threshold selection")
+    parser.add_argument("--output",   required=True, help="Output filtered VCF.gz")
+    parser.add_argument("--ref",      default="genome.fasta", help="Reference FASTA")
+    parser.add_argument("--gatk",     default="gatk", help="GATK4 jar or executable")
+    args = parser.parse_args()
+    
+    n_samples = count_samples(args.vcf)
+    print(f"Samples in VCF: {n_samples}")
+    print(f"Organism type:  {args.organism}")
+    
+    ## Determine strategy
+    if args.organism in ("human_wgs", "human_wes") and n_samples >= 30:
+        print("Strategy: VQSR recommended — run 01_gatk_vqsr.sh")
+        print("Falling back to hard filters for now...")
+    
+    print("Strategy: Hard filters")
+    filtered = run_hard_filter(
+        vcf_in=args.vcf, vcf_out=args.output,
+        organism_type=args.organism, n_samples=n_samples,
+        gatk_jar=args.gatk, ref=args.ref
+    )
+    print(f"Done! Filtered VCF: {filtered}")
+
+if __name__ == "__main__":
+    main()</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s6-python" data-filename="auto_filter_vcf.py"><i class="bi bi-download me-1"></i>auto_filter_vcf.py</button></div>
+</section>
+
+<!-- ================================================================ -->
+<section id="step7" class="mb-5">
+  <h2 class="section-divider">Step 7 — Validation: Ti/Tv Ratio &amp; dbSNP Overlap</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash + R — Validate filtering quality using Ti/Tv and known variant overlap</span><button class="btn-copy">Copy</button></div>
+<pre id="s7-validation">######################################################################
+## STEP 7: Validate your filtering quality
+## Two universal quality checks after filtering:
+##   1. Ti/Tv ratio: Transition/Transversion ratio
+##      Good filtering → Ti/Tv near expected value for your data type
+##      Bad filtering → Ti/Tv deviates significantly from expected
+##   2. dbSNP overlap: What % of your variants are in dbSNP?
+##      Good filtering → 90-99% of SNPs are known for well-studied organisms
+##      Bad filtering → low overlap indicates many false positives remain
+######################################################################
+
+## --- Ti/Tv ratio using bcftools stats ---
+## Expected Ti/Tv values:
+##   Human WGS:  ~2.0-2.1
+##   Human WES:  ~2.5-3.0 (coding regions enriched for CpG transitions)
+##   Mouse WGS:  ~2.0
+##   Plant WGS:  ~2.0-2.5 (variable)
+##   Non-model organisms: 1.5-2.5 (unknown; use raw unfiltered for baseline)
+echo "=== Ti/Tv ratio BEFORE filtering ==="
+bcftools stats joint_genotyped.vcf.gz | grep "Ts/Tv"
+
+echo "=== Ti/Tv ratio AFTER filtering ==="
+bcftools stats final_hardfiltered.vcf.gz | grep "Ts/Tv"
+## Ti/Tv should INCREASE after filtering (removing artefacts enriches transitions)
+
+## --- More detailed stats with bcftools stats ---
+bcftools stats final_hardfiltered.vcf.gz > filtering_stats.txt
+cat filtering_stats.txt | grep -E "^SN|^TSTV"
+
+## --- dbSNP overlap check (for model organisms) ---
+if [ -f dbsnp_146.hg38.vcf.gz ]; then
+    ## Use bcftools isec to find intersection with dbSNP
+    bcftools isec \
+        final_hardfiltered.vcf.gz \
+        dbsnp_146.hg38.vcf.gz \
+        -p isec_dbsnp/ \
+        -n "~11"   # variants in BOTH files
+
+    N_TOTAL=$(bcftools view -H final_hardfiltered.vcf.gz | wc -l)
+    N_KNOWN=$(bcftools view -H isec_dbsnp/0001.vcf | wc -l 2>/dev/null || echo 0)
+    PCT=$(echo "scale=1; ${N_KNOWN} * 100 / ${N_TOTAL}" | bc)
+    echo "=== dbSNP overlap ==="
+    echo "Total variants: ${N_TOTAL}"
+    echo "Known in dbSNP: ${N_KNOWN} (${PCT}%)"
+    echo "Novel variants: $((N_TOTAL - N_KNOWN))"
+    ## For human WGS: expect 85-95% known. <80% = likely too many false positives remain.
+fi
+
+## --- R: Plot filtering waterfall (how many variants removed at each step) ---
+cat << 'RSCRIPT' > plot_filtering_waterfall.R
+library(ggplot2)
+
+## Record variant counts at each step (fill in your actual numbers)
+steps <- data.frame(
+    step = c("Raw genotyped", "Site-level filter", "Genotype GQ/DP filter",
+             "Missingness filter", "MAF filter", "Final PASS"),
+    n_variants = c(
+        as.numeric(system("bcftools view -H joint_genotyped.vcf.gz | wc -l", intern=TRUE)),
+        as.numeric(system("bcftools view -H snps_hardfiltered.vcf.gz | wc -l", intern=TRUE)),
+        as.numeric(system("bcftools view -H genotype_filtered.vcf.gz | wc -l", intern=TRUE)),
+        as.numeric(system("bcftools view -H final_cleaned.recode.vcf.gz | wc -l", intern=TRUE)),
+        NA, ## fill in
+        as.numeric(system("bcftools view -H final_hardfiltered.vcf.gz | wc -l", intern=TRUE))
+    )
+)
+steps <- steps[!is.na(steps$n_variants), ]
+ggplot(steps, aes(x=reorder(step, -n_variants), y=n_variants/1000, fill=step)) +
+    geom_col(width=0.6, show.legend=FALSE) +
+    geom_text(aes(label=paste0(round(n_variants/1000,1), "k")), vjust=-0.3, size=3.5) +
+    labs(x=NULL, y="Variants (thousands)",
+         title="Variant count at each filtering step") +
+    theme_bw(base_size=12) + theme(axis.text.x=element_text(angle=30, hjust=1))
+ggsave("filtering_waterfall.png", width=9, height=5, dpi=150)
+RSCRIPT
+Rscript plot_filtering_waterfall.R 2>/dev/null || echo "Run R script manually: Rscript plot_filtering_waterfall.R"</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s7-validation" data-filename="07_validate_filtering.sh"><i class="bi bi-download me-1"></i>07_validate_filtering.sh</button></div>
+</section>
+
+<section class="mb-5">
+  <div class="d-flex justify-content-between">
+    <a href="snpeff-snpsift-variant-annotation.html" class="btn btn-outline-secondary rounded-pill px-4"><i class="bi bi-arrow-left me-2"></i>SnpEff Annotation</a>
+    <a href="qtl-mapping-tutorial.html" class="btn btn-primary rounded-pill px-4">QTL Mapping <i class="bi bi-arrow-right ms-2"></i></a>
+  </div>
+</section>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-lg-6"><h5 class="text-white fw-bold mb-3"><span style="color:#ff9933;">Indian</span><span style="color:var(--ieb-primary);">Elucid</span><span style="color:var(--ieb-accent);">Biology</span></h5><p class="small">Free, interactive bioinformatics tutorials. Open source and community-driven.</p></div>
+      <div class="col-lg-6 text-lg-end"><p class="small mb-1">Founded by <strong>Ankush Sharma</strong></p><div class="d-flex gap-3 justify-content-lg-end"><a href="https://github.com/ank-man" target="_blank" class="text-white fs-5"><i class="bi bi-github"></i></a><a href="https://www.linkedin.com/in/ankush-sharma-290307/" target="_blank" class="text-white fs-5"><i class="bi bi-linkedin"></i></a><a href="mailto:mr.ank2999@gmail.com" class="text-white fs-5"><i class="bi bi-envelope"></i></a></div></div>
+    </div>
+    <hr class="border-secondary mt-4 mb-3">
+    <p class="text-center small mb-0">&copy; 2025 IndianElucidBiology &mdash; Made with <span style="color:#e25555;">&#9829;</span> for the bioinformatics community.</p>
+  </div>
+</footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/main.js"></script>
+<script src="../js/live-spreadsheet.js"></script>
+</body>
+</html>

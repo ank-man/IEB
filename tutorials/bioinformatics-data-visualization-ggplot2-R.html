@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bioinformatics Data Visualization with ggplot2, Heatmaps &amp; Plotly in R | IndianElucidBiology</title>
+  <meta name="description" content="Create publication-quality bioinformatics figures in R: boxplots, violin plots, volcano plots, PCA, heatmaps with pheatmap and ComplexHeatmap, and interactive charts with plotly. Full ggplot2 tutorial with code.">
+  <meta name="keywords" content="ggplot2 tutorial bioinformatics, volcano plot R, heatmap pheatmap ComplexHeatmap, PCA plot RNA-Seq, plotly interactive, boxplot violin plot, data visualization R, IndianElucidBiology">
+  <meta name="author" content="IndianElucidBiology">
+  <link rel="canonical" href="https://indianelucidbiology.github.io/tutorials/bioinformatics-data-visualization-ggplot2-R.html">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="../css/style.css" rel="stylesheet">
+</head>
+<body>
+
+<div class="progress-tracker"></div>
+
+<nav class="navbar navbar-expand-lg fixed-top bg-body-tertiary">
+  <div class="container">
+    <a class="navbar-brand" href="../index.html"><span class="brand-indian">Indian</span><span class="brand-elucid">Elucid</span><span class="brand-biology">Biology</span></a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav"><span class="navbar-toggler-icon"></span></button>
+    <div class="collapse navbar-collapse" id="mainNav">
+      <ul class="navbar-nav ms-auto me-3">
+        <li class="nav-item"><a class="nav-link" href="../index.html">Home</a></li>
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle active" href="#" role="button" data-bs-toggle="dropdown">Tutorials</a>
+          <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="rnaseq-differential-expression-deseq2-guide.html">RNA-Seq &amp; DESeq2</a></li>
+            <li><a class="dropdown-item" href="gene-coexpression-network-wgcna-tutorial.html">WGCNA Networks</a></li>
+            <li><a class="dropdown-item active" href="bioinformatics-data-visualization-ggplot2-R.html">Data Visualization</a></li>
+            <li><a class="dropdown-item" href="single-cell-rna-seq-seurat-analysis-tutorial.html">Single-Cell RNA-Seq</a></li>
+            <li><a class="dropdown-item" href="variant-calling-gatk-bcftools-pipeline.html">Variant Calling</a></li>
+            <li><a class="dropdown-item" href="metagenomics-microbiome-analysis-qiime2.html">Metagenomics</a></li>
+          </ul>
+        </li>
+      </ul>
+      <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode">&#9790;</button>
+    </div>
+  </div>
+</nav>
+
+<section class="tutorial-hero">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-lg-8">
+        <nav aria-label="breadcrumb"><ol class="breadcrumb mb-3" style="--bs-breadcrumb-divider-color:rgba(255,255,255,0.5);"><li class="breadcrumb-item"><a href="../index.html" class="text-white-50 text-decoration-none">Home</a></li><li class="breadcrumb-item active text-white">Data Visualization</li></ol></nav>
+        <h1 class="display-5 fw-bold text-white mb-3">Bioinformatics Data Visualization Masterclass</h1>
+        <p class="lead text-white-50 mb-4">From boxplots to interactive volcano plots — build every figure a bioinformatics paper needs, with the grammar of graphics and modern R packages.</p>
+        <div class="d-flex gap-3 flex-wrap">
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-clock me-1"></i> ~40 min</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-bar-chart me-1"></i> Beginner</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-filetype-r me-1"></i> R / ggplot2</span>
+        </div>
+      </div>
+      <div class="col-lg-4 text-center d-none d-lg-block">
+        <img src="../img/Byte1.png" alt="Byte says Let's Learn" class="img-fluid" style="max-height:250px;filter:drop-shadow(0 10px 30px rgba(0,0,0,0.4));">
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="container py-5">
+  <div class="row">
+    <div class="col-lg-3 d-none d-lg-block">
+      <div class="toc-sidebar">
+        <h6 class="fw-bold text-muted text-uppercase small mb-3">On this page</h6>
+        <nav class="nav flex-column">
+          <a class="nav-link" href="#grammar">Grammar of Graphics</a>
+          <a class="nav-link" href="#setup">Setup</a>
+          <a class="nav-link" href="#boxplots">Boxplots &amp; Violin Plots</a>
+          <a class="nav-link" href="#pca">PCA Plots</a>
+          <a class="nav-link" href="#volcano">Volcano Plots</a>
+          <a class="nav-link" href="#maplot">MA Plots</a>
+          <a class="nav-link" href="#heatmaps">Heatmaps</a>
+          <a class="nav-link" href="#interactive">Interactive with Plotly</a>
+          <a class="nav-link" href="#themes">Themes &amp; Export</a>
+          <a class="nav-link" href="#summary">Summary</a>
+        </nav>
+      </div>
+    </div>
+
+    <div class="col-lg-9">
+      <div class="tutorial-content">
+
+        <section id="grammar" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">?</span> The Grammar of Graphics</h2>
+          <p><strong>ggplot2</strong> is built on Leland Wilkinson's "Grammar of Graphics" — the idea that every statistical graphic is composed of layers. Understanding these layers gives you total control over your figures:</p>
+          <ol>
+            <li><strong>Data</strong> — the tidy data frame you're plotting</li>
+            <li><strong>Aesthetics (<code>aes</code>)</strong> — mappings from data columns to visual properties (x, y, color, size, shape)</li>
+            <li><strong>Geometries (<code>geom_*</code>)</strong> — the visual marks (points, lines, bars, boxplots)</li>
+            <li><strong>Facets</strong> — split one plot into small multiples by a categorical variable</li>
+            <li><strong>Scales</strong> — control how data values map to aesthetic values (axis limits, color palettes)</li>
+            <li><strong>Themes</strong> — non-data visual elements (fonts, grid lines, backgrounds)</li>
+          </ol>
+
+          <div class="byte-callout byte-info">
+            <img src="../img/Byte3.png" alt="Byte key point">
+            <div>
+              <strong>The Golden Rule of ggplot2:</strong> Your data must be in <em>tidy (long) format</em> — one observation per row, one variable per column. Use <code>tidyr::pivot_longer()</code> to reshape wide data before plotting. If your data isn't tidy, your ggplot code will fight you every step of the way.
+            </div>
+          </div>
+        </section>
+
+        <section id="setup" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">0</span> Setup &amp; Packages</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre>install.packages(c("tidyverse", "pheatmap", "RColorBrewer",
+                    "plotly", "ggrepel", "patchwork"))
+
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+BiocManager::install(c("EnhancedVolcano", "ComplexHeatmap"))
+
+library(tidyverse)      # includes ggplot2, dplyr, tidyr, readr
+library(pheatmap)
+library(RColorBrewer)
+library(plotly)
+library(ggrepel)
+library(patchwork)      # combine multiple ggplots
+library(EnhancedVolcano)</pre>
+          </div>
+        </section>
+
+        <section id="boxplots" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">1</span> Boxplots &amp; Violin Plots</h2>
+          <p>Boxplots summarize distribution with median, quartiles, and outliers. Violin plots add a kernel density estimate, showing the full distribution shape. Combining both gives the most informative view.</p>
+
+          <h5 class="fw-bold mt-4">Basic Boxplot</h5>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre># Simulate some gene expression data across organisms and gene families
+set.seed(42)
+expr_data &lt;- expand.grid(
+  organism = c("Human", "Mouse", "Zebrafish"),
+  family   = paste0("GeneFamily_", LETTERS[1:4]),
+  rep      = 1:20
+) %>%
+  mutate(
+    expression = rnorm(n(), mean = 500, sd = 150) +
+      as.numeric(factor(organism)) * 50 +
+      as.numeric(factor(family)) * 30
+  )
+
+# Simple boxplot
+ggplot(expr_data, aes(x = organism, y = expression)) +
+  geom_boxplot() +
+  theme_minimal(base_size = 14) +
+  labs(title = "Gene Expression by Organism",
+       x = "Organism", y = "Expression (counts)")</pre>
+          </div>
+
+          <h5 class="fw-bold mt-4">Colored Boxplot with Facets</h5>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre>ggplot(expr_data, aes(x = organism, y = expression, fill = organism)) +
+  geom_boxplot(outlier.shape = 21, outlier.size = 2, alpha = 0.8) +
+  facet_wrap(~ family, scales = "free_y") +
+  scale_fill_brewer(palette = "Set2") +
+  theme_minimal(base_size = 13) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "none"
+  ) +
+  labs(title = "Expression Distribution by Gene Family",
+       x = NULL, y = "Expression")</pre>
+          </div>
+
+          <h5 class="fw-bold mt-4">Violin + Boxplot + Jitter Combo</h5>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre># The most informative single-plot approach
+ggplot(expr_data, aes(x = organism, y = expression, fill = organism)) +
+  geom_violin(alpha = 0.4, width = 0.9) +          # distribution shape
+  geom_boxplot(width = 0.15, outlier.shape = NA) +  # summary stats
+  geom_jitter(width = 0.05, alpha = 0.3, size = 1) + # individual points
+  scale_fill_brewer(palette = "Pastel1") +
+  theme_minimal(base_size = 14) +
+  theme(legend.position = "none") +
+  labs(title = "Violin + Boxplot + Jitter",
+       subtitle = "Shows distribution, summary, and individual observations",
+       x = NULL, y = "Expression")</pre>
+          </div>
+
+          <div class="byte-callout byte-tip">
+            <img src="../img/Byte1.png" alt="Byte tip">
+            <div>
+              <strong>When to Use Which:</strong>
+              <ul class="mb-0 mt-1">
+                <li><strong>Boxplot alone</strong> — when you have many groups and need a compact display</li>
+                <li><strong>Violin</strong> — when distribution shape matters (bimodal? skewed?)</li>
+                <li><strong>Jitter overlay</strong> — when n < 50 per group, so individual points are meaningful</li>
+                <li><strong>Beeswarm (<code>ggbeeswarm</code>)</strong> — like jitter but non-overlapping; elegant for small n</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <section id="pca" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">2</span> PCA Plots</h2>
+          <p>PCA (Principal Component Analysis) reduces high-dimensional expression data to 2D for visualization. It reveals global patterns: do samples cluster by condition? Is there a batch effect?</p>
+
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre># Assuming you have a DESeq2 vsd object from the RNA-Seq tutorial
+# vsd &lt;- vst(dds, blind = FALSE)
+
+# Method 1: DESeq2 built-in (quick)
+plotPCA(vsd, intgroup = "condition") +
+  theme_minimal(base_size = 14)
+
+# Method 2: Custom PCA with more control
+pca_data &lt;- prcomp(t(assay(vsd)), center = TRUE, scale. = TRUE)
+pct_var   &lt;- round(100 * summary(pca_data)$importance[2, 1:2], 1)
+
+pca_df &lt;- data.frame(
+  PC1       = pca_data$x[, 1],
+  PC2       = pca_data$x[, 2],
+  condition = colData(vsd)$condition,
+  sample    = colnames(vsd)
+)
+
+ggplot(pca_df, aes(x = PC1, y = PC2, color = condition)) +
+  geom_point(size = 4, alpha = 0.9) +
+  geom_text_repel(aes(label = sample), size = 3, max.overlaps = 10) +
+  stat_ellipse(type = "norm", linetype = 2, level = 0.95) +
+  scale_color_brewer(palette = "Set1") +
+  theme_minimal(base_size = 14) +
+  labs(
+    title = "PCA of RNA-Seq Samples",
+    x = paste0("PC1 (", pct_var[1], "% variance)"),
+    y = paste0("PC2 (", pct_var[2], "% variance)")
+  )</pre>
+          </div>
+
+          <div class="byte-callout byte-key">
+            <img src="../img/Byte3.png" alt="Byte key point">
+            <div>
+              <strong>Interpreting PCA:</strong>
+              <ul class="mb-0 mt-1">
+                <li>Samples in the same condition should cluster together — if they don't, check for batch effects or outliers</li>
+                <li>PC1 captures the most variance — if it separates by batch instead of condition, that's a red flag</li>
+                <li>Always report the % variance explained by each PC on the axis labels</li>
+                <li>Confidence ellipses (95%) help visually assess separation, but are not a formal statistical test</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <section id="volcano" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">3</span> Volcano Plots</h2>
+          <p>The volcano plot is the signature visualization for differential expression results. X-axis = effect size (log2FC), Y-axis = significance (-log10 padj).</p>
+
+          <h5 class="fw-bold mt-4">Custom ggplot2 Volcano Plot</h5>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre># Assuming res_df from DESeq2 tutorial (gene, log2FoldChange, padj columns)
+res_df &lt;- res_df %>%
+  mutate(
+    significance = case_when(
+      padj < 0.05 & log2FoldChange >  1 ~ "Up",
+      padj < 0.05 & log2FoldChange < -1 ~ "Down",
+      TRUE                               ~ "NS"
+    )
+  )
+
+# Count genes in each category for the subtitle
+up_n   &lt;- sum(res_df$significance == "Up", na.rm = TRUE)
+down_n &lt;- sum(res_df$significance == "Down", na.rm = TRUE)
+
+ggplot(res_df, aes(x = log2FoldChange, y = -log10(padj), color = significance)) +
+  geom_point(alpha = 0.5, size = 1.5) +
+  scale_color_manual(values = c("Up" = "#e74c3c", "Down" = "#3498db", "NS" = "grey70")) +
+  geom_vline(xintercept = c(-1, 1), linetype = "dashed", color = "grey40") +
+  geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "grey40") +
+  geom_text_repel(
+    data = res_df %>% filter(padj < 1e-10, abs(log2FoldChange) > 2) %>% head(15),
+    aes(label = gene), size = 3, max.overlaps = 15, color = "black"
+  ) +
+  theme_minimal(base_size = 14) +
+  labs(
+    title    = "Volcano Plot: Treated vs Control",
+    subtitle = paste0(up_n, " upregulated, ", down_n, " downregulated (padj<0.05, |LFC|>1)"),
+    x = expression(log[2]~"Fold Change"),
+    y = expression(-log[10]~"adjusted p-value"),
+    color = "Status"
+  )</pre>
+          </div>
+
+          <h5 class="fw-bold mt-4">EnhancedVolcano (One-Liner)</h5>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre>library(EnhancedVolcano)
+
+EnhancedVolcano(res_df,
+  lab       = res_df$gene,
+  x         = 'log2FoldChange',
+  y         = 'padj',
+  pCutoff   = 0.05,
+  FCcutoff  = 1.0,
+  title     = 'Treated vs Control',
+  subtitle  = 'Shrunken log2FC, BH-adjusted p-values',
+  pointSize = 2.5,
+  labSize   = 3.5,
+  drawConnectors = TRUE)</pre>
+          </div>
+        </section>
+
+        <section id="maplot" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">4</span> MA Plots</h2>
+          <p>MA plots show log2FC (M) vs. mean expression (A). They reveal whether fold changes are biased by expression level.</p>
+
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre>ggplot(res_df, aes(x = log10(baseMean + 1), y = log2FoldChange, color = significance)) +
+  geom_point(alpha = 0.4, size = 1) +
+  scale_color_manual(values = c("Up" = "#e74c3c", "Down" = "#3498db", "NS" = "grey75")) +
+  geom_hline(yintercept = 0, color = "black", linewidth = 0.5) +
+  theme_minimal(base_size = 14) +
+  labs(
+    title = "MA Plot",
+    x = expression(log[10]~"Mean Expression"),
+    y = expression(log[2]~"Fold Change"),
+    color = NULL
+  )</pre>
+          </div>
+
+          <div class="byte-callout byte-info">
+            <img src="../img/Byte3.png" alt="Byte explains">
+            <div>
+              <strong>Reading an MA Plot:</strong> A healthy MA plot should show a symmetric cloud of grey points centered on y=0, with colored significant genes spread across all expression levels. If the cloud tilts up or down, there may be a normalization issue. If significant genes cluster only at low expression (left side), increase your pre-filtering cutoff.
+            </div>
+          </div>
+        </section>
+
+        <section id="heatmaps" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">5</span> Heatmaps</h2>
+          <p>Heatmaps are essential for showing patterns across many genes and samples simultaneously. We cover three tools: base R <code>heatmap()</code>, <strong>pheatmap</strong>, and <strong>ComplexHeatmap</strong>.</p>
+
+          <h5 class="fw-bold mt-4">pheatmap (Best All-Rounder)</h5>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre>library(pheatmap)
+
+# Top 50 DE genes, variance-stabilized expression, row-centered
+top_genes &lt;- res_df %>% filter(padj < 0.05) %>% arrange(padj) %>% head(50) %>% pull(gene)
+mat &lt;- assay(vsd)[top_genes, ]
+mat &lt;- mat - rowMeans(mat)  # Center each gene to mean 0
+
+# Annotation bar for columns
+anno_col &lt;- data.frame(
+  row.names = colnames(mat),
+  Condition = colData(vsd)$condition
+)
+
+pheatmap(
+  mat,
+  scale              = "none",        # already centered
+  cluster_rows       = TRUE,
+  cluster_cols       = TRUE,
+  clustering_method  = "ward.D2",     # compact clusters
+  clustering_distance_rows = "correlation",
+  show_rownames      = TRUE,
+  show_colnames      = TRUE,
+  annotation_col     = anno_col,
+  color              = colorRampPalette(c("#2166AC", "white", "#B2182B"))(100),
+  border_color       = NA,
+  fontsize_row       = 7,
+  main               = "Top 50 DE Genes (Row-Centered)"
+)</pre>
+          </div>
+
+          <div class="param-table">
+            <table class="table table-striped mb-0">
+              <thead><tr><th>Parameter</th><th>Options &amp; When to Use</th></tr></thead>
+              <tbody>
+                <tr><td><code>scale</code></td><td><code>"none"</code> if pre-centered. <code>"row"</code> to z-score normalize per gene. <code>"column"</code> rarely used.</td></tr>
+                <tr><td><code>clustering_method</code></td><td><code>"ward.D2"</code> (tight clusters), <code>"complete"</code> (default), <code>"average"</code> (UPGMA — used in phylogenetics)</td></tr>
+                <tr><td><code>clustering_distance_rows</code></td><td><code>"correlation"</code> for expression (groups co-expressed genes). <code>"euclidean"</code> for magnitude-based clustering.</td></tr>
+                <tr><td><code>color</code></td><td>Diverging palette (blue-white-red) for centered data. Sequential palette for raw values. Never use rainbow.</td></tr>
+                <tr><td><code>cutree_rows</code></td><td>Integer — cuts the row dendrogram into N groups and adds gap lines. Great for showing module structure.</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h5 class="fw-bold mt-4">ComplexHeatmap (Maximum Control)</h5>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre>library(ComplexHeatmap)
+library(circlize)
+
+col_fun &lt;- colorRamp2(c(-2, 0, 2), c("#2166AC", "white", "#B2182B"))
+
+ha &lt;- HeatmapAnnotation(
+  Condition = colData(vsd)$condition,
+  col = list(Condition = c("Control" = "#4DAF4A", "Treated" = "#E41A1C"))
+)
+
+Heatmap(
+  mat,
+  name                    = "Z-score",
+  col                     = col_fun,
+  top_annotation          = ha,
+  show_row_names          = TRUE,
+  show_column_names       = TRUE,
+  row_names_gp            = gpar(fontsize = 6),
+  clustering_method_rows  = "ward.D2",
+  clustering_distance_rows = "pearson",
+  column_title            = "Top 50 Differentially Expressed Genes"
+)</pre>
+          </div>
+
+          <div class="byte-callout byte-tip">
+            <img src="../img/Byte1.png" alt="Byte tip">
+            <div>
+              <strong>ComplexHeatmap vs. pheatmap:</strong> Use <strong>pheatmap</strong> for quick, clean heatmaps with minimal code. Switch to <strong>ComplexHeatmap</strong> when you need multiple annotation tracks, split heatmaps, or integrated density/bar plots on the margins. ComplexHeatmap is more verbose but infinitely more powerful.
+            </div>
+          </div>
+
+          <h5 class="fw-bold mt-4">Sample Distance Heatmap</h5>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre># Euclidean distance between samples
+dist_mat &lt;- as.matrix(dist(t(assay(vsd))))
+
+pheatmap(
+  dist_mat,
+  clustering_distance_rows = as.dist(dist_mat),
+  clustering_distance_cols = as.dist(dist_mat),
+  color = colorRampPalette(c("navy", "white", "firebrick3"))(100),
+  annotation_col = anno_col,
+  main = "Sample-to-Sample Distance"
+)</pre>
+          </div>
+        </section>
+
+        <section id="interactive" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">6</span> Interactive Charts with Plotly</h2>
+          <p>Static figures are great for papers, but interactive charts let you hover over data points — perfect for exploring results, presentations, and supplementary material.</p>
+
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre>library(plotly)
+
+# Turn any ggplot into an interactive plot with one line
+p &lt;- ggplot(res_df, aes(x = log2FoldChange, y = -log10(padj),
+                         color = significance, text = gene)) +
+  geom_point(alpha = 0.5, size = 1.5) +
+  scale_color_manual(values = c("Up" = "#e74c3c", "Down" = "#3498db", "NS" = "grey70")) +
+  theme_minimal() +
+  labs(title = "Interactive Volcano Plot")
+
+ggplotly(p, tooltip = c("text", "x", "y"))
+
+# Save as self-contained HTML
+htmlwidgets::saveWidget(ggplotly(p), "volcano_interactive.html")</pre>
+          </div>
+
+          <div class="byte-callout byte-info">
+            <img src="../img/Byte4.png" alt="Byte with networks">
+            <div>
+              <strong>Interactive PCA:</strong> The same <code>ggplotly()</code> trick works for PCA plots — hover to see sample names, zoom into clusters, and share the HTML file with collaborators who don't use R.
+            </div>
+          </div>
+        </section>
+
+        <section id="themes" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">7</span> Themes, Color Palettes &amp; Export</h2>
+
+          <h5 class="fw-bold">Publication-Ready Themes</h5>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre># Recommended theme stack for publications
+theme_pub &lt;- theme_minimal(base_size = 14) +
+  theme(
+    plot.title      = element_text(face = "bold", size = 16),
+    axis.title      = element_text(face = "bold"),
+    legend.position = "bottom",
+    panel.grid.minor = element_blank(),
+    strip.text      = element_text(face = "bold")
+  )
+
+# Apply to any ggplot
+my_plot + theme_pub</pre>
+          </div>
+
+          <h5 class="fw-bold mt-4">Color Palette Recommendations</h5>
+          <div class="param-table">
+            <table class="table table-striped mb-0">
+              <thead><tr><th>Use Case</th><th>Palette</th><th>Code</th></tr></thead>
+              <tbody>
+                <tr><td>Categorical (up to 8 groups)</td><td>Brewer "Set2" or "Dark2"</td><td><code>scale_color_brewer(palette = "Set2")</code></td></tr>
+                <tr><td>Diverging (heatmaps, fold change)</td><td>Blue-White-Red</td><td><code>scale_fill_gradient2(low="blue", mid="white", high="red")</code></td></tr>
+                <tr><td>Sequential (expression level)</td><td>Viridis</td><td><code>scale_fill_viridis_c()</code></td></tr>
+                <tr><td>Colorblind-safe</td><td>Okabe-Ito or viridis</td><td><code>scale_color_manual(values = c(...))</code></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h5 class="fw-bold mt-4">Saving Figures</h5>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre># Vector formats for publication (scalable, small file size)
+ggsave("figure1.pdf", plot = my_plot, width = 8, height = 6, dpi = 300)
+ggsave("figure1.svg", plot = my_plot, width = 8, height = 6)
+
+# Raster format for supplementary / web
+ggsave("figure1.png", plot = my_plot, width = 8, height = 6, dpi = 300)
+
+# Combine multiple plots with patchwork
+library(patchwork)
+combined &lt;- (pca_plot | volcano_plot) / heatmap_plot +
+  plot_annotation(tag_levels = "A")   # adds A, B, C labels
+ggsave("figure_combined.pdf", combined, width = 14, height = 12)</pre>
+          </div>
+
+          <div class="byte-callout byte-warn">
+            <img src="../img/Byte5.png" alt="Byte warns">
+            <div>
+              <strong>Journal Requirements:</strong> Most journals require 300 DPI minimum for raster images and prefer vector formats (PDF, SVG, EPS). Always check the target journal's figure guidelines before exporting. Use <code>cairo_pdf()</code> if you need embedded fonts.
+            </div>
+          </div>
+        </section>
+
+        <section id="summary" class="mb-5">
+          <h2 class="fw-bold"><i class="bi bi-check-circle me-2"></i> Summary</h2>
+          <div class="byte-callout byte-tip">
+            <img src="../img/Byte0.png" alt="Byte">
+            <div>
+              <strong>What You Learned:</strong>
+              <ol class="mb-0 mt-1">
+                <li>The grammar of graphics and how ggplot2 layers work</li>
+                <li>Boxplots, violin plots, and when to combine them with jitter</li>
+                <li>Custom PCA plots with variance labels and confidence ellipses</li>
+                <li>Publication-quality volcano and MA plots</li>
+                <li>Heatmaps with pheatmap and ComplexHeatmap, including clustering options</li>
+                <li>Interactive exploration with plotly</li>
+                <li>Color palettes, themes, and export for publication</li>
+              </ol>
+            </div>
+          </div>
+
+          <div class="d-flex justify-content-between mt-5">
+            <a href="gene-coexpression-network-wgcna-tutorial.html" class="btn btn-outline-secondary rounded-pill px-4"><i class="bi bi-arrow-left me-2"></i>Prev: WGCNA</a>
+            <a href="single-cell-rna-seq-seurat-analysis-tutorial.html" class="btn btn-primary rounded-pill px-4">Next: Single-Cell RNA-Seq <i class="bi bi-arrow-right ms-2"></i></a>
+          </div>
+        </section>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-lg-6"><h5 class="text-white fw-bold mb-3"><span style="color:#ff9933;">Indian</span><span style="color:var(--ieb-primary);">Elucid</span><span style="color:var(--ieb-accent);">Biology</span></h5><p class="small">Free, interactive bioinformatics tutorials. Open source and community-driven.</p></div>
+      <div class="col-lg-6 text-lg-end"><p class="small mb-1">Founded by <strong>Ankush Sharma</strong></p><div class="d-flex gap-3 justify-content-lg-end"><a href="https://github.com/ank-man" target="_blank" class="text-white fs-5"><i class="bi bi-github"></i></a><a href="https://www.linkedin.com/in/ankush-sharma-290307/" target="_blank" class="text-white fs-5"><i class="bi bi-linkedin"></i></a><a href="mailto:mr.ank2999@gmail.com" class="text-white fs-5"><i class="bi bi-envelope"></i></a></div></div>
+    </div>
+    <hr class="border-secondary mt-4 mb-3">
+    <p class="text-center small mb-0">&copy; 2025 IndianElucidBiology — Founded by <a href="https://www.linkedin.com/in/ankush-sharma-290307/" class="text-white-50" target="_blank">Ankush Sharma</a>. Made with <span style="color:#e25555;">&#9829;</span> for the bioinformatics community.</p>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SnpEff &amp; SnpSift: Variant Annotation, Filtering &amp; Automation | IndianElucidBiology</title>
+  <meta name="description" content="Complete SnpEff and SnpSift tutorial: build custom databases, annotate VCFs, understand impact predictions, avoid common pitfalls, automate annotation pipelines, and use SnpSift for powerful variant filtering.">
+  <meta name="keywords" content="SnpEff, SnpSift, variant annotation, VCF, functional annotation, impact prediction, MODERATE, HIGH, missense, loss-of-function, custom database, bcftools, variant filtering, automation">
+  <link rel="canonical" href="https://indianelucidbiology.github.io/tutorials/snpeff-snpsift-variant-annotation.html">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="../css/style.css" rel="stylesheet">
+  <link href="../css/live-spreadsheet.css" rel="stylesheet">
+</head>
+<body>
+<div class="progress-tracker"></div>
+
+<nav class="navbar navbar-expand-lg fixed-top">
+  <div class="container">
+    <a class="navbar-brand" href="../index.html">
+      <span class="brand-indian">Indian</span><span class="brand-elucid">Elucid</span><span class="brand-biology">Biology</span>
+    </a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="mainNav">
+      <ul class="navbar-nav ms-auto me-3">
+        <li class="nav-item"><a class="nav-link" href="../index.html">Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="index.html">Tutorial Library</a></li>
+        <li class="nav-item"><a class="nav-link" href="gatk-snp-calling-best-practices.html"><i class="bi bi-arrow-left me-1"></i>GATK SNP Calling</a></li>
+        <li class="nav-item"><a class="nav-link" href="variant-filtering-pipeline.html">Variant Filtering<i class="bi bi-arrow-right ms-1"></i></a></li>
+      </ul>
+      <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode">&#9790;</button>
+    </div>
+  </div>
+</nav>
+
+<section class="tutorial-hero">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-lg-8">
+        <nav aria-label="breadcrumb">
+          <ol class="breadcrumb mb-3" style="--bs-breadcrumb-divider-color:rgba(255,255,255,0.5);">
+            <li class="breadcrumb-item"><a href="../index.html" class="text-white-50 text-decoration-none">Home</a></li>
+            <li class="breadcrumb-item"><a href="index.html" class="text-white-50 text-decoration-none">Tutorials</a></li>
+            <li class="breadcrumb-item active text-white">SnpEff &amp; SnpSift</li>
+          </ol>
+        </nav>
+        <h1 class="display-5 fw-bold text-white mb-3">SnpEff &amp; SnpSift: Variant Annotation &amp; Filtering</h1>
+        <p class="lead text-white-50 mb-4">
+          Build custom databases &middot; annotate any VCF &middot; understand impact tiers &middot; avoid common pitfalls &middot; SnpSift filter expressions &middot; automated pipeline scripts &middot; downstream analysis
+        </p>
+        <div class="d-flex gap-3 flex-wrap">
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-clock me-1"></i> ~120 min</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-bar-chart me-1"></i> Intermediate</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-terminal me-1"></i> Bash / Python</span>
+        </div>
+      </div>
+      <div class="col-lg-4 text-center d-none d-lg-block">
+        <img src="../img/Byte3.png" alt="Byte" class="img-fluid" style="max-height:230px;filter:drop-shadow(0 10px 30px rgba(0,0,0,0.4));">
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="container py-5">
+  <div class="row">
+    <div class="col-lg-3 d-none d-lg-block">
+      <div class="toc-sidebar">
+        <h6 class="fw-bold text-muted text-uppercase small mb-3">On this page</h6>
+        <nav class="nav flex-column">
+          <a class="nav-link" href="#overview">Overview &amp; Concepts</a>
+          <a class="nav-link" href="#dataset">Dataset</a>
+          <a class="nav-link" href="#step1">1. Install &amp; Build Database</a>
+          <a class="nav-link" href="#step2">2. Annotate a VCF</a>
+          <a class="nav-link" href="#step3">3. Understanding Impact Tiers</a>
+          <a class="nav-link" href="#step4">4. Common Pitfalls</a>
+          <a class="nav-link" href="#step5">5. SnpSift Filter Expressions</a>
+          <a class="nav-link" href="#step6">6. Automated Pipeline Script</a>
+          <a class="nav-link" href="#step7">7. Downstream R Analysis</a>
+        </nav>
+      </div>
+    </div>
+
+    <div class="col-lg-9">
+      <div class="tutorial-content">
+
+<!-- ================================================================ -->
+<section id="overview" class="mb-5">
+  <h2 class="section-divider">Overview &amp; Key Concepts</h2>
+  <p>SnpEff predicts the <strong>functional effect</strong> of every variant in a VCF by comparing its genomic position to a gene annotation database. It answers: &ldquo;If this SNP changes amino acid X to Y in gene Z, what is the likely biological impact?&rdquo; SnpSift is the companion tool for <strong>filtering and manipulating</strong> the annotated VCF using a powerful SQL-like expression language.</p>
+
+  <div class="byte-callout">
+    <img src="../img/Byte1.png" alt="Byte">
+    <div>
+      <strong>SnpEff vs VEP vs ANNOVAR — when to use which:</strong>
+      <ul class="mb-0 mt-1 small">
+        <li><strong>SnpEff:</strong> Best for non-model organisms — can build a database from ANY genome + GFF3 in &lt;10 minutes. Fast, Java-based. Best integration with GATK workflows. Freely available offline.</li>
+        <li><strong>Ensembl VEP:</strong> Best for human/mouse. Richest database (COSMIC, gnomAD, ClinVar, SpliceAI). Slower but more annotations per variant. Requires large cache downloads (~100 GB for all plugins).</li>
+        <li><strong>ANNOVAR:</strong> Best for human disease research. Fastest for large VCFs. Requires registration. Not ideal for non-model organisms.</li>
+        <li><strong>Rule:</strong> For model organisms → VEP. For crops/livestock/wildlife/non-model → SnpEff. Both agree on 95%+ of impact predictions.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="param-table mt-4">
+    <table class="table table-striped mb-0">
+      <thead><tr><th>SnpEff Impact Tier</th><th>Meaning</th><th>Examples</th><th>Action</th></tr></thead>
+      <tbody>
+        <tr><td><span class="badge bg-danger">HIGH</span></td><td>Presumed disruption of protein function</td><td>stop_gained (nonsense), frameshift, splice_site_acceptor/donor, start_lost</td><td>Strong candidate — validate experimentally</td></tr>
+        <tr><td><span class="badge bg-warning text-dark">MODERATE</span></td><td>Non-disruptive variant — may change protein effectiveness</td><td>missense_variant, in-frame insertion/deletion, codon change</td><td>Context-dependent — check conservation + domain</td></tr>
+        <tr><td><span class="badge bg-info text-dark">LOW</span></td><td>Assumed mostly harmless</td><td>synonymous_variant, stop_retained, splice_region (non-core)</td><td>Usually ignored unless studying synonymous evolution</td></tr>
+        <tr><td><span class="badge bg-secondary">MODIFIER</span></td><td>Non-coding — effect unknown</td><td>intron_variant, upstream/downstream, 3'/5'UTR, intergenic</td><td>Filter out for coding-focused analyses; keep for regulatory studies</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ================================================================ -->
+<section id="dataset" class="mb-5">
+  <h2 class="section-divider">Dataset</h2>
+  <p>We use the <strong>Rice 3000 Genomes Project (3K-RG)</strong> — the largest publicly available multi-sample VCF for a crop species. We demonstrate both a <em>pre-built</em> database (rice GFF3 from RAP-DB) and a <em>custom</em> database build from scratch to show the complete workflow for non-model organisms.</p>
+  <div class="param-table">
+    <table class="table table-striped mb-0">
+      <thead><tr><th>Property</th><th>Value</th></tr></thead>
+      <tbody>
+        <tr><td>Organism</td><td><em>Oryza sativa</em> (Asian rice)</td></tr>
+        <tr><td>Accession</td><td><a href="https://www.ncbi.nlm.nih.gov/bioproject/PRJEB6180" target="_blank">PRJEB6180</a> — 3000 Rice Genomes Project</td></tr>
+        <tr><td>Reference genome</td><td>IRGSP-1.0 (Os-Nipponbare-Reference-IRGSP-1.0)</td></tr>
+        <tr><td>Annotation</td><td><a href="https://rapdb.dna.affrc.go.jp/" target="_blank">RAP-DB</a> GFF3 — Rice Annotation Project</td></tr>
+        <tr><td>Why rice?</td><td>Well-validated annotation, known functional variants (e.g. Rc gene for red pericarp), and free public data</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ================================================================ -->
+<section id="step1" class="mb-5">
+  <h2 class="section-divider">Step 1 — Install SnpEff &amp; Build a Custom Database</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash — Download SnpEff, build rice database from GFF3</span><button class="btn-copy">Copy</button></div>
+<pre id="s1-install">######################################################################
+## STEP 1: Install SnpEff and build a custom annotation database
+## SnpEff needs THREE things per organism:
+##   1. Reference genome FASTA
+##   2. Gene annotation (GFF3 or GTF)
+##   3. A config entry pointing SnpEff to these files
+##
+## For 68+ common organisms (human, mouse, Arabidopsis, rice, maize...):
+##   java -jar snpEff.jar download <database_name>
+##   (downloads a pre-built database automatically)
+##
+## For any organism NOT in the pre-built list:
+##   You MUST build the database manually — shown below
+######################################################################
+
+## --- Download SnpEff ---
+wget https://snpeff.blob.core.windows.net/versions/snpEff_latest_core.zip
+unzip snpEff_latest_core.zip
+## snpEff.jar and SnpSift.jar are in snpEff/
+
+## --- Check available pre-built databases ---
+java -jar snpEff/snpEff.jar databases | grep -i "oryza\|rice"
+## Outputs: OryZa_sativa (Oryza_sativa) — IRGSP-1.0
+
+## --- Option A: Download pre-built rice database (simplest) ---
+java -jar snpEff/snpEff.jar download Oryza_sativa
+## Downloads to snpEff/data/Oryza_sativa/
+
+## =================================================================
+## Option B: Build a CUSTOM database (required for non-model organisms)
+## Use this if your organism is not in the pre-built list,
+## OR if you want to use a more recent/specific annotation version.
+## =================================================================
+
+GENOME_NAME="Oryza_sativa_IRGSP1"  # your database name (no spaces, no special chars)
+GENOME_FASTA="Oryza_sativa.IRGSP1.dna.toplevel.fa"
+ANNOTATION_GFF="Oryza_sativa.IRGSP1.60.gff3.gz"
+
+## Step B1: Download the genome FASTA and GFF3 annotation
+wget -O ${GENOME_FASTA} \
+  "https://ftp.ensemblgenomes.ebi.ac.uk/pub/plants/release-60/fasta/oryza_sativa/dna/Oryza_sativa.IRGSP1.dna.toplevel.fa.gz"
+gunzip ${GENOME_FASTA}.gz
+
+wget -O ${ANNOTATION_GFF} \
+  "https://ftp.ensemblgenomes.ebi.ac.uk/pub/plants/release-60/gff3/oryza_sativa/Oryza_sativa.IRGSP1.60.gff3.gz"
+## Keep GFF3 gzipped — SnpEff reads gzipped GFF3 directly
+
+## Step B2: Create the database directory structure
+## SnpEff expects:
+##   snpEff/data/${GENOME_NAME}/sequences.fa  (genome FASTA)
+##   snpEff/data/${GENOME_NAME}/genes.gff     (annotation GFF3)
+mkdir -p snpEff/data/${GENOME_NAME}/
+cp ${GENOME_FASTA} snpEff/data/${GENOME_NAME}/sequences.fa
+cp ${ANNOTATION_GFF} snpEff/data/${GENOME_NAME}/genes.gff.gz
+
+## Step B3: Add a config entry to snpEff.config
+## This tells SnpEff where to find the database
+echo "" >> snpEff/snpEff.config
+echo "# ${GENOME_NAME} - Custom Oryza sativa IRGSP-1.0" >> snpEff/snpEff.config
+echo "${GENOME_NAME}.genome : Oryza sativa" >> snpEff/snpEff.config
+echo "${GENOME_NAME}.chromosomes : 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12" >> snpEff/snpEff.config
+## CRITICAL: chromosome names in your config MUST match chromosome names in
+## your FASTA and VCF. If your VCF has "chr1" but FASTA has "1", SnpEff
+## will annotate ZERO variants. This is the #1 source of SnpEff failures.
+
+## Step B4: Build the database
+## -v : verbose output (shows progress and any errors in the GFF3)
+## -gff3 : specify GFF3 format (not GTF)
+java -Xmx8g -jar snpEff/snpEff.jar build \
+    -gff3 \
+    -v \
+    ${GENOME_NAME} \
+    2>&1 | tee snpEff_build.log
+
+## Check the build log for warnings:
+## "WARNING: Cannot find protein for transcript" = GFF3 lacks CDS features (problem!)
+## "WARNING: Codon X is not a stop codon"        = non-standard genetic code (set -codonTable)
+## "Gene not found"                              = transcript lacks parent gene feature in GFF3
+echo "Database build complete. Check snpEff_build.log for warnings."
+ls -lh snpEff/data/${GENOME_NAME}/</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s1-install" data-filename="01_snpeff_install_build.sh"><i class="bi bi-download me-1"></i>01_snpeff_install_build.sh</button></div>
+
+  <div class="cmd-explain">
+    <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> Database build concepts decoded</div>
+    <table>
+      <tr><td><span class="cmd-emoji">&#128204;</span>GFF3 vs GTF</td><td>SnpEff supports both GFF3 (<code>-gff3</code>) and GTF (<code>-gtf22</code>). GFF3 is the standard for Ensembl Plants/NCBI RefSeq. GTF is the standard for GENCODE (human/mouse). The critical difference: GFF3 uses <code>ID=</code>/<code>Parent=</code> attributes; GTF uses <code>gene_id</code>/<code>transcript_id</code>. If you see &ldquo;gene not found&rdquo; errors, check that your GFF3 has <code>gene</code>, <code>mRNA</code>, <code>CDS</code>, and <code>exon</code> features in the correct parent-child hierarchy.</td></tr>
+      <tr><td><span class="cmd-emoji">&#127919;</span>Chromosome name matching</td><td>This is the single most common SnpEff problem. Your VCF, reference FASTA, and SnpEff config must all use <em>identical</em> chromosome names. UCSC uses &ldquo;chr1&rdquo;; Ensembl uses &ldquo;1&rdquo;; NCBI uses &ldquo;NC_007112.7&rdquo;. Check with: <code>bcftools view -h your.vcf | grep contig</code> and <code>grep '>' genome.fa | head</code>. Use <code>bcftools annotate --rename-chrs</code> to fix chromosome name mismatches.</td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- ================================================================ -->
+<section id="step2" class="mb-5">
+  <h2 class="section-divider">Step 2 — Annotate a VCF with SnpEff</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash — Run SnpEff annotation and interpret the ANN field</span><button class="btn-copy">Copy</button></div>
+<pre id="s2-annotate">######################################################################
+## STEP 2: Annotate variants with SnpEff
+## SnpEff adds an ANN field to each VCF record containing:
+##   Allele | Effect | Impact | Gene | GeneID | Feature_type |
+##   Feature_ID | Transcript_biotype | Rank | HGVS.c | HGVS.p |
+##   cDNA_pos/cDNA_len | CDS_pos/CDS_len | AA_pos/AA_len | Distance | Errors
+## Multiple transcripts per gene = multiple ANN entries (semicolon-separated)
+######################################################################
+
+DB="${GENOME_NAME}"            # database name from Step 1
+INPUT_VCF="variants_filtered.vcf.gz"
+OUTPUT_VCF="variants_annotated.vcf.gz"
+STATS_HTML="snpeff_stats.html"
+
+## --- Run SnpEff ---
+## -Xmx8g        : give SnpEff 8 GB RAM (large genomes/many transcripts need more)
+## ann            : annotation subcommand
+## -v             : verbose (shows annotation progress)
+## -stats         : output HTML statistics report
+## -csvStats      : also output stats as CSV (for scripting)
+## -canon         : use only the canonical transcript per gene
+##   HIGHLY RECOMMENDED: without -canon, each variant gets annotated once per transcript
+##   A gene with 15 isoforms = 15 ANN entries per variant (massively inflates output)
+##   -canon picks the Ensembl canonical transcript (longest CDS / most exons)
+## -noIntergenicVariants : skip annotation of intergenic variants
+##   Use this when you only care about protein-coding effects
+## -ud 2000       : define upstream/downstream region size (default 5000 bp)
+##   Variants within this distance of a gene are called "upstream" or "downstream"
+##   Set smaller if your annotation is dense (plant genomes with small intergenic regions)
+## | bgzip        : compress the output VCF
+## | tee          : write to file AND show stdout simultaneously
+java -Xmx8g -jar snpEff/snpEff.jar ann \
+    -v \
+    -stats ${STATS_HTML} \
+    -csvStats snpeff_stats.csv \
+    -canon \
+    -ud 2000 \
+    ${DB} \
+    ${INPUT_VCF} \
+    2> snpeff_run.log | \
+  bgzip > ${OUTPUT_VCF}
+tabix -p vcf ${OUTPUT_VCF}
+
+echo "Annotation complete."
+echo "Open ${STATS_HTML} in a browser to see the effect summary."
+
+## --- Inspect the ANN field ---
+## Show the first few annotated variants
+bcftools view -H ${OUTPUT_VCF} | head -5 | \
+    cut -f8 | tr ';' '\n' | grep "^ANN=" | head -3
+
+## ANN field format (pipe-delimited):
+## ANN=C|missense_variant|MODERATE|Os01g0100200|Os01g0100200|transcript|Os01t0100200-01|mRNA|3/6|c.452G>A|p.Arg151Gln|452/1890|452/1233|151/410||
+##        ↑ effect         ↑ impact  ↑ gene name   ↑ gene ID       ↑ transcript            ↑ exon  ↑ cDNA change ↑ protein change
+
+## --- Count variants by impact ---
+echo "=== Variant counts by impact ==="
+bcftools view -H ${OUTPUT_VCF} | \
+    grep -oP 'ANN=[^;]+' | \
+    grep -oP '\|[A-Z]+\|' | \
+    sort | uniq -c | sort -rn
+
+## --- Count variants by effect type ---
+echo "=== Top 20 effect types ==="
+bcftools view -H ${OUTPUT_VCF} | \
+    grep -oP 'ANN=[^\t]+' | \
+    awk -F'|' '{print $2}' | \
+    sort | uniq -c | sort -rn | head -20</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s2-annotate" data-filename="02_snpeff_annotate.sh"><i class="bi bi-download me-1"></i>02_snpeff_annotate.sh</button></div>
+  <div class="fun-tip"><span class="fun-tip-icon">&#129504;</span><div><strong>Always open snpeff_stats.html first!</strong> The HTML statistics report shows a pie chart of effects (missense, synonymous, intergenic...), a transition/transversion ratio (Ti/Tv ~2.0 for WGS, ~2.5-3.0 for WES — values outside this range indicate a filtering problem), and quality distribution plots. If 80%+ of your variants are MODIFIER/intergenic and you expected coding effects, your chromosome names probably don't match.</div></div>
+</section>
+
+<!-- ================================================================ -->
+<section id="step3" class="mb-5">
+  <h2 class="section-divider">Step 3 — Understanding Impact Predictions</h2>
+
+  <p>Before diving into parsing, use the interactive spreadsheet below to understand how SnpEff categorises variants and what a healthy annotation run looks like. The <strong>Ti/Tv ratio</strong> (transitions vs transversions) is the first sanity check — edit the counts to see it recalculate instantly:</p>
+
+  <div class="live-sheet" data-sheet='{
+    "title": "Live Variant Impact Counter &amp; Ti/Tv Validator — Edit the yellow cells",
+    "legend": true,
+    "cols": [
+      {"id":"A","label":"Category","desc":"Variant type or impact tier"},
+      {"id":"B","label":"Count","desc":"Number of variants — EDIT these yellow cells"},
+      {"id":"C","label":"% of total","desc":"=B / SUM(all) * 100"},
+      {"id":"D","label":"Expected range","desc":"Typical range for a well-annotated diploid genome"}
+    ],
+    "rows": [
+      {"header":"Variant type counts (from SnpEff summary HTML or bcftools stats):"},
+      {"rowNum":2,"cells":{"A":{"text":"Transitions (Ti): A\u2194G, C\u2194T"},"B":{"input":2850000,"step":1000,"min":1},"C":{"formula":"=ROUND(B2/(B2+B3)*100,2)"},"D":{"text":"~66\u201375% of all SNPs"}}},
+      {"rowNum":3,"cells":{"A":{"text":"Transversions (Tv): A\u2194C, A\u2194T, G\u2194C, G\u2194T"},"B":{"input":1450000,"step":1000,"min":1},"C":{"formula":"=ROUND(B3/(B2+B3)*100,2)"},"D":{"text":"~25\u201334% of all SNPs"}}},
+      {"rowNum":4,"cells":{"A":{"text":"Ti/Tv ratio"},"B":{"formula":"=ROUND(B2/B3,3)"},"C":{"formula":"=IF(B4>=1.8,IF(B4<=2.2,1,IF(B4<=3.0,2,3)),IF(B4>=1.4,2,3))"},"D":{"text":"WGS human: 2.0\u20132.1 | exome: 2.8\u20133.3 | plants WGS: 1.8\u20132.2"}}},
+      {"header":"SnpEff impact tier counts (edit to match your annotation output):"},
+      {"rowNum":6,"cells":{"A":{"text":"HIGH impact (stop gained, frameshift, splice site)"},"B":{"input":12400,"step":100,"min":0},"C":{"formula":"=ROUND(B6/(B6+B7+B8+B9)*100,3)"},"D":{"text":"~0.1\u20130.5% of all variants"}}},
+      {"rowNum":7,"cells":{"A":{"text":"MODERATE impact (missense, in-frame indel)"},"B":{"input":148000,"step":1000,"min":0},"C":{"formula":"=ROUND(B7/(B6+B7+B8+B9)*100,3)"},"D":{"text":"~2\u20135% of all variants"}}},
+      {"rowNum":8,"cells":{"A":{"text":"LOW impact (synonymous, near-splice)"},"B":{"input":136000,"step":1000,"min":0},"C":{"formula":"=ROUND(B8/(B6+B7+B8+B9)*100,3)"},"D":{"text":"~2\u20134% of all variants"}}},
+      {"rowNum":9,"cells":{"A":{"text":"MODIFIER (intron, intergenic, UTR, downstream)"},"B":{"input":4003600,"step":10000,"min":0},"C":{"formula":"=ROUND(B9/(B6+B7+B8+B9)*100,3)"},"D":{"text":"~90\u201395% of all variants"}}},
+      {"header":"Summary statistics:"},
+      {"rowNum":11,"cells":{"A":{"text":"Total annotated variants"},"B":{"formula":"=B6+B7+B8+B9"},"C":{"text":""},"D":{"text":""}}},
+      {"rowNum":12,"cells":{"A":{"text":"Coding variants (HIGH + MODERATE)"},"B":{"formula":"=B6+B7"},"C":{"formula":"=ROUND((B6+B7)/B11*100,2)"},"D":{"text":"Typically 2\u20136% of total"}}},
+      {"rowNum":13,"cells":{"A":{"text":"Ti/Tv status flag (1=PASS, 2=WARN, 3=FAIL)"},"B":{"formula":"=C4"},"C":{"text":"1=ratio in expected range | 2=borderline | 3=likely contamination or error"},"D":{"text":""}}}
+    ],
+    "colDesc": [
+      {"col":"B4 (Ti/Tv ratio)", "desc":"=B2/B3. Transitions (purine\u2194purine or pyrimidine\u2194pyrimidine) are chemically more likely than transversions, so they dominate true biological variation. A low Ti/Tv (\u22641.5) suggests excess false positive SNPs (random sequencing errors are equally likely to be Ti or Tv, so errors drag the ratio toward 0.5). A very high Ti/Tv in an exome (\u22654.0) may indicate sample contamination or mapping to the wrong reference."},
+      {"col":"C4 (Status)", "desc":"=IF(ratio\u22651.8, IF(ratio\u22642.2, 1=PASS, IF(ratio\u22643.0, 2=WARN, 3=FAIL)), IF(ratio\u22651.4, 2=WARN, 3=FAIL)). These thresholds are for plant WGS. Adjust: human WGS expects 2.0\u20132.1; human exome 2.8\u20133.3; RNA-seq variants ~3.5+ (enriched in coding regions where Ti predominate)."},
+      {"col":"C6\u2013C9 (%)", "desc":"=B_impact / (B6+B7+B8+B9) * 100. The vast majority (~90\u201395%) of all variants should be MODIFIER because most of the genome is non-coding. If HIGH impact exceeds 2%, check for annotation errors (wrong GFF, chromosome name mismatch, or reading frame issues in the GFF3 CDS features)."}
+    ]
+  }'></div>
+
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash + Python — Extract and interpret the ANN field systematically</span><button class="btn-copy">Copy</button></div>
+<pre id="s3-impacts">######################################################################
+## STEP 3: Extract and interpret SnpEff impact predictions
+## The ANN field is complex — here we parse it into a clean table
+## and explain what each impact level really means biologically.
+######################################################################
+
+## --- Python script to parse ANN field into a clean TSV ---
+cat << 'PYEOF' > parse_snpeff_ann.py
+#!/usr/bin/env python3
+"""
+Parse SnpEff ANN field from a VCF into a clean, analysis-ready TSV.
+Handles multiple transcripts per variant (takes highest-impact annotation).
+"""
+import gzip, sys, csv
+
+## Impact priority: HIGH > MODERATE > LOW > MODIFIER
+IMPACT_PRIORITY = {"HIGH": 4, "MODERATE": 3, "LOW": 2, "MODIFIER": 1}
+
+def parse_ann(ann_str):
+    """Parse the ANN field and return the highest-impact annotation."""
+    if not ann_str or ann_str == ".":
+        return None
+    ## Multiple transcripts are comma-separated within ANN=
+    entries = ann_str.replace("ANN=", "").split(",")
+    best = None
+    best_priority = 0
+    for entry in entries:
+        fields = entry.split("|")
+        if len(fields) < 4:
+            continue
+        allele, effect, impact, gene = fields[0], fields[1], fields[2], fields[3]
+        gene_id    = fields[4]  if len(fields) > 4  else ""
+        transcript = fields[6]  if len(fields) > 6  else ""
+        hgvs_c     = fields[9]  if len(fields) > 9  else ""
+        hgvs_p     = fields[10] if len(fields) > 10 else ""
+        aa_change  = fields[10] if len(fields) > 10 else ""
+        priority   = IMPACT_PRIORITY.get(impact, 0)
+        if priority > best_priority:
+            best_priority = priority
+            best = {
+                "allele": allele, "effect": effect, "impact": impact,
+                "gene": gene, "gene_id": gene_id, "transcript": transcript,
+                "hgvs_c": hgvs_c, "hgvs_p": hgvs_p
+            }
+    return best
+
+vcf_file  = sys.argv[1]    # input annotated VCF
+out_file  = sys.argv[2]    # output TSV
+
+opener = gzip.open if vcf_file.endswith(".gz") else open
+with opener(vcf_file, "rt") as vcf, open(out_file, "w", newline="") as out:
+    writer = csv.writer(out, delimiter="\t")
+    writer.writerow(["CHROM","POS","REF","ALT","QUAL","FILTER",
+                     "IMPACT","EFFECT","GENE","GENE_ID","TRANSCRIPT",
+                     "HGVS_C","HGVS_P"])
+    for line in vcf:
+        if line.startswith("#"):
+            continue
+        cols = line.strip().split("\t")
+        if len(cols) < 8:
+            continue
+        chrom, pos, vid, ref, alt, qual, filt, info = cols[:8]
+        ## Extract ANN field from INFO
+        ann_str = ""
+        for field in info.split(";"):
+            if field.startswith("ANN="):
+                ann_str = field
+                break
+        ann = parse_ann(ann_str)
+        if ann:
+            writer.writerow([chrom, pos, ref, alt, qual, filt,
+                             ann["impact"], ann["effect"], ann["gene"],
+                             ann["gene_id"], ann["transcript"],
+                             ann["hgvs_c"], ann["hgvs_p"]])
+        else:
+            writer.writerow([chrom, pos, ref, alt, qual, filt,
+                             ".", ".", ".", ".", ".", ".", "."])
+
+print(f"Parsed VCF written to: {out_file}")
+PYEOF
+
+python3 parse_snpeff_ann.py variants_annotated.vcf.gz variants_annotated_parsed.tsv
+echo "Parsed annotation table: variants_annotated_parsed.tsv"
+
+## --- Summarise the parsed table ---
+echo "=== Impact summary ==="
+tail -n+2 variants_annotated_parsed.tsv | cut -f7 | sort | uniq -c | sort -rn
+
+echo ""
+echo "=== HIGH impact variants ==="
+awk -F'\t' '$7=="HIGH" {print $1,$2,$3,$4,$8,$9,$13}' \
+    variants_annotated_parsed.tsv | head -20 | column -t</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s3-impacts" data-filename="03_parse_ann_field.py"><i class="bi bi-download me-1"></i>03_parse_ann_field.py</button></div>
+</section>
+
+<!-- ================================================================ -->
+<section id="step4" class="mb-5">
+  <h2 class="section-divider">Step 4 — Common Pitfalls &amp; How to Fix Them</h2>
+
+  <div class="byte-callout" style="border-left-color: #dc3545;">
+    <img src="../img/Byte2.png" alt="Byte">
+    <div><strong>These are the most common SnpEff failures — every bioinformatician encounters them:</strong></div>
+  </div>
+
+  <div class="code-block-wrapper mt-3">
+    <div class="code-block-header"><span>Bash — Diagnose and fix all common SnpEff problems</span><button class="btn-copy">Copy</button></div>
+<pre id="s4-pitfalls">######################################################################
+## STEP 4: Common SnpEff pitfalls and fixes
+##
+## PITFALL 1: All variants annotated as "intergenic" or MODIFIER
+##   Cause:    Chromosome name mismatch between VCF and database
+##   Symptom:  SnpEff reports 0 coding variants
+##   Fix:      Check and fix chromosome names (shown below)
+##
+## PITFALL 2: "WARNING: Cannot find protein for transcript XXXX"
+##   Cause:    GFF3 is missing CDS features (only has exon/mRNA features)
+##   Symptom:  SnpEff cannot predict amino acid changes
+##   Fix:      Use a GFF3 that includes CDS features, or download GTF instead
+##
+## PITFALL 3: Massive output — hundreds of ANN entries per variant
+##   Cause:    -canon not used; annotating all transcripts
+##   Fix:      Always use -canon flag (canonical transcript only)
+##
+## PITFALL 4: Ti/Tv ratio way off (e.g. Ti/Tv = 0.5 or 4.0)
+##   Cause:    VCF was not quality-filtered before SnpEff
+##   Fix:      Apply VQSR or hard filters BEFORE annotation
+##
+## PITFALL 5: SnpEff runs for hours and never finishes
+##   Cause:    Not enough RAM (-Xmx too small); genome/annotation is huge
+##   Fix:      Increase -Xmx; use -noIntergenicVariants; split by chromosome
+##
+## PITFALL 6: Wrong protein change — p.? or p.Met1? for coding variants
+##   Cause:    Wrong reference FASTA used (different assembly version)
+##   Fix:      Ensure VCF, FASTA, and GFF3 all use the same assembly version
+######################################################################
+
+## =================================================================
+## FIX 1: Chromosome name mismatch
+## =================================================================
+
+## Check chromosome names in VCF
+echo "=== Chromosome names in VCF ==="
+bcftools view -H variants_raw.vcf.gz | cut -f1 | sort -u | head -20
+
+## Check chromosome names in FASTA
+echo "=== Chromosome names in FASTA ==="
+grep '>' genome.fa | head -20
+
+## Check chromosome names SnpEff is using
+echo "=== Chromosome names in SnpEff database ==="
+cat snpEff/snpEff.config | grep "${DB}.chromosomes"
+
+## Common mismatch: VCF has "chr1", FASTA/SnpEff has "1"
+## Fix: strip "chr" prefix from VCF
+bcftools annotate \
+    --rename-chrs <(for i in $(seq 1 22) X Y MT; do echo "chr${i} ${i}"; done) \
+    -O z -o variants_renamed.vcf.gz \
+    variants_raw.vcf.gz
+tabix -p vcf variants_renamed.vcf.gz
+
+## OR: add "chr" prefix (if VCF has "1" but SnpEff needs "chr1")
+bcftools annotate \
+    --rename-chrs <(for i in $(seq 1 22) X Y MT; do echo "${i} chr${i}"; done) \
+    -O z -o variants_chr_prefix.vcf.gz \
+    variants_raw.vcf.gz
+
+## =================================================================
+## FIX 2: GFF3 missing CDS features
+## =================================================================
+
+## Check whether your GFF3 has CDS features
+echo "=== GFF3 feature type counts ==="
+zcat annotation.gff3.gz | grep -v '^#' | cut -f3 | sort | uniq -c | sort -rn
+## You MUST see "CDS" in the output. If not, download from a different source.
+## Ensembl Plants GFF3 always has CDS features.
+## Some NCBI GFF3 files omit CDS — use the _genomic.gff.gz version instead.
+
+## =================================================================
+## FIX 3: GFF3 with non-standard transcript biotypes
+## =================================================================
+## Some GFF3 files use "transcript" instead of "mRNA" for the feature type.
+## SnpEff requires "mRNA" or "transcript" depending on the version.
+## Fix: replace "transcript" with "mRNA" if needed
+zcat annotation.gff3.gz | \
+    sed 's/\ttranscript\t/\tmRNA\t/' | \
+    bgzip > annotation_fixed.gff3.gz
+
+## =================================================================
+## FIX 4: SnpEff running out of memory
+## =================================================================
+## Check how much memory SnpEff needs for your database:
+java -Xmx4g -jar snpEff/snpEff.jar databases | grep -i "memory"
+## Typical: human/large genomes need 6-8 GB
+##          bacteria/small genomes: 1-2 GB
+##          polyploid crops (wheat 17 Gb genome): 16-32 GB
+
+## =================================================================
+## FIX 5: Split large VCF by chromosome for parallel SnpEff
+## =================================================================
+## For VCFs with millions of variants, annotate each chromosome separately:
+CHROMS=$(bcftools view -H variants.vcf.gz | cut -f1 | sort -u)
+for CHR in ${CHROMS}; do
+    bcftools view -r ${CHR} -O z -o temp_${CHR}.vcf.gz variants.vcf.gz
+    java -Xmx4g -jar snpEff/snpEff.jar ann -canon ${DB} temp_${CHR}.vcf.gz | \
+        bgzip > annotated_${CHR}.vcf.gz &
+done
+wait  # wait for all background jobs to finish
+## Merge all annotated chromosomes back into one VCF
+bcftools concat -O z -o variants_annotated_all.vcf.gz annotated_chr*.vcf.gz
+tabix -p vcf variants_annotated_all.vcf.gz
+rm temp_chr*.vcf.gz annotated_chr*.vcf.gz</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s4-pitfalls" data-filename="04_snpeff_troubleshoot.sh"><i class="bi bi-download me-1"></i>04_snpeff_troubleshoot.sh</button></div>
+</section>
+
+<!-- ================================================================ -->
+<section id="step5" class="mb-5">
+  <h2 class="section-divider">Step 5 — SnpSift Filter Expressions</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash — SnpSift filter, extractFields, and annotate with external databases</span><button class="btn-copy">Copy</button></div>
+<pre id="s5-snpsift">######################################################################
+## STEP 5: SnpSift — powerful VCF filtering and field extraction
+## SnpSift filter uses a SQL-like expression language to filter variants.
+## You can access ANY field in the VCF INFO or FORMAT columns.
+## Special syntax for SnpEff ANN field: ANN[*].IMPACT, ANN[0].GENE etc.
+## ANN[*] = "any annotation" (at least one matches)
+## ANN[0] = "first annotation" (use with -canon to get the canonical one)
+######################################################################
+
+## ================================================================
+## COMMON FILTER RECIPES
+## ================================================================
+
+## --- Recipe 1: Extract only HIGH + MODERATE impact variants ---
+java -jar snpEff/SnpSift.jar filter \
+    "(ANN[*].IMPACT = 'HIGH') | (ANN[*].IMPACT = 'MODERATE')" \
+    variants_annotated.vcf.gz | \
+    bgzip > variants_HIGH_MOD.vcf.gz
+
+## --- Recipe 2: Extract HIGH impact only (loss-of-function candidates) ---
+java -jar snpEff/SnpSift.jar filter \
+    "ANN[*].IMPACT = 'HIGH'" \
+    variants_annotated.vcf.gz | \
+    bgzip > variants_HIGH_only.vcf.gz
+
+## --- Recipe 3: Filter by specific effect type ---
+## Get only stop_gained (nonsense) mutations
+java -jar snpEff/SnpSift.jar filter \
+    "ANN[*].EFFECT has 'stop_gained'" \
+    variants_annotated.vcf.gz | \
+    bgzip > variants_nonsense.vcf.gz
+
+## --- Recipe 4: Filter by quality + depth + impact (combined) ---
+## This is the most practically useful recipe for downstream analyses:
+## - QUAL > 30      : Phred-scaled variant quality
+## - FORMAT DP > 10 : minimum read depth per sample (genotype field)
+## - HIGH or MODERATE impact
+## NOTE: For multi-sample VCFs, GEN[0] = first sample, GEN[*] = any sample
+java -jar snpEff/SnpSift.jar filter \
+    "(QUAL >= 30) & \
+     (GEN[0].DP >= 10) & \
+     ((ANN[*].IMPACT = 'HIGH') | (ANN[*].IMPACT = 'MODERATE'))" \
+    variants_annotated.vcf.gz | \
+    bgzip > variants_filtered_annotated.vcf.gz
+tabix -p vcf variants_filtered_annotated.vcf.gz
+
+## --- Recipe 5: Filter by gene name ---
+## Extract all variants in a specific gene of interest
+java -jar snpEff/SnpSift.jar filter \
+    "ANN[*].GENE = 'Os01g0700300'" \
+    variants_annotated.vcf.gz > gene_of_interest_variants.vcf
+
+## --- Recipe 6: Filter by functional class (missense, nonsense, silent) ---
+## MISSENSE = missense variants only (MODERATE impact coding)
+java -jar snpEff/SnpSift.jar filter \
+    "ANN[*].EFFECT = 'missense_variant'" \
+    variants_annotated.vcf.gz | \
+    bgzip > missense_only.vcf.gz
+
+## ================================================================
+## SNPSIFT EXTRACTFIELDS — convert VCF to a TSV table
+## ================================================================
+## This is extremely useful for R/Python analysis — convert annotated VCF
+## to a flat table that's easy to read in any analysis tool.
+##
+## Field syntax:
+##   CHROM, POS, ID, REF, ALT, QUAL, FILTER = standard VCF columns
+##   INFO.FIELD                = any INFO field (e.g. INFO.DP, INFO.AF)
+##   GEN[0].FIELD              = FORMAT field for sample 0 (e.g. GEN[0].GT, GEN[0].DP)
+##   ANN[0].IMPACT             = highest-priority annotation impact (with -canon)
+##   ANN[0].EFFECT             = effect type
+##   ANN[0].GENE               = gene symbol
+##   ANN[0].HGVS_C             = cDNA change (e.g. c.452G>A)
+##   ANN[0].HGVS_P             = protein change (e.g. p.Arg151Gln)
+java -jar snpEff/SnpSift.jar extractFields \
+    -s "," \
+    -e "." \
+    variants_filtered_annotated.vcf.gz \
+    CHROM POS REF ALT QUAL FILTER \
+    "ANN[0].IMPACT" "ANN[0].EFFECT" "ANN[0].GENE" \
+    "ANN[0].HGVS_C" "ANN[0].HGVS_P" \
+    "GEN[0].GT" "GEN[0].DP" \
+    > variants_table.tsv
+
+echo "Flat table created: variants_table.tsv"
+echo "Rows: $(wc -l < variants_table.tsv)"
+head -3 variants_table.tsv | column -t
+
+## ================================================================
+## ANNOTATE WITH EXTERNAL DATABASES (dbSNP, ClinVar, gnomAD)
+## ================================================================
+## SnpSift annotate: add ID and INFO fields from an external VCF database
+## The external VCF must be bgzipped and tabix-indexed
+
+## Add dbSNP rsIDs to your variants
+java -jar snpEff/SnpSift.jar annotate \
+    dbsnp_146.hg38.vcf.gz \
+    variants_annotated.vcf.gz | \
+    bgzip > variants_annotated_dbsnp.vcf.gz
+
+## Add gnomAD allele frequencies
+java -jar snpEff/SnpSift.jar annotate \
+    -info AF,AF_afr,AF_eas,AF_nfe \
+    gnomad.genomes.v3.1.2.sites.vcf.gz \
+    variants_annotated_dbsnp.vcf.gz | \
+    bgzip > variants_annotated_full.vcf.gz</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s5-snpsift" data-filename="05_snpsift_filter.sh"><i class="bi bi-download me-1"></i>05_snpsift_filter.sh</button></div>
+</section>
+
+<!-- ================================================================ -->
+<section id="step6" class="mb-5">
+  <h2 class="section-divider">Step 6 — Fully Automated Pipeline Script</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash — Complete end-to-end automated SnpEff annotation pipeline</span><button class="btn-copy">Copy</button></div>
+<pre id="s6-pipeline">#!/usr/bin/env bash
+######################################################################
+## AUTOMATED SNPEFF ANNOTATION PIPELINE
+## Usage: bash snpeff_pipeline.sh -v input.vcf.gz -d DATABASE -o outdir
+## This script:
+##   1. Validates input (file exists, chromosome name check)
+##   2. Runs SnpEff annotation
+##   3. Runs SnpSift filter (HIGH + MODERATE)
+##   4. Extracts a flat TSV table
+##   5. Generates a summary report
+## Designed to work with any organism supported by SnpEff.
+######################################################################
+set -euo pipefail    # exit on error, undefined variable, or pipe failure
+
+## ================================================================
+## Parse command-line arguments
+## ================================================================
+usage() { echo "Usage: $0 -v VCF.gz -d DATABASE -o OUTDIR [-m MEMORY_GB]"; exit 1; }
+VCF=""; DB=""; OUTDIR=""; MEM="8"
+while getopts "v:d:o:m:" opt; do
+    case ${opt} in
+        v) VCF="${OPTARG}" ;;
+        d) DB="${OPTARG}" ;;
+        o) OUTDIR="${OPTARG}" ;;
+        m) MEM="${OPTARG}" ;;
+        *) usage ;;
+    esac
+done
+[[ -z "${VCF}" || -z "${DB}" || -z "${OUTDIR}" ]] && usage
+
+mkdir -p "${OUTDIR}"
+LOG="${OUTDIR}/pipeline.log"
+exec > >(tee -a "${LOG}") 2>&1    # log all output to file + screen
+
+echo "[$(date)] Starting SnpEff annotation pipeline"
+echo "  VCF:      ${VCF}"
+echo "  Database: ${DB}"
+echo "  Output:   ${OUTDIR}"
+echo "  Memory:   ${MEM}g"
+
+## ================================================================
+## STEP 1: Validate inputs
+## ================================================================
+echo "[$(date)] STEP 1: Validating inputs..."
+
+[[ ! -f "${VCF}" ]] && echo "ERROR: VCF not found: ${VCF}" && exit 1
+
+## Check bcftools is available
+command -v bcftools &>/dev/null || { echo "ERROR: bcftools not in PATH"; exit 1; }
+command -v java     &>/dev/null || { echo "ERROR: java not in PATH";     exit 1; }
+
+## Check VCF chromosome names vs SnpEff database
+VCF_CHROMS=$(bcftools view -H "${VCF}" | cut -f1 | sort -u | head -5 | tr '\n' ',')
+echo "  VCF chromosomes (first 5): ${VCF_CHROMS}"
+
+## Sanity check: count variants
+N_VAR=$(bcftools view -H "${VCF}" | wc -l)
+echo "  Total variants in input: ${N_VAR}"
+
+## ================================================================
+## STEP 2: Run SnpEff
+## ================================================================
+echo "[$(date)] STEP 2: Running SnpEff annotation..."
+
+ANN_VCF="${OUTDIR}/annotated.vcf.gz"
+
+java -Xmx${MEM}g -jar snpEff/snpEff.jar ann \
+    -v \
+    -canon \
+    -ud 2000 \
+    -noIntergenicVariants \
+    -stats "${OUTDIR}/snpeff_stats.html" \
+    -csvStats "${OUTDIR}/snpeff_stats.csv" \
+    "${DB}" \
+    "${VCF}" \
+    2> "${OUTDIR}/snpeff_ann.log" | \
+  bgzip > "${ANN_VCF}"
+tabix -p vcf "${ANN_VCF}"
+
+N_ANN=$(bcftools view -H "${ANN_VCF}" | wc -l)
+echo "  Annotated variants: ${N_ANN}"
+
+## ================================================================
+## STEP 3: SnpSift — filter HIGH + MODERATE impact
+## ================================================================
+echo "[$(date)] STEP 3: Filtering HIGH + MODERATE impact variants..."
+
+FILT_VCF="${OUTDIR}/annotated_HIGH_MOD.vcf.gz"
+
+java -jar snpEff/SnpSift.jar filter \
+    "(ANN[*].IMPACT = 'HIGH') | (ANN[*].IMPACT = 'MODERATE')" \
+    "${ANN_VCF}" | \
+  bgzip > "${FILT_VCF}"
+tabix -p vcf "${FILT_VCF}"
+
+N_FILT=$(bcftools view -H "${FILT_VCF}" | wc -l)
+echo "  HIGH + MODERATE variants: ${N_FILT}"
+
+## ================================================================
+## STEP 4: Extract flat TSV table
+## ================================================================
+echo "[$(date)] STEP 4: Extracting TSV annotation table..."
+
+java -jar snpEff/SnpSift.jar extractFields \
+    -s "," -e "." \
+    "${FILT_VCF}" \
+    CHROM POS REF ALT QUAL FILTER \
+    "ANN[0].IMPACT" "ANN[0].EFFECT" "ANN[0].GENE" "ANN[0].GENE_ID" \
+    "ANN[0].HGVS_C" "ANN[0].HGVS_P" \
+    > "${OUTDIR}/variants_table.tsv"
+
+echo "  Table rows: $(wc -l < "${OUTDIR}/variants_table.tsv")"
+
+## ================================================================
+## STEP 5: Generate summary report
+## ================================================================
+echo "[$(date)] STEP 5: Generating summary report..."
+
+python3 << PYEOF
+import pandas as pd, sys
+
+df = pd.read_csv("${OUTDIR}/variants_table.tsv", sep="\t")
+print("\n=== IMPACT SUMMARY ===")
+print(df["ANN[0].IMPACT"].value_counts().to_string())
+print("\n=== TOP 10 EFFECTS ===")
+print(df["ANN[0].EFFECT"].value_counts().head(10).to_string())
+print("\n=== TOP 10 AFFECTED GENES ===")
+print(df["ANN[0].GENE"].value_counts().head(10).to_string())
+df.to_csv("${OUTDIR}/variants_table_clean.tsv", sep="\t", index=False)
+PYEOF
+
+echo "[$(date)] Pipeline complete. Results in: ${OUTDIR}/"
+echo "  annotated.vcf.gz           : full annotated VCF"
+echo "  annotated_HIGH_MOD.vcf.gz  : HIGH + MODERATE variants only"
+echo "  variants_table.tsv         : flat TSV for R/Excel"
+echo "  snpeff_stats.html          : open in browser for summary charts"</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s6-pipeline" data-filename="snpeff_pipeline.sh"><i class="bi bi-download me-1"></i>snpeff_pipeline.sh</button></div>
+  <div class="fun-tip"><span class="fun-tip-icon">&#129302;</span><div><strong>Run it like this:</strong> <code>bash snpeff_pipeline.sh -v mydata.vcf.gz -d Oryza_sativa -o results/</code> — works for any organism in the SnpEff database. Change <code>-d</code> to match your species (e.g. <code>GRCh38.p14</code> for human, <code>Arabidopsis_thaliana</code> for Arabidopsis, <code>Zea_mays</code> for maize).</div></div>
+</section>
+
+<!-- ================================================================ -->
+<section id="step7" class="mb-5">
+  <h2 class="section-divider">Step 7 — Downstream Analysis in R</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>R — Read SnpEff TSV output and create publication figures</span><button class="btn-copy">Copy</button></div>
+<pre id="s7-r">######################################################################
+## STEP 7: Downstream analysis of annotated variants in R
+## The variants_table.tsv from SnpSift extractFields is clean TSV —
+## read it directly into R for statistical analysis and plotting.
+######################################################################
+
+library(tidyverse)
+library(ggplot2)
+
+## --- Load the annotation table ---
+## Read the TSV output from SnpSift extractFields
+df <- read.delim("results/variants_table.tsv",
+                 header=TRUE, sep="\t", na.strings=".")
+colnames(df) <- c("CHROM","POS","REF","ALT","QUAL","FILTER",
+                  "IMPACT","EFFECT","GENE","GENE_ID","HGVS_C","HGVS_P")
+
+cat("Total variants loaded:", nrow(df), "\n")
+cat("Columns:", paste(colnames(df), collapse=", "), "\n")
+
+## --- Figure 1: Variant impact distribution ---
+impact_counts <- df %>%
+    count(IMPACT) %>%
+    filter(!is.na(IMPACT)) %>%
+    arrange(desc(n))
+
+ggplot(impact_counts, aes(x=reorder(IMPACT, n), y=n, fill=IMPACT)) +
+    geom_col(width=0.6) +
+    geom_text(aes(label=scales::comma(n)), hjust=-0.1, size=3.5) +
+    scale_fill_manual(values=c(
+        HIGH="firebrick", MODERATE="orange", LOW="steelblue", MODIFIER="grey70")) +
+    coord_flip() +
+    scale_y_continuous(expand=expansion(mult=c(0,0.15))) +
+    labs(title="Variant counts by functional impact (SnpEff)",
+         x=NULL, y="Number of variants") +
+    theme_bw(base_size=13) + theme(legend.position="none")
+ggsave("impact_distribution.png", width=7, height=4, dpi=150)
+
+## --- Figure 2: Effect type breakdown (top 15) ---
+top_effects <- df %>%
+    count(EFFECT) %>% arrange(desc(n)) %>% head(15)
+
+ggplot(top_effects, aes(x=reorder(EFFECT, n), y=n)) +
+    geom_col(fill="steelblue", width=0.6) +
+    coord_flip() +
+    labs(title="Top 15 variant effect types", x=NULL, y="Count") +
+    theme_bw(base_size=12)
+ggsave("effect_types.png", width=9, height=6, dpi=150)
+
+## --- Table: Genes with most HIGH-impact variants ---
+## Useful for prioritising candidate genes for experimental follow-up
+high_impact_genes <- df %>%
+    filter(IMPACT == "HIGH") %>%
+    count(GENE, sort=TRUE) %>%
+    head(20)
+cat("\nTop 20 genes with HIGH-impact variants:\n")
+print(high_impact_genes)
+write.csv(high_impact_genes, "top_high_impact_genes.csv", row.names=FALSE)
+
+## --- Export to Excel-friendly CSV ---
+## Remove | characters that confuse Excel
+df_clean <- df %>%
+    mutate(across(everything(), ~gsub("\\|", " ", as.character(.))))
+write.csv(df_clean, "variants_for_excel.csv", row.names=FALSE)
+cat("\nExcel-ready CSV: variants_for_excel.csv\n")</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s7-r" data-filename="07_snpeff_r_analysis.R"><i class="bi bi-download me-1"></i>07_snpeff_r_analysis.R</button></div>
+</section>
+
+<section class="mb-5">
+  <div class="d-flex justify-content-between">
+    <a href="gatk-snp-calling-best-practices.html" class="btn btn-outline-secondary rounded-pill px-4"><i class="bi bi-arrow-left me-2"></i>GATK SNP Calling</a>
+    <a href="variant-filtering-pipeline.html" class="btn btn-primary rounded-pill px-4">Universal Variant Filtering <i class="bi bi-arrow-right ms-2"></i></a>
+  </div>
+</section>
+
+      </div><!-- end tutorial-content -->
+    </div><!-- end col-lg-9 -->
+  </div><!-- end row -->
+</div><!-- end container -->
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-lg-6"><h5 class="text-white fw-bold mb-3"><span style="color:#ff9933;">Indian</span><span style="color:var(--ieb-primary);">Elucid</span><span style="color:var(--ieb-accent);">Biology</span></h5><p class="small">Free, interactive bioinformatics tutorials. Open source and community-driven.</p></div>
+      <div class="col-lg-6 text-lg-end"><p class="small mb-1">Founded by <strong>Ankush Sharma</strong></p><div class="d-flex gap-3 justify-content-lg-end"><a href="https://github.com/ank-man" target="_blank" class="text-white fs-5"><i class="bi bi-github"></i></a><a href="https://www.linkedin.com/in/ankush-sharma-290307/" target="_blank" class="text-white fs-5"><i class="bi bi-linkedin"></i></a><a href="mailto:mr.ank2999@gmail.com" class="text-white fs-5"><i class="bi bi-envelope"></i></a></div></div>
+    </div>
+    <hr class="border-secondary mt-4 mb-3">
+    <p class="text-center small mb-0">&copy; 2025 IndianElucidBiology &mdash; Made with <span style="color:#e25555;">&#9829;</span> for the bioinformatics community.</p>
+  </div>
+</footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/main.js"></script>
+<script src="../js/live-spreadsheet.js"></script>
+</body>
+</html>

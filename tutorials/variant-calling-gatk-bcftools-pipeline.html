@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Variant Calling Pipeline with GATK4 &amp; bcftools — Complete Guide | IndianElucidBiology</title>
+  <meta name="description" content="Step-by-step variant calling tutorial using GATK4 best practices and bcftools. From FASTQ alignment with BWA-MEM2 to SNP/indel discovery, VQSR filtering, and annotation with SnpEff. Every quality filter threshold explained.">
+  <meta name="keywords" content="variant calling tutorial, GATK4 best practices, bcftools SNP calling, BWA-MEM2 alignment, VQSR hard filtering, SnpEff annotation, WGS exome pipeline, IndianElucidBiology">
+  <meta name="author" content="IndianElucidBiology">
+  <link rel="canonical" href="https://indianelucidbiology.github.io/tutorials/variant-calling-gatk-bcftools-pipeline.html">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="../css/style.css" rel="stylesheet">
+</head>
+<body>
+
+<div class="progress-tracker"></div>
+
+<nav class="navbar navbar-expand-lg fixed-top bg-body-tertiary">
+  <div class="container">
+    <a class="navbar-brand" href="../index.html"><span class="brand-indian">Indian</span><span class="brand-elucid">Elucid</span><span class="brand-biology">Biology</span></a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav"><span class="navbar-toggler-icon"></span></button>
+    <div class="collapse navbar-collapse" id="mainNav">
+      <ul class="navbar-nav ms-auto me-3">
+        <li class="nav-item"><a class="nav-link" href="../index.html">Home</a></li>
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle active" href="#" role="button" data-bs-toggle="dropdown">Tutorials</a>
+          <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="rnaseq-differential-expression-deseq2-guide.html">RNA-Seq &amp; DESeq2</a></li>
+            <li><a class="dropdown-item" href="gene-coexpression-network-wgcna-tutorial.html">WGCNA Networks</a></li>
+            <li><a class="dropdown-item" href="bioinformatics-data-visualization-ggplot2-R.html">Data Visualization</a></li>
+            <li><a class="dropdown-item" href="single-cell-rna-seq-seurat-analysis-tutorial.html">Single-Cell RNA-Seq</a></li>
+            <li><a class="dropdown-item active" href="variant-calling-gatk-bcftools-pipeline.html">Variant Calling</a></li>
+            <li><a class="dropdown-item" href="metagenomics-microbiome-analysis-qiime2.html">Metagenomics</a></li>
+          </ul>
+        </li>
+      </ul>
+      <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode">&#9790;</button>
+    </div>
+  </div>
+</nav>
+
+<section class="tutorial-hero">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-lg-8">
+        <nav aria-label="breadcrumb"><ol class="breadcrumb mb-3" style="--bs-breadcrumb-divider-color:rgba(255,255,255,0.5);"><li class="breadcrumb-item"><a href="../index.html" class="text-white-50 text-decoration-none">Home</a></li><li class="breadcrumb-item active text-white">Variant Calling</li></ol></nav>
+        <h1 class="display-5 fw-bold text-white mb-3">Variant Calling with GATK4 &amp; bcftools</h1>
+        <p class="lead text-white-50 mb-4">Discover SNPs and indels from whole-genome or exome sequencing data. Full GATK4 best-practices pipeline with hard filtering thresholds rationalized, plus a parallel bcftools workflow.</p>
+        <div class="d-flex gap-3 flex-wrap">
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-clock me-1"></i> ~60 min</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-bar-chart me-1"></i> Intermediate</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-terminal me-1"></i> Bash / Command Line</span>
+        </div>
+      </div>
+      <div class="col-lg-4 text-center d-none d-lg-block">
+        <img src="../img/Byte3.png" alt="Byte explains DNA" class="img-fluid" style="max-height:250px;filter:drop-shadow(0 10px 30px rgba(0,0,0,0.4));">
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="container py-5">
+  <div class="row">
+    <div class="col-lg-3 d-none d-lg-block">
+      <div class="toc-sidebar">
+        <h6 class="fw-bold text-muted text-uppercase small mb-3">On this page</h6>
+        <nav class="nav flex-column">
+          <a class="nav-link" href="#overview">Overview</a>
+          <a class="nav-link" href="#tools">Tools &amp; Setup</a>
+          <a class="nav-link" href="#step1">1. Read QC &amp; Trimming</a>
+          <a class="nav-link" href="#step2">2. Alignment</a>
+          <a class="nav-link" href="#step3">3. BAM Processing</a>
+          <a class="nav-link" href="#step4">4. GATK Variant Calling</a>
+          <a class="nav-link" href="#step5">5. Variant Filtering</a>
+          <a class="nav-link" href="#bcftools">bcftools Alternative</a>
+          <a class="nav-link" href="#step6">6. Annotation</a>
+          <a class="nav-link" href="#summary">Summary</a>
+        </nav>
+      </div>
+    </div>
+
+    <div class="col-lg-9">
+      <div class="tutorial-content">
+
+        <section id="overview" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">?</span> What Is Variant Calling?</h2>
+          <p><strong>Variant calling</strong> identifies positions in the genome where your sample differs from a reference genome. These differences — <strong>SNPs</strong> (single nucleotide polymorphisms) and <strong>indels</strong> (insertions/deletions) — can explain phenotypic differences, disease susceptibility, or evolutionary adaptation.</p>
+
+          <h5 class="fw-bold mt-4">The Pipeline at a Glance</h5>
+          <ol>
+            <li><strong>QC raw reads</strong> (FastQC, fastp)</li>
+            <li><strong>Align to reference</strong> (BWA-MEM2 / minimap2)</li>
+            <li><strong>Process BAM</strong> (sort, mark duplicates, BQSR)</li>
+            <li><strong>Call variants</strong> (GATK HaplotypeCaller / bcftools mpileup)</li>
+            <li><strong>Filter variants</strong> (VQSR or hard filters)</li>
+            <li><strong>Annotate variants</strong> (SnpEff, VEP, ANNOVAR)</li>
+          </ol>
+
+          <div class="byte-callout byte-info">
+            <img src="../img/Byte3.png" alt="Byte key point">
+            <div>
+              <strong>GATK vs. bcftools:</strong> Both are excellent. GATK4 is the gold standard for clinical/human genomics with a sophisticated probabilistic model. bcftools is faster, lighter, and performs comparably well for many applications including non-model organisms. We cover both in this tutorial so you can choose.
+            </div>
+          </div>
+        </section>
+
+        <section id="tools" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">0</span> Required Tools</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash</span><button class="btn-copy">Copy</button></div>
+<pre># Install via conda (recommended)
+conda create -n variant_calling -c bioconda -c conda-forge \
+  fastqc fastp bwa-mem2 samtools gatk4 bcftools snpsift snpeff picard
+
+conda activate variant_calling
+
+# Verify installations
+gatk --version
+bcftools --version
+bwa-mem2 version</pre>
+          </div>
+
+          <p class="mt-3">You also need:</p>
+          <ul>
+            <li><strong>Reference genome</strong> (FASTA) — e.g., GRCh38 for human, GRCm39 for mouse</li>
+            <li><strong>Known variant sites</strong> (for BQSR) — e.g., dbSNP, Mills indels, 1000G</li>
+            <li><strong>Paired-end FASTQ files</strong> from your sequencing run</li>
+          </ul>
+        </section>
+
+        <section id="step1" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">1</span> Read Quality Control &amp; Trimming</h2>
+
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash</span><button class="btn-copy">Copy</button></div>
+<pre># Step 1a: Quality check with FastQC
+fastqc sample_R1.fastq.gz sample_R2.fastq.gz -o qc_reports/ -t 4
+
+# Step 1b: Adapter trimming + quality filtering with fastp
+fastp \
+  --in1 sample_R1.fastq.gz \
+  --in2 sample_R2.fastq.gz \
+  --out1 trimmed_R1.fastq.gz \
+  --out2 trimmed_R2.fastq.gz \
+  --qualified_quality_phred 20 \
+  --length_required 50 \
+  --detect_adapter_for_pe \
+  --thread 8 \
+  --html fastp_report.html</pre>
+          </div>
+
+          <div class="param-table">
+            <table class="table table-striped mb-0">
+              <thead><tr><th>Parameter</th><th>Purpose</th><th>How to Choose</th></tr></thead>
+              <tbody>
+                <tr><td><code>--qualified_quality_phred 20</code></td><td>Minimum base quality to keep</td><td>20 = 1% error rate. Use 30 for stricter filtering (0.1% error). For variant calling, 20 is usually sufficient since GATK models base quality internally.</td></tr>
+                <tr><td><code>--length_required 50</code></td><td>Discard reads shorter than this after trimming</td><td>50 bp for 150 bp reads. For 100 bp reads, try 36. Very short reads map ambiguously.</td></tr>
+                <tr><td><code>--detect_adapter_for_pe</code></td><td>Auto-detect Illumina adapters for paired-end data</td><td>Almost always use this — fastp detects adapters automatically without needing a sequence file.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="step2" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">2</span> Align Reads to the Reference Genome</h2>
+
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash</span><button class="btn-copy">Copy</button></div>
+<pre># Index the reference (one-time step)
+bwa-mem2 index reference.fa
+
+# Create sequence dictionary and fai index (required by GATK)
+samtools faidx reference.fa
+gatk CreateSequenceDictionary -R reference.fa
+
+# Align with BWA-MEM2 (reads → SAM → sorted BAM)
+SAMPLE="SampleA"
+RGID="flowcell1.lane1"
+
+bwa-mem2 mem \
+  -t 16 \
+  -R "@RG\tID:${RGID}\tSM:${SAMPLE}\tPL:ILLUMINA\tLB:lib1\tPU:unit1" \
+  reference.fa \
+  trimmed_R1.fastq.gz trimmed_R2.fastq.gz \
+| samtools sort -@ 8 -o ${SAMPLE}.sorted.bam
+
+samtools index ${SAMPLE}.sorted.bam</pre>
+          </div>
+
+          <div class="byte-callout byte-key">
+            <img src="../img/Byte3.png" alt="Byte key point">
+            <div>
+              <strong>Read Group Tags Are Critical!</strong> The <code>-R</code> flag adds read group information that GATK requires. Without it, GATK will refuse to run.
+              <ul class="mb-0 mt-1">
+                <li><code>ID</code> — unique read group ID (usually flowcell + lane)</li>
+                <li><code>SM</code> — sample name (the biological sample)</li>
+                <li><code>PL</code> — platform (ILLUMINA, ONT, PACBIO)</li>
+                <li><code>LB</code> — library identifier</li>
+                <li><code>PU</code> — platform unit (flowcell barcode + lane)</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <section id="step3" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">3</span> BAM Post-Processing</h2>
+
+          <h5 class="fw-bold">Mark Duplicates</h5>
+          <p>PCR duplicates artificially inflate variant support. Marking (not removing) them tells GATK to ignore them during calling.</p>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash</span><button class="btn-copy">Copy</button></div>
+<pre>gatk MarkDuplicates \
+  -I ${SAMPLE}.sorted.bam \
+  -O ${SAMPLE}.dedup.bam \
+  -M ${SAMPLE}.dedup_metrics.txt \
+  --REMOVE_DUPLICATES false \
+  --CREATE_INDEX true</pre>
+          </div>
+
+          <h5 class="fw-bold mt-4">Base Quality Score Recalibration (BQSR)</h5>
+          <p>Machine-reported base qualities are often inaccurate. BQSR recalibrates them using known variant sites, improving downstream calling accuracy.</p>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash</span><button class="btn-copy">Copy</button></div>
+<pre># Step 3a: Build recalibration model
+gatk BaseRecalibrator \
+  -I ${SAMPLE}.dedup.bam \
+  -R reference.fa \
+  --known-sites dbsnp_146.vcf.gz \
+  --known-sites Mills_and_1000G.indels.vcf.gz \
+  -O ${SAMPLE}.recal_table
+
+# Step 3b: Apply recalibration
+gatk ApplyBQSR \
+  -I ${SAMPLE}.dedup.bam \
+  -R reference.fa \
+  --bqsr-recal-file ${SAMPLE}.recal_table \
+  -O ${SAMPLE}.recal.bam</pre>
+          </div>
+
+          <div class="byte-callout byte-warn">
+            <img src="../img/Byte5.png" alt="Byte warns">
+            <div>
+              <strong>No Known Sites for Your Organism?</strong> BQSR requires known variant databases. For non-model organisms without dbSNP, you can either: (1) skip BQSR entirely (bcftools handles this gracefully), (2) perform a first-pass variant call, use the high-confidence SNPs as "known sites," and bootstrap BQSR, or (3) use tools like <strong>DeepVariant</strong> which don't need BQSR at all.
+            </div>
+          </div>
+        </section>
+
+        <section id="step4" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">4</span> Variant Calling with GATK HaplotypeCaller</h2>
+
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash</span><button class="btn-copy">Copy</button></div>
+<pre># Single-sample calling (produces GVCF for later joint genotyping)
+gatk HaplotypeCaller \
+  -I ${SAMPLE}.recal.bam \
+  -R reference.fa \
+  -O ${SAMPLE}.g.vcf.gz \
+  -ERC GVCF \
+  --native-pair-hmm-threads 8
+
+# For a single sample, you can also call directly to VCF:
+gatk HaplotypeCaller \
+  -I ${SAMPLE}.recal.bam \
+  -R reference.fa \
+  -O ${SAMPLE}.raw.vcf.gz</pre>
+          </div>
+
+          <div class="byte-callout byte-info">
+            <img src="../img/Byte4.png" alt="Byte with networks">
+            <div>
+              <strong>GVCF vs. VCF:</strong>
+              <ul class="mb-0 mt-1">
+                <li><strong>GVCF mode (<code>-ERC GVCF</code>)</strong>: records confidence at every position, including reference-only sites. Required for multi-sample joint calling. Always use this for population studies.</li>
+                <li><strong>Direct VCF</strong>: simpler, for single-sample analyses or when you just need variants quickly.</li>
+                <li>For cohorts, run HaplotypeCaller per sample in GVCF mode, then combine with <code>GenomicsDBImport</code> + <code>GenotypeGVCFs</code>.</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <section id="step5" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">5</span> Variant Filtering</h2>
+          <p>Raw variant calls contain many false positives. Filtering is essential. Two approaches: VQSR (machine learning, needs large cohorts) and hard filtering (rule-based, works for any size).</p>
+
+          <h5 class="fw-bold mt-3">Hard Filtering (Recommended for Small Cohorts)</h5>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash</span><button class="btn-copy">Copy</button></div>
+<pre># Separate SNPs and Indels
+gatk SelectVariants -V ${SAMPLE}.raw.vcf.gz -select-type SNP -O snps.vcf.gz
+gatk SelectVariants -V ${SAMPLE}.raw.vcf.gz -select-type INDEL -O indels.vcf.gz
+
+# Hard filter SNPs (GATK recommended thresholds)
+gatk VariantFiltration \
+  -V snps.vcf.gz \
+  -filter "QD < 2.0"                --filter-name "LowQD" \
+  -filter "FS > 60.0"               --filter-name "StrandBias" \
+  -filter "MQ < 40.0"               --filter-name "LowMQ" \
+  -filter "MQRankSum < -12.5"       --filter-name "MQRankSum" \
+  -filter "ReadPosRankSum < -8.0"   --filter-name "ReadPosRankSum" \
+  -filter "SOR > 3.0"               --filter-name "HighSOR" \
+  -O snps.filtered.vcf.gz
+
+# Hard filter Indels
+gatk VariantFiltration \
+  -V indels.vcf.gz \
+  -filter "QD < 2.0"                --filter-name "LowQD" \
+  -filter "FS > 200.0"              --filter-name "StrandBias" \
+  -filter "ReadPosRankSum < -20.0"  --filter-name "ReadPosRankSum" \
+  -filter "SOR > 10.0"              --filter-name "HighSOR" \
+  -O indels.filtered.vcf.gz</pre>
+          </div>
+
+          <div class="decision-box">
+            <h5><i class="bi bi-signpost-split me-2"></i>Understanding Each Hard Filter</h5>
+            <div class="param-table mt-3">
+              <table class="table table-striped mb-0">
+                <thead><tr><th>Filter</th><th>What It Measures</th><th>Threshold Rationale</th></tr></thead>
+                <tbody>
+                  <tr><td><code>QD &lt; 2.0</code></td><td>Quality by Depth — variant quality normalized by read depth</td><td>Low QD = poor quality call relative to coverage. 2.0 is GATK's recommendation; increase to 5.0 for higher stringency.</td></tr>
+                  <tr><td><code>FS &gt; 60.0</code></td><td>Fisher Strand bias — are variant reads preferentially from one strand?</td><td>High FS suggests PCR or mapping artifact. 60 for SNPs, 200 for indels (indels tolerate more strand bias).</td></tr>
+                  <tr><td><code>MQ &lt; 40.0</code></td><td>Root mean square Mapping Quality of reads at the site</td><td>MQ 40 = average MAPQ of 40 (very confident mapping). Lower values suggest repetitive or ambiguous regions.</td></tr>
+                  <tr><td><code>SOR &gt; 3.0</code></td><td>Strand Odds Ratio — similar to FS but handles large sample sizes better</td><td>3.0 for SNPs, 10.0 for indels. More robust than FS for high-depth data.</td></tr>
+                  <tr><td><code>MQRankSum</code></td><td>Compares mapping quality of ref vs. alt reads</td><td>Large negative values mean alt reads map much worse than ref reads — likely mapping artifact.</td></tr>
+                  <tr><td><code>ReadPosRankSum</code></td><td>Tests whether alt alleles cluster at read ends</td><td>Variants near read ends are enriched for sequencing errors.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash</span><button class="btn-copy">Copy</button></div>
+<pre># Keep only PASS variants
+bcftools view -f PASS snps.filtered.vcf.gz -Oz -o snps.pass.vcf.gz
+bcftools view -f PASS indels.filtered.vcf.gz -Oz -o indels.pass.vcf.gz
+
+# Count variants
+echo "PASS SNPs: $(bcftools view -H snps.pass.vcf.gz | wc -l)"
+echo "PASS Indels: $(bcftools view -H indels.pass.vcf.gz | wc -l)"</pre>
+          </div>
+        </section>
+
+        <section id="bcftools" class="mb-5">
+          <h2 class="fw-bold"><i class="bi bi-arrow-left-right me-2"></i> Alternative: bcftools Variant Calling</h2>
+          <p>A lighter, faster pipeline that works excellently for non-human organisms or when GATK's infrastructure feels heavyweight.</p>
+
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash</span><button class="btn-copy">Copy</button></div>
+<pre># Pileup + Call in one pipeline
+bcftools mpileup \
+  --fasta-ref reference.fa \
+  --max-depth 500 \
+  --min-MQ 20 \
+  --min-BQ 20 \
+  --annotate FORMAT/AD,FORMAT/DP \
+  --threads 8 \
+  ${SAMPLE}.dedup.bam \
+| bcftools call \
+  --multiallelic-caller \
+  --variants-only \
+  --threads 8 \
+  -Oz -o ${SAMPLE}.bcftools.raw.vcf.gz
+
+bcftools index ${SAMPLE}.bcftools.raw.vcf.gz
+
+# Quality filtering
+bcftools filter \
+  -i 'QUAL>=30 && DP>=10 && DP<=500 && MQ>=30' \
+  -Oz -o ${SAMPLE}.bcftools.filtered.vcf.gz \
+  ${SAMPLE}.bcftools.raw.vcf.gz
+
+echo "Filtered variants: $(bcftools view -H ${SAMPLE}.bcftools.filtered.vcf.gz | wc -l)"</pre>
+          </div>
+
+          <div class="param-table">
+            <table class="table table-striped mb-0">
+              <thead><tr><th>bcftools Filter</th><th>Meaning</th><th>Guidance</th></tr></thead>
+              <tbody>
+                <tr><td><code>QUAL >= 30</code></td><td>Phred-scaled variant quality</td><td>30 = 99.9% confidence. Use 20 for relaxed, 50 for stringent.</td></tr>
+                <tr><td><code>DP >= 10</code></td><td>Minimum read depth at the site</td><td>10 is a good minimum. For WGS at 30X, you might use 15. For low-coverage, use 5.</td></tr>
+                <tr><td><code>DP <= 500</code></td><td>Maximum depth (removes collapsed repeats)</td><td>Set to ~3× your expected mean coverage. Abnormally high depth signals repetitive regions.</td></tr>
+                <tr><td><code>MQ >= 30</code></td><td>Mapping quality</td><td>30 = 99.9% probability the reads are correctly mapped.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="step6" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">6</span> Variant Annotation</h2>
+          <p>Annotation tells you the <em>biological impact</em> of each variant: is it synonymous, missense, nonsense? Which gene, transcript, or regulatory element is affected?</p>
+
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash</span><button class="btn-copy">Copy</button></div>
+<pre># SnpEff annotation (fast, local)
+snpEff download GRCh38.105   # download the database for your genome build
+
+snpEff ann GRCh38.105 \
+  snps.pass.vcf.gz \
+  -stats snpeff_stats.html \
+  > snps.annotated.vcf
+
+# Extract high-impact variants
+cat snps.annotated.vcf | \
+  java -jar SnpSift.jar filter "(ANN[*].IMPACT = 'HIGH')" \
+  > high_impact_variants.vcf</pre>
+          </div>
+
+          <div class="byte-callout byte-tip">
+            <img src="../img/Byte1.png" alt="Byte tip">
+            <div>
+              <strong>Annotation Tools Compared:</strong>
+              <ul class="mb-0 mt-1">
+                <li><strong>SnpEff</strong> — fast, local, great for quick annotation; provides impact categories (HIGH, MODERATE, LOW, MODIFIER)</li>
+                <li><strong>Ensembl VEP</strong> — most comprehensive; supports plugins for pathogenicity scores (CADD, SIFT, PolyPhen); preferred for clinical genomics</li>
+                <li><strong>ANNOVAR</strong> — flexible, supports many databases; requires license for some databases</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <section id="summary" class="mb-5">
+          <h2 class="fw-bold"><i class="bi bi-check-circle me-2"></i> Summary</h2>
+          <div class="byte-callout byte-tip">
+            <img src="../img/Byte0.png" alt="Byte">
+            <div>
+              <strong>What You Learned:</strong>
+              <ol class="mb-0 mt-1">
+                <li>QC and trim raw FASTQ reads with fastp</li>
+                <li>Align reads to a reference genome with BWA-MEM2 and proper read groups</li>
+                <li>Mark duplicates and recalibrate base qualities with GATK</li>
+                <li>Call variants with GATK HaplotypeCaller (GVCF and direct modes)</li>
+                <li>Apply hard filters with rationalized threshold choices for each metric</li>
+                <li>Run an alternative pipeline using bcftools mpileup + call</li>
+                <li>Annotate variants with SnpEff for biological impact interpretation</li>
+              </ol>
+            </div>
+          </div>
+
+          <div class="d-flex justify-content-between mt-5">
+            <a href="single-cell-rna-seq-seurat-analysis-tutorial.html" class="btn btn-outline-secondary rounded-pill px-4"><i class="bi bi-arrow-left me-2"></i>Prev: scRNA-Seq</a>
+            <a href="metagenomics-microbiome-analysis-qiime2.html" class="btn btn-primary rounded-pill px-4">Next: Metagenomics <i class="bi bi-arrow-right ms-2"></i></a>
+          </div>
+        </section>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-lg-6"><h5 class="text-white fw-bold mb-3"><span style="color:#ff9933;">Indian</span><span style="color:var(--ieb-primary);">Elucid</span><span style="color:var(--ieb-accent);">Biology</span></h5><p class="small">Free, interactive bioinformatics tutorials. Open source and community-driven.</p></div>
+      <div class="col-lg-6 text-lg-end"><p class="small mb-1">Founded by <strong>Ankush Sharma</strong></p><div class="d-flex gap-3 justify-content-lg-end"><a href="https://github.com/ank-man" target="_blank" class="text-white fs-5"><i class="bi bi-github"></i></a><a href="https://www.linkedin.com/in/ankush-sharma-290307/" target="_blank" class="text-white fs-5"><i class="bi bi-linkedin"></i></a><a href="mailto:mr.ank2999@gmail.com" class="text-white fs-5"><i class="bi bi-envelope"></i></a></div></div>
+    </div>
+    <hr class="border-secondary mt-4 mb-3">
+    <p class="text-center small mb-0">&copy; 2025 IndianElucidBiology — Founded by <a href="https://www.linkedin.com/in/ankush-sharma-290307/" class="text-white-50" target="_blank">Ankush Sharma</a>. Made with <span style="color:#e25555;">&#9829;</span> for the bioinformatics community.</p>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/main.js"></script>
+</body>
+</html>

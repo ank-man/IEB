@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GWAS: Genome-Wide Association Study with PLINK &amp; GEMMA | IndianElucidBiology</title>
+  <meta name="description" content="Complete GWAS pipeline: QC with PLINK, population stratification with PCA, mixed model association with GEMMA, Manhattan and QQ plots, LD clumping, and fine-mapping with FINEMAP.">
+  <meta name="keywords" content="GWAS, genome-wide association, PLINK, GEMMA, mixed model, population stratification, Manhattan plot, QQ plot, LD clumping, SNP, association study, fine-mapping">
+  <link rel="canonical" href="https://indianelucidbiology.github.io/tutorials/gwas-plink-gemma-association.html">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="../css/style.css" rel="stylesheet">
+</head>
+<body>
+<div class="progress-tracker"></div>
+
+<nav class="navbar navbar-expand-lg fixed-top">
+  <div class="container">
+    <a class="navbar-brand" href="../index.html">
+      <span class="brand-indian">Indian</span><span class="brand-elucid">Elucid</span><span class="brand-biology">Biology</span>
+    </a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="mainNav">
+      <ul class="navbar-nav ms-auto me-3">
+        <li class="nav-item"><a class="nav-link" href="../index.html">Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="index.html">Tutorial Library</a></li>
+        <li class="nav-item"><a class="nav-link" href="chipseq-macs2-motif-analysis.html"><i class="bi bi-arrow-left me-1"></i>ChIP-seq</a></li>
+        <li class="nav-item"><a class="nav-link" href="somatic-variant-calling-mutect2.html">Somatic Variants<i class="bi bi-arrow-right ms-1"></i></a></li>
+      </ul>
+      <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode">&#9790;</button>
+    </div>
+  </div>
+</nav>
+
+<section class="tutorial-hero">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-lg-8">
+        <nav aria-label="breadcrumb">
+          <ol class="breadcrumb mb-3" style="--bs-breadcrumb-divider-color:rgba(255,255,255,0.5);">
+            <li class="breadcrumb-item"><a href="../index.html" class="text-white-50 text-decoration-none">Home</a></li>
+            <li class="breadcrumb-item"><a href="index.html" class="text-white-50 text-decoration-none">Tutorials</a></li>
+            <li class="breadcrumb-item active text-white">GWAS with PLINK &amp; GEMMA</li>
+          </ol>
+        </nav>
+        <h1 class="display-5 fw-bold text-white mb-3">GWAS: Genome-Wide Association Study</h1>
+        <p class="lead text-white-50 mb-4">
+          PLINK QC &middot; population stratification &middot; relatedness filtering &middot; GEMMA linear mixed model &middot; Manhattan &amp; QQ plots &middot; LD clumping &middot; SNP annotation
+        </p>
+        <div class="d-flex gap-3 flex-wrap">
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-clock me-1"></i> ~150 min</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-bar-chart me-1"></i> Advanced</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-terminal me-1"></i> Bash / R</span>
+        </div>
+      </div>
+      <div class="col-lg-4 text-center d-none d-lg-block">
+        <img src="../img/Byte3.png" alt="Byte" class="img-fluid" style="max-height:230px;filter:drop-shadow(0 10px 30px rgba(0,0,0,0.4));">
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="container py-5">
+  <div class="row">
+    <div class="col-lg-3 d-none d-lg-block">
+      <div class="toc-sidebar">
+        <h6 class="fw-bold text-muted text-uppercase small mb-3">On this page</h6>
+        <nav class="nav flex-column">
+          <a class="nav-link" href="#overview">Overview</a>
+          <a class="nav-link" href="#dataset">Dataset</a>
+          <a class="nav-link" href="#step1">1. PLINK QC Filters</a>
+          <a class="nav-link" href="#step2">2. Population Stratification</a>
+          <a class="nav-link" href="#step3">3. Relatedness &amp; Kinship</a>
+          <a class="nav-link" href="#step4">4. GEMMA Mixed Model</a>
+          <a class="nav-link" href="#step5">5. Manhattan &amp; QQ Plots</a>
+          <a class="nav-link" href="#step6">6. LD Clumping &amp; Annotation</a>
+        </nav>
+      </div>
+    </div>
+
+    <div class="col-lg-9">
+      <div class="tutorial-content">
+
+<section id="overview" class="mb-5">
+  <h2 class="section-divider">Overview</h2>
+  <p>A Genome-Wide Association Study (GWAS) tests millions of SNPs across the genome for statistical association with a phenotypic trait. The key statistical challenge is controlling for <strong>population stratification</strong> (ancestry differences between cases and controls) and <strong>cryptic relatedness</strong> (hidden family relationships). The linear mixed model (LMM) approach used in GEMMA solves both problems simultaneously.</p>
+  <div class="byte-callout">
+    <img src="../img/Byte1.png" alt="Byte">
+    <div>
+      <strong>The GWAS QC pipeline — why each step matters:</strong>
+      <ol class="mb-0 mt-1 small">
+        <li><strong>Sample QC:</strong> Remove samples with high missingness, sex discordance, outlier heterozygosity, or relatedness &mdash; these inflate false positives</li>
+        <li><strong>SNP QC:</strong> Remove SNPs with high missingness, low MAF, or deviation from Hardy-Weinberg equilibrium &mdash; these are likely genotyping errors</li>
+        <li><strong>Population stratification:</strong> Samples from different ancestries have different allele frequencies. If cases are enriched for one ancestry, thousands of SNPs will appear associated due to ancestry alone</li>
+        <li><strong>Mixed model:</strong> Models genetic relatedness as a random effect, simultaneously controlling for population structure AND cryptic relatedness</li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<section id="dataset" class="mb-5">
+  <h2 class="section-divider">Dataset</h2>
+  <p>We use the <strong><em>Arabidopsis thaliana</em> 1001 Genomes flowering time GWAS</strong> — a quantitative trait GWAS in a plant model system. Flowering time (FT10 and FT16 &mdash; days to flower at 10&deg;C and 16&deg;C) has well-validated GWAS hits including <em>FLC</em> and <em>FRI</em>.</p>
+  <div class="param-table">
+    <table class="table table-striped mb-0">
+      <thead><tr><th>Property</th><th>Value</th></tr></thead>
+      <tbody>
+        <tr><td>Organism</td><td><em>Arabidopsis thaliana</em></td></tr>
+        <tr><td>Phenotype</td><td>Flowering time at 10&deg;C (FT10) and 16&deg;C (FT16)</td></tr>
+        <tr><td>Accession</td><td><a href="https://1001genomes.org/tools/gwapp" target="_blank">1001 Genomes / GWAPP</a> — Atwell et al. 2010 <em>Nature</em></td></tr>
+        <tr><td>Samples</td><td>199 accessions</td></tr>
+        <tr><td>SNPs</td><td>~214,000 SNPs (250K SNP array)</td></tr>
+        <tr><td>Expected top hits</td><td><em>FRI</em> (Chr4), <em>FLC</em> (Chr5) — the two major vernalisation genes</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="step1" class="mb-5">
+  <h2 class="section-divider">Step 1 — PLINK QC Filters</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash — PLINK sample and SNP quality control</span><button class="btn-copy">Copy</button></div>
+<pre id="s1-plink-qc">######################################################################
+## STEP 1: Comprehensive QC with PLINK2
+## Run QC in stages: first sample QC, then SNP QC
+## (remove poor-quality samples first, THEN filter SNPs on the cleaned sample set)
+## Reversing this order gives slightly different results because SNP missingness
+## changes when poor-quality samples are removed.
+######################################################################
+
+module load plink2/2.0
+module load plink/1.9  # needed for some legacy commands
+
+## --- Download Arabidopsis 1001G GWAS data ---
+wget -O 0_raw/arabidopsis_1001G.vcf.gz \
+  https://1001genomes.org/data/GMI-MPI/releases/v3.1/intersection_snp_short_indel_vcf/all_chromosomes_except_mitochondria_chloroplast.vcf.gz
+
+## Convert VCF to PLINK binary format
+plink2 \
+    --vcf 0_raw/arabidopsis_1001G.vcf.gz \
+    --make-bed \
+    --out 1_qc/arabidopsis_raw \
+    --allow-extra-chr           # needed for non-human chromosome names
+
+## ================================================================
+## STAGE 1: SAMPLE QC
+## ================================================================
+
+## --- 1a: Sample missingness ---
+## --missing : compute per-sample and per-SNP missingness rates
+## Creates: .smiss (sample) and .vmiss (variant) missingness files
+plink2 \
+    --bfile 1_qc/arabidopsis_raw \
+    --missing \
+    --allow-extra-chr \
+    --out 1_qc/arabidopsis_missing
+
+## Remove samples with > 5% missing genotypes
+## --mind 0.05 : exclude samples with genotype call rate < 95%
+plink2 \
+    --bfile 1_qc/arabidopsis_raw \
+    --mind 0.05 \
+    --allow-extra-chr \
+    --make-bed \
+    --out 1_qc/arabidopsis_sampqc
+
+## --- 1b: Heterozygosity outliers ---
+## Inbreeding F statistic: measures excess homozygosity
+## For inbred organisms (Arabidopsis is selfing, F > 0.9 expected),
+## use a wider cutoff; for outbred humans, remove F > 0.2 or F < -0.2
+## --het : compute observed vs expected heterozygosity per sample
+plink --bfile 1_qc/arabidopsis_sampqc \
+      --het --allow-no-sex --allow-extra-chr \
+      --out 1_qc/arabidopsis_het
+
+## Plot heterozygosity in R and remove outliers (> 3 SD from mean)
+## This is done in the R visualisation step below
+
+## ================================================================
+## STAGE 2: SNP QC
+## ================================================================
+
+## Run all SNP filters in one command (order matters inside PLINK):
+## --geno 0.05       : remove SNPs with > 5% missing genotypes across samples
+##   (monomorphic variants and array failures tend to have high missingness)
+## --maf 0.01        : remove SNPs with minor allele frequency < 1%
+##   (very rare variants have very low statistical power and are often errors)
+## --hwe 1e-6        : remove SNPs deviating from Hardy-Weinberg Equilibrium
+##   (HWE p < 1e-6 suggests genotyping error or strong selection/inbreeding)
+##   For highly inbred organisms (Arabidopsis), use very permissive cutoff (1e-10)
+##   or skip HWE filtering entirely
+## --snps-only just-acgt : keep only SNPs (no indels), only ACGT alleles
+plink2 \
+    --bfile 1_qc/arabidopsis_sampqc \
+    --geno 0.05 \
+    --maf 0.01 \
+    --hwe 1e-10 \
+    --snps-only just-acgt \
+    --allow-extra-chr \
+    --make-bed \
+    --out 1_qc/arabidopsis_snpqc
+
+## --- Report QC summary ---
+echo "=== QC SUMMARY ==="
+echo "Raw samples:   $(wc -l < 1_qc/arabidopsis_raw.fam)"
+echo "Raw SNPs:      $(wc -l < 1_qc/arabidopsis_raw.bim)"
+echo "After QC samples: $(wc -l < 1_qc/arabidopsis_snpqc.fam)"
+echo "After QC SNPs:    $(wc -l < 1_qc/arabidopsis_snpqc.bim)"</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s1-plink-qc" data-filename="01_plink_qc.sh"><i class="bi bi-download me-1"></i>01_plink_qc.sh</button></div>
+  <div class="cmd-explain">
+    <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> QC thresholds decoded</div>
+    <table>
+      <tr><td><span class="cmd-emoji">&#128202;</span>--maf 0.01</td><td>SNPs with minor allele frequency below 1% have very low statistical power in typical GWAS sample sizes. Even if associated, they are hard to replicate. Also, rare alleles are more likely to be genotyping errors that are hard to detect. Remove them for the main scan; separate rare-variant analyses (SKAT, burden tests) handle rare variants differently.</td></tr>
+      <tr><td><span class="cmd-emoji">&#127919;</span>--hwe 1e-10</td><td>Hardy-Weinberg Equilibrium deviation can indicate genotyping error. The standard human GWAS cutoff is 1e-6 (controls only). For Arabidopsis (a selfing, near-completely homozygous species), nearly all SNPs deviate from HWE because heterozygosity is intrinsically near-zero. Use a very permissive threshold or skip HWE filtering for inbred organisms.</td></tr>
+    </table>
+  </div>
+</section>
+
+<section id="step2" class="mb-5">
+  <h2 class="section-divider">Step 2 — Population Stratification with PCA</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash + R — PCA for ancestry inference and stratification control</span><button class="btn-copy">Copy</button></div>
+<pre id="s2-pca">######################################################################
+## STEP 2: Assess population stratification using PCA
+## Principal components (PCs) summarise ancestry variation.
+## In GEMMA LMM: the kinship matrix accounts for stratification implicitly.
+## But visualising PCA first helps you understand your sample composition
+## and identify any outliers or unexpected clustering patterns.
+######################################################################
+
+## --- LD prune before PCA ---
+## PCA on all SNPs is dominated by LD blocks (correlated SNPs count multiple times)
+## LD pruning ensures each PCA component reflects independent genomic regions
+plink2 \
+    --bfile 1_qc/arabidopsis_snpqc \
+    --indep-pairwise 50 10 0.1 \
+    --allow-extra-chr \
+    --out 1_qc/ld_prune
+
+plink2 \
+    --bfile 1_qc/arabidopsis_snpqc \
+    --extract 1_qc/ld_prune.prune.in \
+    --allow-extra-chr \
+    --make-bed \
+    --out 1_qc/arabidopsis_ldpruned
+
+## --- Compute PCA (top 20 PCs) ---
+## --pca 20 : compute top 20 principal components
+## Output: .eigenvec (sample coordinates) and .eigenval (variance explained)
+plink2 \
+    --bfile 1_qc/arabidopsis_ldpruned \
+    --pca 20 \
+    --allow-extra-chr \
+    --out 2_pca/arabidopsis_pca
+
+## --- Plot PCA in R ---
+## This section runs in R (save as a separate .R script and run with Rscript)
+cat << 'RSCRIPT' > 2_pca/plot_pca.R
+library(tidyverse)
+
+## Read PCA eigenvectors
+pca <- read.table("2_pca/arabidopsis_pca.eigenvec",
+                  header=TRUE)
+## Read eigenvalues (variance explained by each PC)
+eigenval <- scan("2_pca/arabidopsis_pca.eigenval")
+pct_var  <- round(eigenval / sum(eigenval) * 100, 1)
+
+## Read sample metadata (geographic origin)
+## Download from 1001genomes.org metadata table
+meta <- read.csv("0_raw/1001G_metadata.csv")   # sample ID + geographic region
+pca  <- left_join(pca, meta, by=c("#IID"="sample_id"))
+
+## PC1 vs PC2 plot coloured by geographic region
+ggplot(pca, aes(PC1, PC2, color=region)) +
+    geom_point(size=2, alpha=0.8) +
+    labs(x=paste0("PC1 (", pct_var[1], "% variance)"),
+         y=paste0("PC2 (", pct_var[2], "% variance)"),
+         title="Arabidopsis 1001G — population structure (PCA)",
+         color="Geographic region") +
+    theme_bw(base_size=12)
+ggsave("2_pca/pca_population_structure.png", width=9, height=6, dpi=150)
+RSCRIPT
+
+Rscript 2_pca/plot_pca.R</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s2-pca" data-filename="02_population_pca.sh"><i class="bi bi-download me-1"></i>02_population_pca.sh</button></div>
+</section>
+
+<section id="step3" class="mb-5">
+  <h2 class="section-divider">Step 3 — Relatedness &amp; Kinship Matrix</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash — Compute kinship matrix with GEMMA for mixed model</span><button class="btn-copy">Copy</button></div>
+<pre id="s3-kinship">######################################################################
+## STEP 3: Compute the genetic relatedness (kinship) matrix
+## The kinship matrix captures all pairwise genetic similarities.
+## GEMMA uses this matrix as a random effect in the linear mixed model,
+## simultaneously controlling for both population structure AND
+## all cryptic relatedness between samples.
+######################################################################
+
+module load gemma/0.98.5
+
+## First, convert PLINK files to BIMBAM format (GEMMA's preferred input)
+## OR use PLINK binary format directly with GEMMA's -bfile flag
+
+## --- Option A: Use PLINK binary files directly with GEMMA ---
+## Prepare phenotype file: one row per sample, one column per phenotype
+## Format: mean-centred phenotype values, one per line (same order as .fam)
+## Extract FT10 phenotype from metadata and match sample order in .fam
+cut -d' ' -f2 1_qc/arabidopsis_snpqc.fam > 3_gemma/sample_order.txt
+## Create phenotype file from 1001G metadata (FT10 = days to flower at 10°C)
+## Match sample order to .fam file order
+
+## --- Compute centered relatedness matrix ---
+## gemma -gk 1 : compute centered genetic relatedness matrix (GRM)
+##   Centered GRM: subtract column means from the genotype matrix before computing
+##   This is equivalent to GCTA's GRM; recommended for mixed models
+## gemma -gk 2 : compute standardized GRM
+##   Standardized: also divide by SD per SNP (accounts for MAF differences)
+## -bfile : PLINK binary file prefix
+## -o     : output file prefix
+## -outdir: output directory
+gemma \
+    -bfile 1_qc/arabidopsis_snpqc \
+    -gk 1 \
+    -o arabidopsis_kinship \
+    -outdir 3_gemma/
+
+## Output: 3_gemma/arabidopsis_kinship.cXX.txt
+## This is a (n × n) matrix where n = number of samples
+## Diagonal = estimated relatedness of each individual to itself (~1.0)
+## Off-diagonal = estimated pairwise relatedness (range: -1 to 1)
+
+echo "Kinship matrix computed."
+echo "Dimensions: $(head -1 3_gemma/arabidopsis_kinship.cXX.txt | wc -w) × $(wc -l < 3_gemma/arabidopsis_kinship.cXX.txt) samples"</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s3-kinship" data-filename="03_gemma_kinship.sh"><i class="bi bi-download me-1"></i>03_gemma_kinship.sh</button></div>
+</section>
+
+<section id="step4" class="mb-5">
+  <h2 class="section-divider">Step 4 — GEMMA Linear Mixed Model Association</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash — GEMMA BSLMM and univariate LMM for GWAS</span><button class="btn-copy">Copy</button></div>
+<pre id="s4-gemma">######################################################################
+## STEP 4: Run GEMMA linear mixed model GWAS
+## GEMMA -lm : standard linear model (no kinship correction; for comparison)
+## GEMMA -lmm : linear mixed model (uses kinship matrix to control confounding)
+## We run both to demonstrate the benefit of the LMM approach.
+######################################################################
+
+## --- Prepare phenotype file ---
+## GEMMA phenotype file: one numeric value per line (same order as .fam)
+## NA or -9 = missing phenotype
+## Replace PLINK's -9 missing value with NA
+awk '{print ($6 == -9) ? "NA" : $6}' 1_qc/arabidopsis_snpqc.fam > 3_gemma/phenotype_FT10.txt
+
+## --- Run linear mixed model GWAS ---
+## -bfile  : PLINK binary input files
+## -k      : kinship matrix computed in Step 3
+## -lmm 4  : LMM test type:
+##   1 = Wald test
+##   2 = Likelihood ratio test
+##   3 = Score test
+##   4 = ALL three tests (recommended: use Wald p-value for final results)
+## -pheno  : phenotype file (one trait per column)
+## -n 1    : use the 1st phenotype column (if file has multiple traits, specify here)
+## -o      : output prefix
+## -outdir : output directory
+## -maf 0.01 : additional MAF filter within GEMMA (redundant but safe)
+gemma \
+    -bfile 1_qc/arabidopsis_snpqc \
+    -k 3_gemma/arabidopsis_kinship.cXX.txt \
+    -lmm 4 \
+    -pheno 3_gemma/phenotype_FT10.txt \
+    -n 1 \
+    -o arabidopsis_FT10_lmm \
+    -outdir 3_gemma/ \
+    -maf 0.01
+
+## --- Inspect GEMMA output ---
+## Columns: chr, rs, ps, n_miss, allele1, allele0, af, beta, se, logl_H1, l_remle, l_mle, p_wald, p_lrt, p_score
+## p_wald = Wald test p-value (use this as the primary p-value)
+## beta   = effect size (change in phenotype per copy of allele1)
+## se     = standard error of beta
+head 3_gemma/arabidopsis_FT10_lmm.assoc.txt
+echo "Total SNPs tested: $(wc -l < 3_gemma/arabidopsis_FT10_lmm.assoc.txt)"
+
+## Bonferroni significance threshold for this dataset
+## = 0.05 / number of SNPs tested
+N_SNPS=$(wc -l < 3_gemma/arabidopsis_FT10_lmm.assoc.txt)
+echo "Bonferroni threshold: $(python3 -c "print(0.05/${N_SNPS})")"
+
+## Count significant hits
+awk -v thresh=$(python3 -c "print(0.05/${N_SNPS})") \
+    'NR>1 && $13 < thresh {print}' \
+    3_gemma/arabidopsis_FT10_lmm.assoc.txt | wc -l</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s4-gemma" data-filename="04_gemma_lmm_gwas.sh"><i class="bi bi-download me-1"></i>04_gemma_lmm_gwas.sh</button></div>
+  <div class="cmd-explain">
+    <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> GEMMA LMM decoded</div>
+    <table>
+      <tr><td><span class="cmd-emoji">&#128200;</span>Why LMM over standard linear regression</td><td>Standard linear regression (PLINK <code>--assoc</code>) treats all samples as independent. In reality, related individuals share alleles due to common ancestry, creating correlation in their phenotypes. The LMM models this correlation as a random effect using the kinship matrix — it &ldquo;subtracts out&rdquo; the genetic similarity between samples before testing each SNP. This dramatically reduces false positives from population structure.</td></tr>
+      <tr><td><span class="cmd-emoji">&#127919;</span>Bonferroni vs FDR</td><td>GWAS typically uses genome-wide significance of p &lt; 5&times;10⁻⁸ for humans (based on ~1 million independent SNPs after LD). For Arabidopsis with ~214k SNPs, the Bonferroni threshold is ~2.3&times;10⁻⁷. FDR correction is also valid and more powerful when many true signals exist (e.g. highly polygenic traits).</td></tr>
+    </table>
+  </div>
+</section>
+
+<section id="step5" class="mb-5">
+  <h2 class="section-divider">Step 5 — Manhattan &amp; QQ Plots</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>R — Manhattan plot, QQ plot, and genomic inflation factor</span><button class="btn-copy">Copy</button></div>
+<pre id="s5-manhattan">######################################################################
+## STEP 5: Visualise GWAS results
+## Manhattan plot: -log10(p-value) for each SNP across chromosomes
+## QQ plot: observed vs expected p-values under null hypothesis
+##   Points deviating above the diagonal = true associations (or inflation)
+## Genomic inflation factor (lambda): measures test statistic inflation
+##   lambda = 1.0 : no inflation (well-controlled GWAS)
+##   lambda > 1.05 : inflation (population stratification not fully corrected)
+######################################################################
+
+library(tidyverse)
+library(qqman)     # Manhattan and QQ plots for GWAS
+
+## --- Load GEMMA results ---
+gwas <- read.table("3_gemma/arabidopsis_FT10_lmm.assoc.txt",
+                   header=TRUE, sep="\t") %>%
+    rename(CHR=chr, BP=ps, SNP=rs, P=p_wald) %>%
+    filter(!is.na(P), P > 0)   # remove missing/zero p-values
+
+## --- Genomic inflation factor (lambda) ---
+## lambda: ratio of observed median chi-squared statistic to expected (0.456)
+## chi-squared = qchisq(1-p, df=1) for each SNP
+chisq     <- qchisq(1 - gwas$P, df=1)
+lambda    <- median(chisq, na.rm=TRUE) / 0.456
+cat("Genomic inflation factor (lambda):", round(lambda, 3), "\n")
+## lambda < 1.05 = well-controlled; > 1.1 = significant inflation
+
+## --- Manhattan plot ---
+## Bonferroni threshold for this dataset
+bonf_threshold <- -log10(0.05 / nrow(gwas))
+
+png("4_plots/manhattan_FT10.png", width=1600, height=700, res=120)
+manhattan(
+    gwas,
+    chr   = "CHR",        # chromosome column name
+    bp    = "BP",         # base pair position column name
+    snp   = "SNP",        # SNP ID column name
+    p     = "P",          # p-value column name
+    suggestiveline = FALSE,
+    genomewideline = bonf_threshold,   # Bonferroni threshold line
+    col   = c("#4575b4","#d73027"),    # alternating chromosome colours
+    cex   = 0.5,          # point size
+    main  = "Arabidopsis FT10 GWAS (GEMMA LMM)"
+)
+dev.off()
+
+## --- QQ plot ---
+png("4_plots/qqplot_FT10.png", width=700, height=700, res=120)
+qq(gwas$P, main=paste0("QQ plot (lambda = ", round(lambda,3), ")"))
+dev.off()
+
+## --- Top hits table ---
+sig_snps <- gwas %>%
+    filter(P < 0.05 / nrow(gwas)) %>%
+    arrange(P) %>%
+    head(20)
+
+cat("\nTop 20 significant SNPs:\n")
+print(sig_snps[, c("CHR","BP","SNP","P")])
+write.csv(sig_snps, "4_plots/top_hits_FT10.csv", row.names=FALSE)</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s5-manhattan" data-filename="05_manhattan_qqplot.R"><i class="bi bi-download me-1"></i>05_manhattan_qqplot.R</button></div>
+  <div class="fun-tip"><span class="fun-tip-icon">&#127808;</span><div><strong>Expected Arabidopsis result:</strong> The Manhattan plot for FT10 should show a very strong peak on Chromosome 4 at <em>FRI</em> (FRIGIDA) and Chromosome 5 at <em>FLC</em> (FLOWERING LOCUS C) — the two master regulators of vernalisation-dependent flowering. These are the most replicated plant GWAS hits and were published in Atwell et al. 2010 <em>Nature</em>.</div></div>
+</section>
+
+<section id="step6" class="mb-5">
+  <h2 class="section-divider">Step 6 — LD Clumping &amp; SNP Annotation</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash + R — LD clumping to identify independent signals, annotation</span><button class="btn-copy">Copy</button></div>
+<pre id="s6-clump">######################################################################
+## STEP 6: LD clumping and functional annotation of significant SNPs
+## LD clumping: among all significant SNPs, identify independent signals
+## (SNPs in high LD are not independent hits — they reflect the same signal)
+## Annotation: link lead SNPs to nearby genes using biomaRt
+######################################################################
+
+## --- LD clumping with PLINK ---
+## --clump : take a GWAS results file and identify independent signal clusters
+## --clump-p1 : primary significance threshold (lead SNP p-value)
+## --clump-p2 : secondary threshold (SNPs clumped around lead SNP)
+## --clump-r2 : r2 threshold — SNPs with r2 > 0.1 to lead SNP are clumped together
+## --clump-kb : window size — only clump SNPs within 500 kb of the lead SNP
+## --clump-field : column name for p-values in the GWAS result file
+plink \
+    --bfile 1_qc/arabidopsis_snpqc \
+    --clump 3_gemma/arabidopsis_FT10_lmm.assoc.txt \
+    --clump-p1 $(python3 -c "print(0.05/214000)") \
+    --clump-p2 0.01 \
+    --clump-r2 0.1 \
+    --clump-kb 500 \
+    --clump-field p_wald \
+    --clump-snp-field rs \
+    --allow-extra-chr \
+    --out 4_plots/arabidopsis_clumped
+
+## View independent signals
+echo "Independent GWAS signals after LD clumping:"
+cat 4_plots/arabidopsis_clumped.clumped
+
+## --- Annotate lead SNPs with biomaRt ---
+## Find the nearest gene to each lead SNP
+cat << 'RSCRIPT' > 4_plots/annotate_snps.R
+library(tidyverse)
+library(biomaRt)
+
+## Read clumped lead SNPs
+lead_snps <- read.table("4_plots/arabidopsis_clumped.clumped",
+                        header=TRUE) %>%
+    dplyr::select(CHR, BP, SNP, P)
+
+## Connect to Ensembl Biomart for Arabidopsis
+## dataset = "athaliana_eg_gene" : A. thaliana TAIR10 genes
+mart <- useMart("plants_mart",
+                dataset = "athaliana_eg_gene",
+                host    = "https://plants.ensembl.org")
+
+## For each lead SNP: find genes within ±50 kb
+results <- lapply(seq_len(nrow(lead_snps)), function(i) {
+    row <- lead_snps[i, ]
+    genes <- getBM(
+        attributes = c("ensembl_gene_id","external_gene_name",
+                       "chromosome_name","start_position","end_position",
+                       "description"),
+        filters    = c("chromosome_name","start","end"),
+        values     = list(row$CHR, max(1, row$BP - 50000), row$BP + 50000),
+        mart       = mart
+    )
+    if(nrow(genes) > 0) mutate(genes, lead_snp=row$SNP, snp_p=row$P)
+    else NULL
+}) %>% bind_rows()
+
+cat("Annotated lead SNPs:\n")
+print(results[, c("lead_snp","snp_p","external_gene_name","description")] %>%
+        arrange(snp_p))
+write.csv(results, "4_plots/lead_snp_gene_annotation.csv", row.names=FALSE)
+RSCRIPT
+
+Rscript 4_plots/annotate_snps.R</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s6-clump" data-filename="06_ld_clumping_annotation.sh"><i class="bi bi-download me-1"></i>06_ld_clumping_annotation.sh</button></div>
+</section>
+
+<section class="mb-5">
+  <div class="d-flex justify-content-between">
+    <a href="chipseq-macs2-motif-analysis.html" class="btn btn-outline-secondary rounded-pill px-4"><i class="bi bi-arrow-left me-2"></i>ChIP-seq</a>
+    <a href="somatic-variant-calling-mutect2.html" class="btn btn-primary rounded-pill px-4">Somatic Variant Calling <i class="bi bi-arrow-right ms-2"></i></a>
+  </div>
+</section>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-lg-6"><h5 class="text-white fw-bold mb-3"><span style="color:#ff9933;">Indian</span><span style="color:var(--ieb-primary);">Elucid</span><span style="color:var(--ieb-accent);">Biology</span></h5><p class="small">Free, interactive bioinformatics tutorials. Open source and community-driven.</p></div>
+      <div class="col-lg-6 text-lg-end"><p class="small mb-1">Founded by <strong>Ankush Sharma</strong></p><div class="d-flex gap-3 justify-content-lg-end"><a href="https://github.com/ank-man" target="_blank" class="text-white fs-5"><i class="bi bi-github"></i></a><a href="https://www.linkedin.com/in/ankush-sharma-290307/" target="_blank" class="text-white fs-5"><i class="bi bi-linkedin"></i></a><a href="mailto:mr.ank2999@gmail.com" class="text-white fs-5"><i class="bi bi-envelope"></i></a></div></div>
+    </div>
+    <hr class="border-secondary mt-4 mb-3">
+    <p class="text-center small mb-0">&copy; 2025 IndianElucidBiology &mdash; Made with <span style="color:#e25555;">&#9829;</span> for the bioinformatics community.</p>
+  </div>
+</footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/main.js"></script>
+</body>
+</html>

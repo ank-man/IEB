@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RNA-Seq Differential Expression with DESeq2 — Complete Guide | IndianElucidBiology</title>
+  <meta name="description" content="Step-by-step RNA-Seq differential gene expression tutorial using DESeq2 in R. Learn count normalization, dispersion estimation, threshold selection for padj and log2FC, MA plots, volcano plots, and result interpretation.">
+  <meta name="keywords" content="DESeq2 tutorial, RNA-Seq differential expression, padj threshold, log2 fold change, volcano plot R, MA plot, edgeR comparison, limma voom, IndianElucidBiology">
+  <meta name="author" content="IndianElucidBiology">
+  <link rel="canonical" href="https://indianelucidbiology.github.io/tutorials/rnaseq-differential-expression-deseq2-guide.html">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="../css/style.css" rel="stylesheet">
+</head>
+<body>
+
+<div class="progress-tracker"></div>
+
+<!-- Navbar -->
+<nav class="navbar navbar-expand-lg fixed-top bg-body-tertiary">
+  <div class="container">
+    <a class="navbar-brand" href="../index.html">
+      <span class="brand-indian">Indian</span><span class="brand-elucid">Elucid</span><span class="brand-biology">Biology</span>
+    </a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav"><span class="navbar-toggler-icon"></span></button>
+    <div class="collapse navbar-collapse" id="mainNav">
+      <ul class="navbar-nav ms-auto me-3">
+        <li class="nav-item"><a class="nav-link" href="../index.html">Home</a></li>
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle active" href="#" role="button" data-bs-toggle="dropdown">Tutorials</a>
+          <ul class="dropdown-menu">
+            <li><a class="dropdown-item active" href="rnaseq-differential-expression-deseq2-guide.html">RNA-Seq &amp; DESeq2</a></li>
+            <li><a class="dropdown-item" href="gene-coexpression-network-wgcna-tutorial.html">WGCNA Networks</a></li>
+            <li><a class="dropdown-item" href="bioinformatics-data-visualization-ggplot2-R.html">Data Visualization</a></li>
+            <li><a class="dropdown-item" href="single-cell-rna-seq-seurat-analysis-tutorial.html">Single-Cell RNA-Seq</a></li>
+            <li><a class="dropdown-item" href="variant-calling-gatk-bcftools-pipeline.html">Variant Calling</a></li>
+            <li><a class="dropdown-item" href="metagenomics-microbiome-analysis-qiime2.html">Metagenomics</a></li>
+          </ul>
+        </li>
+      </ul>
+      <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode">&#9790;</button>
+    </div>
+  </div>
+</nav>
+
+<!-- Tutorial Hero -->
+<section class="tutorial-hero">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-lg-8">
+        <nav aria-label="breadcrumb"><ol class="breadcrumb mb-3" style="--bs-breadcrumb-divider-color:rgba(255,255,255,0.5);">
+          <li class="breadcrumb-item"><a href="../index.html" class="text-white-50 text-decoration-none">Home</a></li>
+          <li class="breadcrumb-item active text-white">RNA-Seq DESeq2</li>
+        </ol></nav>
+        <h1 class="display-5 fw-bold text-white mb-3">RNA-Seq Differential Expression Analysis</h1>
+        <p class="lead text-white-50 mb-4">A from-scratch guide to identifying differentially expressed genes using DESeq2 in R — with every parameter explained and every threshold justified.</p>
+        <div class="d-flex gap-3 flex-wrap">
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-clock me-1"></i> ~45 min</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-bar-chart me-1"></i> Intermediate</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-filetype-r me-1"></i> R / RStudio</span>
+        </div>
+      </div>
+      <div class="col-lg-4 text-center d-none d-lg-block">
+        <img src="../img/Byte1.png" alt="Byte says Let's Learn" class="img-fluid" style="max-height:250px;filter:drop-shadow(0 10px 30px rgba(0,0,0,0.4));">
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Main Content -->
+<div class="container py-5">
+  <div class="row">
+
+    <!-- Sidebar TOC -->
+    <div class="col-lg-3 d-none d-lg-block">
+      <div class="toc-sidebar">
+        <h6 class="fw-bold text-muted text-uppercase small mb-3">On this page</h6>
+        <nav class="nav flex-column">
+          <a class="nav-link" href="#overview">Overview</a>
+          <a class="nav-link" href="#prerequisites">Prerequisites</a>
+          <a class="nav-link" href="#step1">1. Load Count Matrix</a>
+          <a class="nav-link" href="#step2">2. Build DESeq Object</a>
+          <a class="nav-link" href="#step3">3. Run the Pipeline</a>
+          <a class="nav-link" href="#step4">4. Explore Dispersion</a>
+          <a class="nav-link" href="#step5">5. Extract Results</a>
+          <a class="nav-link" href="#thresholds">Choosing Thresholds</a>
+          <a class="nav-link" href="#step6">6. Visualization</a>
+          <a class="nav-link" href="#step7">7. Functional Enrichment</a>
+          <a class="nav-link" href="#alternatives">Tool Comparison</a>
+          <a class="nav-link" href="#summary">Summary</a>
+        </nav>
+      </div>
+    </div>
+
+    <!-- Content -->
+    <div class="col-lg-9">
+      <div class="tutorial-content">
+
+        <!-- Overview -->
+        <section id="overview" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">?</span> What Is Differential Expression?</h2>
+          <p>When you compare two biological conditions (e.g., disease vs. healthy, treated vs. untreated), some genes will be more active (upregulated) or less active (downregulated) in one condition versus the other. <strong>Differential expression (DE) analysis</strong> is the statistical framework that identifies these genes from RNA-Seq count data.</p>
+          <p>The core challenge: raw read counts are affected by sequencing depth, gene length, and biological variability. A robust DE tool must account for all three. <strong>DESeq2</strong> handles this through a negative binomial generalized linear model with shrinkage estimators for dispersion and fold change.</p>
+
+          <div class="byte-callout byte-info">
+            <img src="../img/Byte3.png" alt="Byte key point">
+            <div>
+              <strong>Key Insight:</strong> DESeq2 works on <em>raw integer counts</em>, not FPKM or TPM. It performs its own internal normalization (median-of-ratios). Feeding it pre-normalized data is a common mistake that inflates false positives.
+            </div>
+          </div>
+
+          <h5 class="fw-bold mt-4">How DESeq2 Works (Simplified Pipeline)</h5>
+          <ol>
+            <li><strong>Size factor estimation</strong> — normalizes for sequencing depth differences across samples using median-of-ratios.</li>
+            <li><strong>Dispersion estimation</strong> — models biological variability per gene, then shrinks gene-level estimates toward a fitted trend (borrowing strength across genes).</li>
+            <li><strong>Generalized linear model fitting</strong> — fits a negative binomial GLM per gene using the design formula.</li>
+            <li><strong>Wald test or LRT</strong> — tests for significance of coefficients (fold changes).</li>
+            <li><strong>Independent filtering &amp; BH adjustment</strong> — filters low-count genes, then adjusts p-values for multiple testing using Benjamini-Hochberg.</li>
+          </ol>
+        </section>
+
+        <!-- Prerequisites -->
+        <section id="prerequisites" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">0</span> Prerequisites &amp; Installation</h2>
+          <p>You need <strong>R ≥ 4.3</strong> and optionally RStudio. DESeq2 is installed from Bioconductor, not CRAN.</p>
+
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre>if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+BiocManager::install("DESeq2")
+
+# Additional packages used in this tutorial
+install.packages(c("tidyverse", "pheatmap", "RColorBrewer", "ggrepel"))
+BiocManager::install("EnhancedVolcano")</pre>
+          </div>
+
+          <div class="byte-callout byte-tip">
+            <img src="../img/Byte1.png" alt="Byte tip">
+            <div>
+              <strong>Pro Tip:</strong> Use <code>BiocManager::version()</code> to verify your Bioconductor release matches your R version. Mismatches cause cryptic installation failures. Check the <a href="https://bioconductor.org/install/" target="_blank">Bioconductor install page</a> for the compatibility matrix.
+            </div>
+          </div>
+        </section>
+
+        <!-- Step 1 -->
+        <section id="step1" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">1</span> Load Your Count Matrix</h2>
+          <p>Your input is a <strong>genes × samples</strong> matrix of raw integer counts. This typically comes from a read aligner (STAR, HISAT2) followed by a counter (featureCounts, HTSeq). Many modern pipelines like <strong>nf-core/rnaseq</strong> produce this matrix automatically.</p>
+
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre>library(DESeq2)
+library(tidyverse)
+
+# Read raw count matrix (rows = genes, columns = samples)
+count_matrix &lt;- read.delim("counts.txt", row.names = 1) %>%
+  as.matrix()
+
+# Quick sanity checks
+dim(count_matrix)          # Expect: num_genes x num_samples
+head(count_matrix[, 1:6])  # Peek at first rows/columns
+stopifnot(is.integer(count_matrix[1,1]) || all(count_matrix == floor(count_matrix)))
+
+# Build sample metadata (coldata)
+# Rows of coldata must match columns of count_matrix in the same order
+sample_info &lt;- data.frame(
+  row.names = colnames(count_matrix),
+  condition = factor(c(rep("Control", 3), rep("Treated", 3))),
+  batch     = factor(c("A","A","B","A","B","B"))
+)
+
+# CRITICAL: set the reference level for your comparison
+sample_info$condition &lt;- relevel(sample_info$condition, ref = "Control")
+print(sample_info)</pre>
+          </div>
+
+          <div class="byte-callout byte-warn">
+            <img src="../img/Byte5.png" alt="Byte warning">
+            <div>
+              <strong>Common Pitfall:</strong> If your count matrix has decimal values, something went wrong upstream — either you loaded TPM/FPKM data, or a tool performed partial normalization. Go back and get the raw integer counts. DESeq2 will throw a warning or silently round, but your results will not be trustworthy.
+            </div>
+          </div>
+
+          <h5 class="fw-bold mt-4">Pre-filtering (Optional but Recommended)</h5>
+          <p>Removing genes with very few reads across all samples speeds up computation and reduces the severity of the multiple testing correction.</p>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre># Keep genes where at least 3 samples have 10+ counts
+keep &lt;- rowSums(count_matrix >= 10) >= 3
+count_matrix &lt;- count_matrix[keep, ]
+cat("Genes retained after pre-filtering:", nrow(count_matrix), "\n")</pre>
+          </div>
+
+          <div class="decision-box">
+            <h5><i class="bi bi-signpost-split me-2"></i>How to Choose a Pre-Filter Cutoff</h5>
+            <ul>
+              <li><strong>Rule of thumb:</strong> require at least <em>n</em> samples (size of your smallest group) to have ≥ 10 counts.</li>
+              <li><strong>Why 10?</strong> Genes below this contribute almost no statistical information — DESeq2's independent filtering handles them anyway, but pre-filtering reduces the object size and speeds up <code>DESeq()</code>.</li>
+              <li><strong>Stricter filtering</strong> (e.g., ≥ 20 counts in 50% of samples) is fine for discovery-focused analyses. More lenient filtering (≥ 5 counts) is appropriate for rare transcripts.</li>
+            </ul>
+          </div>
+        </section>
+
+        <!-- Step 2 -->
+        <section id="step2" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">2</span> Build the DESeqDataSet Object</h2>
+          <p>The <code>DESeqDataSet</code> bundles your counts, sample metadata, and design formula into one object.</p>
+
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre>dds &lt;- DESeqDataSetFromMatrix(
+  countData = count_matrix,
+  colData   = sample_info,
+  design    = ~ batch + condition   # batch as covariate, condition as variable of interest
+)
+dds</pre>
+          </div>
+
+          <div class="param-table">
+            <table class="table table-striped mb-0">
+              <thead><tr><th>Parameter</th><th>What It Does</th><th>How to Pick</th></tr></thead>
+              <tbody>
+                <tr><td><code>countData</code></td><td>Raw integer count matrix</td><td>Genes × Samples. Must be integers.</td></tr>
+                <tr><td><code>colData</code></td><td>Sample metadata data.frame</td><td>Row names must exactly match column names of <code>countData</code>.</td></tr>
+                <tr><td><code>design</code></td><td>Formula describing the experimental design</td><td>Put confounders (batch) first, variable of interest (condition) last. The last variable is what <code>results()</code> tests by default.</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="byte-callout byte-key">
+            <img src="../img/Byte3.png" alt="Byte key point">
+            <div>
+              <strong>Design Formula Tips:</strong>
+              <ul class="mb-0 mt-1">
+                <li><code>~ condition</code> — simplest two-group comparison</li>
+                <li><code>~ batch + condition</code> — adjust for known batch effects</li>
+                <li><code>~ genotype + treatment + genotype:treatment</code> — interaction model (e.g., does treatment effect differ by genotype?)</li>
+                <li>If you have paired samples (same patient, before/after), use <code>~ patient + condition</code></li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <!-- Step 3 -->
+        <section id="step3" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">3</span> Run the DESeq2 Pipeline</h2>
+          <p>A single function call runs the entire statistical pipeline: size factor estimation, dispersion estimation, and model fitting.</p>
+
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre>dds &lt;- DESeq(dds)
+
+# Inspect size factors (normalization)
+sizeFactors(dds)</pre>
+          </div>
+
+          <div class="byte-callout byte-wait">
+            <img src="../img/Byte2.png" alt="Byte waiting">
+            <div>
+              <strong>Grab a coffee!</strong> For large datasets (>30,000 genes, >50 samples), <code>DESeq()</code> may take 5–15 minutes. If you need speed, pass <code>parallel = TRUE</code> and register a <code>BiocParallel</code> backend first.
+            </div>
+          </div>
+
+          <h5 class="fw-bold mt-4">Understanding Size Factors</h5>
+          <p>Each sample receives a <strong>size factor</strong> that corrects for sequencing depth. A sample with size factor 1.2 had ~20% more sequencing depth than the "average" sample. Extreme size factors (e.g., 0.3 or 3.0) may indicate a problematic library.</p>
+        </section>
+
+        <!-- Step 4 -->
+        <section id="step4" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">4</span> Explore Dispersion Estimates</h2>
+          <p>The dispersion plot is your first quality checkpoint. It shows how biological variability relates to mean expression.</p>
+
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre>plotDispEsts(dds, main = "Dispersion Estimates")</pre>
+          </div>
+
+          <div class="byte-callout byte-info">
+            <img src="../img/Byte3.png" alt="Byte explains">
+            <div>
+              <strong>Reading the Dispersion Plot:</strong>
+              <ul class="mb-0 mt-1">
+                <li><strong>Black dots</strong> = per-gene maximum likelihood estimates (noisy)</li>
+                <li><strong>Red line</strong> = fitted trend (the model's expectation)</li>
+                <li><strong>Blue dots</strong> = shrunken (final) estimates pulled toward the trend</li>
+                <li><strong>Healthy sign:</strong> cloud of black dots around the red line that decreases with higher mean expression</li>
+                <li><strong>Red flag:</strong> trend line going up, massive scatter, or all dispersions clustering unrealistically low — indicates batch effects or sample mislabeling</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <!-- Step 5 -->
+        <section id="step5" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">5</span> Extract &amp; Shrink Results</h2>
+
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre># Extract results for the condition comparison
+res &lt;- results(dds,
+               contrast = c("condition", "Treated", "Control"),
+               alpha    = 0.05)      # FDR threshold for independent filtering
+
+# Log2 fold change shrinkage (recommended for ranking &amp; visualization)
+res_shrunk &lt;- lfcShrink(dds,
+                         coef  = "condition_Treated_vs_Control",
+                         type  = "apeglm")   # apeglm is the recommended shrinkage method
+
+summary(res_shrunk)</pre>
+          </div>
+
+          <div class="param-table">
+            <table class="table table-striped mb-0">
+              <thead><tr><th>Parameter</th><th>Purpose</th><th>Recommendation</th></tr></thead>
+              <tbody>
+                <tr><td><code>contrast</code></td><td>Specifies which comparison to extract</td><td><code>c("variable", "numerator", "denominator")</code>. Positive LFC = higher in numerator.</td></tr>
+                <tr><td><code>alpha</code></td><td>FDR cutoff used by independent filtering</td><td>Standard: <code>0.05</code>. Use <code>0.1</code> for exploratory; <code>0.01</code> for high-confidence.</td></tr>
+                <tr><td><code>lfcShrink type</code></td><td>Shrinkage estimator</td><td><code>"apeglm"</code> (default recommendation). <code>"ashr"</code> allows zero-centered priors. <code>"normal"</code> is the legacy method.</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h5 class="fw-bold mt-4">Why Shrink Fold Changes?</h5>
+          <p>Genes with very low counts can show extreme fold changes (e.g., 1 read in control, 3 reads in treated = log2FC of 1.58). These are unreliable. <strong>LFC shrinkage</strong> pulls noisy estimates toward zero, giving more trustworthy rankings. Always use shrunken LFCs for ranking and visualization; use un-shrunken results for significance testing.</p>
+
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre># Convert to tidy data frame and save
+res_df &lt;- as.data.frame(res_shrunk) %>%
+  rownames_to_column("gene") %>%
+  arrange(padj)
+
+write.csv(res_df, "deseq2_results.csv", row.names = FALSE)
+head(res_df)</pre>
+          </div>
+        </section>
+
+        <!-- Threshold Selection -->
+        <section id="thresholds" class="mb-5">
+          <h2 class="fw-bold"><i class="bi bi-sliders me-2"></i> How to Choose Significance Thresholds</h2>
+          <p>This is one of the most misunderstood aspects of DE analysis. There is no universal correct cutoff — it depends on your experimental goals.</p>
+
+          <div class="decision-box">
+            <h5><i class="bi bi-signpost-split me-2"></i>Threshold Decision Framework</h5>
+            <div class="row g-4 mt-2">
+              <div class="col-md-4">
+                <div class="p-3 rounded-3 bg-body-secondary">
+                  <h6 class="fw-bold text-success">Discovery / Exploratory</h6>
+                  <ul class="small mb-0">
+                    <li><code>padj &lt; 0.1</code></li>
+                    <li><code>|log2FC| &gt; 0.5</code></li>
+                    <li>Casts a wide net</li>
+                    <li>More false positives, fewer missed genes</li>
+                    <li>Good for pathway/enrichment input</li>
+                  </ul>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="p-3 rounded-3 bg-body-secondary">
+                  <h6 class="fw-bold text-primary">Standard Publication</h6>
+                  <ul class="small mb-0">
+                    <li><code>padj &lt; 0.05</code></li>
+                    <li><code>|log2FC| &gt; 1.0</code></li>
+                    <li>Balanced approach</li>
+                    <li>Most commonly used in literature</li>
+                    <li>Good default if unsure</li>
+                  </ul>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="p-3 rounded-3 bg-body-secondary">
+                  <h6 class="fw-bold text-danger">High-Confidence / Validation</h6>
+                  <ul class="small mb-0">
+                    <li><code>padj &lt; 0.01</code></li>
+                    <li><code>|log2FC| &gt; 2.0</code></li>
+                    <li>Very stringent</li>
+                    <li>Minimal false positives</li>
+                    <li>Good for qPCR validation targets</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="byte-callout byte-key">
+            <img src="../img/Byte3.png" alt="Byte key point">
+            <div>
+              <strong>Important Nuance:</strong> The <code>padj</code> cutoff controls the <em>false discovery rate</em> — at padj &lt; 0.05, you expect ~5% of your "significant" genes to be false positives. The <code>log2FC</code> cutoff is about <em>biological relevance</em> — statistically significant but tiny changes (e.g., log2FC = 0.1) may not matter biologically. Always apply both thresholds together.
+            </div>
+          </div>
+        </section>
+
+        <!-- Step 6 Visualization -->
+        <section id="step6" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">6</span> Visualize Your Results</h2>
+
+          <h5 class="fw-bold mt-4">PCA Plot (Quality Check)</h5>
+          <p>PCA reveals global patterns and outliers. Samples in the same condition should cluster together.</p>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre># Variance-stabilizing transformation (for visualization only, not DE testing)
+vsd &lt;- vst(dds, blind = FALSE)
+
+# PCA colored by condition
+plotPCA(vsd, intgroup = "condition") +
+  theme_minimal(base_size = 14) +
+  ggtitle("PCA of Variance-Stabilized Counts")</pre>
+          </div>
+
+          <div class="byte-callout byte-warn">
+            <img src="../img/Byte5.png" alt="Byte warns">
+            <div>
+              <strong>Troubleshooting PCA:</strong> If samples don't cluster by your condition of interest but <em>do</em> cluster by batch, sequencing lane, or extraction date — you have a batch effect. Add that variable to your design formula (<code>~ batch + condition</code>). If samples are total outliers, consider removing them and re-running.
+            </div>
+          </div>
+
+          <h5 class="fw-bold mt-4">Volcano Plot</h5>
+          <p>The most informative single plot for DE results: statistical significance (y-axis) vs. effect size (x-axis).</p>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre>library(EnhancedVolcano)
+
+EnhancedVolcano(res_shrunk,
+  lab         = rownames(res_shrunk),
+  x           = 'log2FoldChange',
+  y           = 'padj',
+  title       = 'Treated vs Control',
+  subtitle    = 'DESeq2 with apeglm shrinkage',
+  pCutoff     = 0.05,
+  FCcutoff    = 1.0,
+  pointSize   = 2.0,
+  labSize     = 3.5,
+  legendPosition = 'right',
+  drawConnectors = TRUE,
+  widthConnectors = 0.5)</pre>
+          </div>
+
+          <h5 class="fw-bold mt-4">MA Plot</h5>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre>plotMA(res_shrunk, ylim = c(-4, 4), main = "MA Plot (apeglm shrunken LFC)")</pre>
+          </div>
+
+          <h5 class="fw-bold mt-4">Sample-to-Sample Heatmap</h5>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre>library(pheatmap)
+
+# Euclidean distances between samples
+sample_dists &lt;- dist(t(assay(vsd)))
+pheatmap(as.matrix(sample_dists),
+         clustering_distance_rows = sample_dists,
+         clustering_distance_cols = sample_dists,
+         color = colorRampPalette(c("navy","white","firebrick3"))(50),
+         main = "Sample Distance Heatmap")</pre>
+          </div>
+
+          <h5 class="fw-bold mt-4">Top DE Genes Heatmap</h5>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre># Top 30 DE genes by adjusted p-value
+top_genes &lt;- head(res_df$gene, 30)
+mat &lt;- assay(vsd)[top_genes, ]
+mat &lt;- mat - rowMeans(mat)   # Center by row mean
+
+pheatmap(mat,
+         scale           = "none",
+         cluster_rows    = TRUE,
+         cluster_cols    = TRUE,
+         show_rownames   = TRUE,
+         annotation_col  = sample_info,
+         color           = colorRampPalette(c("#2166AC","white","#B2182B"))(100),
+         main            = "Top 30 Differentially Expressed Genes")</pre>
+          </div>
+        </section>
+
+        <!-- Step 7 -->
+        <section id="step7" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">7</span> Downstream: Functional Enrichment</h2>
+          <p>Once you have your DE gene list, the next step is understanding what biological processes or pathways are enriched.</p>
+
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre># Using clusterProfiler for GO enrichment
+BiocManager::install("clusterProfiler")
+BiocManager::install("org.Hs.eg.db")  # Change for your organism
+
+library(clusterProfiler)
+library(org.Hs.eg.db)
+
+# Get significant upregulated genes
+sig_genes &lt;- res_df %>%
+  filter(padj &lt; 0.05, log2FoldChange > 1) %>%
+  pull(gene)
+
+# GO Biological Process enrichment
+ego &lt;- enrichGO(gene     = sig_genes,
+                OrgDb    = org.Hs.eg.db,
+                keyType  = "SYMBOL",
+                ont      = "BP",
+                pAdjustMethod = "BH",
+                pvalueCutoff  = 0.05)
+
+dotplot(ego, showCategory = 15, title = "GO Biological Process Enrichment")</pre>
+          </div>
+
+          <div class="byte-callout byte-tip">
+            <img src="../img/Byte1.png" alt="Byte tip">
+            <div>
+              <strong>Beyond GO:</strong> Consider running <strong>GSEA</strong> (Gene Set Enrichment Analysis) on the full ranked gene list rather than just the significant genes. GSEA can detect coordinated pathway-level changes even when individual genes don't pass the significance cutoff. Use <code>fgsea</code> or <code>clusterProfiler::gseGO()</code>.
+            </div>
+          </div>
+        </section>
+
+        <!-- Tool Comparison -->
+        <section id="alternatives" class="mb-5">
+          <h2 class="fw-bold"><i class="bi bi-arrow-left-right me-2"></i> DESeq2 vs. edgeR vs. limma-voom</h2>
+          <p>All three are well-validated and widely published. Here's when to prefer each:</p>
+          <div class="param-table">
+            <table class="table table-striped mb-0">
+              <thead><tr><th>Tool</th><th>Strengths</th><th>Best When</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><strong>DESeq2</strong></td>
+                  <td>Conservative, built-in shrinkage, great documentation</td>
+                  <td>Small sample sizes (3–5 per group); default choice</td>
+                </tr>
+                <tr>
+                  <td><strong>edgeR</strong></td>
+                  <td>Fast, flexible, quasi-likelihood F-test</td>
+                  <td>Complex designs; larger sample sizes; speed matters</td>
+                </tr>
+                <tr>
+                  <td><strong>limma-voom</strong></td>
+                  <td>Extremely fast, handles large designs elegantly</td>
+                  <td>Very large datasets (hundreds of samples); microarray background</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="byte-callout byte-info">
+            <img src="../img/Byte4.png" alt="Byte explains networks">
+            <div>
+              <strong>Practical Advice:</strong> For a typical RNA-Seq experiment with 3–6 replicates per group, DESeq2 and edgeR give very similar results. If you're publishing, running both and reporting the overlap (intersection) of DE genes is a strong validation strategy that reviewers appreciate.
+            </div>
+          </div>
+        </section>
+
+        <!-- Summary -->
+        <section id="summary" class="mb-5">
+          <h2 class="fw-bold"><i class="bi bi-check-circle me-2"></i> Summary</h2>
+          <div class="byte-callout byte-tip">
+            <img src="../img/Byte0.png" alt="Byte">
+            <div>
+              <strong>What You Learned:</strong>
+              <ol class="mb-0 mt-1">
+                <li>Load raw counts and build a properly designed DESeqDataSet</li>
+                <li>Run the full DESeq2 pipeline in a single function call</li>
+                <li>Interpret dispersion plots as a quality checkpoint</li>
+                <li>Extract results with appropriate shrinkage (apeglm)</li>
+                <li>Choose padj and log2FC thresholds based on your goals</li>
+                <li>Create PCA, volcano, MA, and heatmap visualizations</li>
+                <li>Perform functional enrichment on your DE gene list</li>
+                <li>Compare DESeq2 with edgeR and limma-voom</li>
+              </ol>
+            </div>
+          </div>
+
+          <!-- Navigation -->
+          <div class="d-flex justify-content-between mt-5">
+            <a href="../index.html" class="btn btn-outline-secondary rounded-pill px-4"><i class="bi bi-arrow-left me-2"></i>All Tutorials</a>
+            <a href="gene-coexpression-network-wgcna-tutorial.html" class="btn btn-primary rounded-pill px-4">Next: WGCNA Networks <i class="bi bi-arrow-right ms-2"></i></a>
+          </div>
+        </section>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Footer -->
+<footer class="site-footer">
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-lg-6">
+        <h5 class="text-white fw-bold mb-3"><span style="color:#ff9933;">Indian</span><span style="color:var(--ieb-primary);">Elucid</span><span style="color:var(--ieb-accent);">Biology</span></h5>
+        <p class="small">Free, interactive bioinformatics tutorials. Open source and community-driven.</p>
+      </div>
+      <div class="col-lg-6 text-lg-end">
+        <p class="small mb-1">Founded by <strong>Ankush Sharma</strong></p>
+        <div class="d-flex gap-3 justify-content-lg-end">
+          <a href="https://github.com/ank-man" target="_blank" class="text-white fs-5" title="GitHub"><i class="bi bi-github"></i></a>
+          <a href="https://www.linkedin.com/in/ankush-sharma-290307/" target="_blank" class="text-white fs-5" title="LinkedIn"><i class="bi bi-linkedin"></i></a>
+          <a href="mailto:mr.ank2999@gmail.com" class="text-white fs-5" title="Email"><i class="bi bi-envelope"></i></a>
+        </div>
+      </div>
+    </div>
+    <hr class="border-secondary mt-4 mb-3">
+    <p class="text-center small mb-0">&copy; 2025 IndianElucidBiology — Founded by <a href="https://www.linkedin.com/in/ankush-sharma-290307/" class="text-white-50" target="_blank">Ankush Sharma</a>. Made with <span style="color:#e25555;">&#9829;</span> for the bioinformatics community.</p>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/main.js"></script>
+</body>
+</html>

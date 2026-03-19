@@ -1,0 +1,485 @@
+﻿<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Copy Number Variation (CNV) Detection from WGS | IndianElucidBiology</title>
+  <meta name="description" content="Comprehensive CNV detection tutorial: read-depth analysis, split-read and paired-end methods, CNVnator, Manta, LUMPY, normalization, segmentation, visualization, and live depth-ratio calculator.">
+  <link rel="canonical" href="https://indianelucidbiology.github.io/tutorials/copy-number-variation-cnv.html">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="../css/style.css" rel="stylesheet">
+  <link href="../css/live-spreadsheet.css" rel="stylesheet">
+</head>
+<body>
+<div class="progress-tracker"></div>
+<nav class="navbar navbar-expand-lg fixed-top">
+  <div class="container">
+    <a class="navbar-brand" href="../index.html"><span class="brand-indian">Indian</span><span class="brand-elucid">Elucid</span><span class="brand-biology">Biology</span></a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav"><span class="navbar-toggler-icon"></span></button>
+    <div class="collapse navbar-collapse" id="mainNav">
+      <ul class="navbar-nav ms-auto me-3">
+        <li class="nav-item"><a class="nav-link" href="../index.html">Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="index.html">Tutorial Library</a></li>
+        <li class="nav-item"><a class="nav-link" href="genome-wide-association-gwas-advanced.html">GWAS</a></li>
+      </ul>
+      <button class="theme-toggle" onclick="toggleTheme()">&#9790;</button>
+    </div>
+  </div>
+</nav>
+
+<section class="tutorial-hero">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-lg-8">
+        <nav aria-label="breadcrumb"><ol class="breadcrumb mb-3" style="--bs-breadcrumb-divider-color:rgba(255,255,255,0.5);"><li class="breadcrumb-item"><a href="../index.html" class="text-white-50 text-decoration-none">Home</a></li><li class="breadcrumb-item"><a href="index.html" class="text-white-50 text-decoration-none">Tutorials</a></li><li class="breadcrumb-item active text-white">CNV Detection</li></ol></nav>
+        <h1 class="display-5 fw-bold text-white mb-3">Copy Number Variation (CNV) Detection</h1>
+        <p class="lead text-white-50 mb-4">Detect deletions, duplications, and complex structural variants from WGS data. Covers read-depth analysis, split-read and paired-end methods, CNVnator, Manta, LUMPY, normalization formulas, and live depth-ratio calculators.</p>
+        <div class="d-flex gap-3 flex-wrap">
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-clock me-1"></i>~120 min</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-bar-chart me-1"></i>Intermediate-Advanced</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-file-earmark-spreadsheet me-1"></i>Live spreadsheets</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-terminal me-1"></i>CNVnator / Manta / R</span>
+        </div>
+      </div>
+      <div class="col-lg-4 text-center d-none d-lg-block"><img src="../img/Byte2.png" alt="Byte" class="img-fluid" style="max-height:230px;filter:drop-shadow(0 10px 30px rgba(0,0,0,0.4));"></div>
+    </div>
+  </div>
+</section>
+
+<div class="container py-5">
+  <div class="row">
+    <div class="col-lg-3 d-none d-lg-block">
+      <div class="toc-sidebar">
+        <h6 class="fw-bold text-muted text-uppercase small mb-3">On this page</h6>
+        <nav class="nav flex-column">
+          <a class="nav-link" href="#concepts">CNV Concepts</a>
+          <a class="nav-link" href="#signals">Four Detection Signals</a>
+          <a class="nav-link" href="#depth">1. Read-depth Analysis</a>
+          <a class="nav-link" href="#cnvnator">2. CNVnator Pipeline</a>
+          <a class="nav-link" href="#sv">3. SV Callers: Manta + LUMPY</a>
+          <a class="nav-link" href="#merge">4. Merging Callers</a>
+          <a class="nav-link" href="#genotype">5. CNV Genotyping</a>
+          <a class="nav-link" href="#visualise">6. Visualisation</a>
+          <a class="nav-link" href="#pitfalls">Pitfalls</a>
+        </nav>
+      </div>
+    </div>
+    <div class="col-lg-9">
+      <div class="tutorial-content">
+
+<section id="concepts" class="mb-5">
+  <h2 class="section-divider">CNV Concepts</h2>
+  <p>Copy Number Variations (CNVs) are genomic regions that are deleted or duplicated relative to a reference genome. They range from a few hundred base pairs to entire chromosome arms, and account for a larger fraction of genetic diversity between individuals than SNPs.</p>
+  <div class="param-table">
+    <table class="table table-bordered mb-0">
+      <thead class="table-dark"><tr><th>CNV Type</th><th>Copy number change</th><th>Effect</th><th>Detection signal</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Deletion (DEL)</strong></td><td>Loss of one or both copies (CN 0 or 1 vs expected 2)</td><td>Haploinsufficiency, loss of function</td><td>Decreased read depth, paired-end discordance</td></tr>
+        <tr><td><strong>Duplication (DUP)</strong></td><td>Gain of one or more copies (CN 3+)</td><td>Gene dosage effect, neo-functionalization</td><td>Increased read depth, tandem split reads</td></tr>
+        <tr><td><strong>Inversion (INV)</strong></td><td>No copy change; orientation flipped</td><td>Gene disruption if breakpoint in gene; position effect</td><td>Paired-end orientation discordance</td></tr>
+        <tr><td><strong>Translocation (TRA/BND)</strong></td><td>Chromosomal segment moves to new location</td><td>Fusion genes, altered regulation</td><td>Inter-chromosomal paired-end discordance</td></tr>
+        <tr><td><strong>Complex SV</strong></td><td>Multiple rearrangements at same locus</td><td>Variable; often severe</td><td>Combination of all signals; difficult to resolve</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="signals" class="mb-5">
+  <h2 class="section-divider">Four Detection Signals from WGS</h2>
+  <div class="param-table">
+    <table class="table table-bordered mb-0">
+      <thead class="table-dark"><tr><th>Signal</th><th>Abbreviation</th><th>How it works</th><th>Best for</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Read Depth (RD)</strong></td><td>RD/RC</td><td>Count reads per bin; normalize; segment into copy number states. Deleted regions have half the normal coverage; duplicated regions have 1.5x or 2x.</td><td>Large CNVs (&gt;1 kb); tandem duplications; reliable for copy number estimation</td></tr>
+        <tr><td><strong>Paired-End (PE)</strong></td><td>DP/SR</td><td>Read pairs that map too far apart, too close, or in wrong orientation signal a structural variant at their mapping positions.</td><td>Breakpoint detection; inversions; translocations</td></tr>
+        <tr><td><strong>Split Read (SR)</strong></td><td>SR/SA</td><td>Reads that span a breakpoint are split: one part maps to one location, the other maps elsewhere. Base-pair resolution breakpoints.</td><td>Precise breakpoint calling; small SVs; insertion detection</td></tr>
+        <tr><td><strong>Local Assembly (LA)</strong></td><td>AS</td><td>Assemble reads de novo in candidate regions; compare assembled contigs to reference to detect variants directly.</td><td>Complex SVs; mobile elements; most accurate method</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="byte-callout mt-4">
+    <img src="../img/Byte1.png" alt="Byte">
+    <div><strong>Always use at least two independent signals.</strong> Single-signal CNV callers have false positive rates of 30-50%. The standard best practice is to intersect calls from a read-depth caller (CNVnator) with a split-read/paired-end caller (Manta or DELLY). Variants supported by both methods have false positive rates below 5%. For clinical-grade calls, add local assembly (Manta's assembled contigs) as a third line of evidence.</div>
+  </div>
+</section>
+
+<section id="depth" class="mb-5">
+  <h2 class="section-divider">Step 1 &mdash; Read-Depth Analysis: The Math</h2>
+  <p>Read-depth CNV detection normalises coverage per bin and then segments the normalised log-ratio to identify copy-number states. Understanding the normalisation formula helps you interpret and troubleshoot results.</p>
+
+  <div class="formula-explain">
+    <div class="fe-title"><i class="bi bi-calculator"></i> Read-Depth CNV Formulas</div>
+    <div class="fe-equation">Normalised depth = (bin_depth / mean_depth) * 2</div>
+    <div class="fe-equation">Log2 ratio = log2(normalised_depth / 2) = log2(bin_depth / mean_depth)</div>
+    <div class="fe-equation">Expected copy number = 2 * (bin_depth / mean_depth)</div>
+    <div class="fe-terms">
+      <span class="fe-var">Log2 ratio = 0</span><span class="fe-def">Normal diploid (copy number = 2)</span>
+      <span class="fe-var">Log2 ratio = -1</span><span class="fe-def">Heterozygous deletion (one copy deleted, CN = 1)</span>
+      <span class="fe-var">Log2 ratio = -Inf</span><span class="fe-def">Homozygous deletion (both copies deleted, CN = 0)</span>
+      <span class="fe-var">Log2 ratio = +0.585</span><span class="fe-def">Heterozygous duplication (one extra copy, CN = 3)</span>
+      <span class="fe-var">Log2 ratio = +1.0</span><span class="fe-def">Homozygous duplication (CN = 4)</span>
+    </div>
+  </div>
+
+  <div class="live-sheet" data-sheet='{
+    "title": "Live CNV Depth-Ratio Calculator -- normalise bin depth to copy number",
+    "legend": true,
+    "cols": [
+      {"id":"A","label":"Genomic bin","desc":"100 bp or 1 kb bin"},
+      {"id":"B","label":"Raw depth","desc":"Mean read depth in this bin -- EDIT"},
+      {"id":"C","label":"Mean genome depth","desc":"Genome-wide mean -- EDIT row 2"},
+      {"id":"D","label":"Log2 ratio","desc":"=log2(bin/mean)"},
+      {"id":"E","label":"Est. copy number","desc":"=2 * bin/mean"},
+      {"id":"F","label":"CNV call","desc":"1=DEL homo 2=DEL het 3=Normal 4=DUP het 5=DUP homo"}
+    ],
+    "rows": [
+      {"header":"Set genome-wide mean depth (row 2 col C -- edit once):"},
+      {"rowNum":2,"cells":{"A":{"text":"Bin 1 (normal region)"},"B":{"input":32.4,"step":0.1,"min":0.1},"C":{"input":31.8,"step":0.1,"min":1},"D":{"formula":"=ROUND(LOG10(B2/C2)/LOG10(2),3)"},"E":{"formula":"=ROUND(2*B2/C2,2)"},"F":{"formula":"=IF(E2<0.3,1,IF(E2<1.3,2,IF(E2<2.7,3,IF(E2<3.5,4,5))))"}}},
+      {"rowNum":3,"cells":{"A":{"text":"Bin 2 (heterozygous deletion)"},"B":{"input":16.1,"step":0.1,"min":0.1},"C":{"formula":"=C2"},"D":{"formula":"=ROUND(LOG10(B3/C3)/LOG10(2),3)"},"E":{"formula":"=ROUND(2*B3/C3,2)"},"F":{"formula":"=IF(E3<0.3,1,IF(E3<1.3,2,IF(E3<2.7,3,IF(E3<3.5,4,5))))"}}},
+      {"rowNum":4,"cells":{"A":{"text":"Bin 3 (homozygous deletion)"},"B":{"input":1.2,"step":0.1,"min":0.01},"C":{"formula":"=C2"},"D":{"formula":"=ROUND(LOG10(B4/C4)/LOG10(2),3)"},"E":{"formula":"=ROUND(2*B4/C4,2)"},"F":{"formula":"=IF(E4<0.3,1,IF(E4<1.3,2,IF(E4<2.7,3,IF(E4<3.5,4,5))))"}}},
+      {"rowNum":5,"cells":{"A":{"text":"Bin 4 (heterozygous duplication)"},"B":{"input":47.5,"step":0.1,"min":0.1},"C":{"formula":"=C2"},"D":{"formula":"=ROUND(LOG10(B5/C5)/LOG10(2),3)"},"E":{"formula":"=ROUND(2*B5/C5,2)"},"F":{"formula":"=IF(E5<0.3,1,IF(E5<1.3,2,IF(E5<2.7,3,IF(E5<3.5,4,5))))"}}},
+      {"rowNum":6,"cells":{"A":{"text":"Bin 5 (homozygous duplication CN=4)"},"B":{"input":63.8,"step":0.1,"min":0.1},"C":{"formula":"=C2"},"D":{"formula":"=ROUND(LOG10(B6/C6)/LOG10(2),3)"},"E":{"formula":"=ROUND(2*B6/C6,2)"},"F":{"formula":"=IF(E6<0.3,1,IF(E6<1.3,2,IF(E6<2.7,3,IF(E6<3.5,4,5))))"}}},
+      {"header":"GC bias correction factor (multiplicative):"},
+      {"rowNum":8,"cells":{"A":{"text":"GC% of bin"},"B":{"input":52,"step":1,"min":0,"max":100},"C":{"text":"% GC content"},"D":{"text":""},"E":{"text":""},"F":{"text":""}}},
+      {"rowNum":9,"cells":{"A":{"text":"GC correction factor (median/GC-specific median)"},"B":{"input":1.08,"step":0.01,"min":0.1},"C":{"text":"From LOESS regression of depth vs GC"},"D":{"text":""},"E":{"text":""},"F":{"text":""}}},
+      {"rowNum":10,"cells":{"A":{"text":"GC-corrected depth of Bin1"},"B":{"formula":"=ROUND(B2/B9,2)"},"C":{"text":"=raw_depth / GC_factor"},"D":{"formula":"=ROUND(LOG10(B10/C2)/LOG10(2),3)"},"E":{"formula":"=ROUND(2*B10/C2,2)"},"F":{"formula":"=IF(E10<0.3,1,IF(E10<1.3,2,IF(E10<2.7,3,IF(E10<3.5,4,5))))"}}}
+    ],
+    "colDesc": [
+      {"col":"D (Log2 ratio)","desc":"=LOG10(bin_depth/mean_depth)/LOG10(2)  [equivalent to LOG2 in Excel or log2() in R]. This is the standard metric used in CNV analysis: 0=normal diploid, -1=single copy (het deletion), -Inf=zero copies (hom deletion), +0.585=three copies (het dup), +1.0=four copies (hom dup)."},
+      {"col":"E (Copy number)","desc":"=2 * (bin_depth / mean_depth). The normalised depth multiplied by the expected ploidy (2 for diploid). Values around 1.0 indicate a heterozygous deletion; values around 0 indicate a homozygous deletion; values around 3 or 4 indicate duplication."},
+      {"col":"B9 (GC correction)","desc":"GC bias causes systematic over- or under-counting of reads in high-GC or low-GC bins. The correction factor is estimated by fitting a LOESS curve to depth vs GC% across all bins. Divide each bin depth by its GC-specific correction factor before segmentation. CNVnator and Control-FREEC perform this automatically."}
+    ]
+  }'></div>
+</section>
+
+<section id="cnvnator" class="mb-5">
+  <h2 class="section-divider">Step 2 &mdash; CNVnator Read-Depth Pipeline</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash -- CNVnator read-depth CNV calling pipeline</span><button class="btn-copy">Copy</button></div>
+<pre id="s2-cnvnator">## ================================================================
+## CNVnator v0.4.1+ -- read-depth segmentation
+## Works for germline CNVs in diploid organisms
+## Required: sorted, duplicate-marked BAM; reference FASTA split by chr
+## ================================================================
+
+BAM="sample01_sorted_markdup.bam"
+REF_DIR="reference_chromosomes/"   ## one FASTA file per chromosome
+SAMPLE="sample01"
+BIN=500    ## bin size in bp: 100-500 bp for 30x WGS
+
+## Step 1: Extract read depth histogram from BAM
+cnvnator -root ${SAMPLE}.root \
+  -tree ${BAM} \
+  -chrom $(seq -s' ' 1 12 | sed 's/^/chr/g') ## specify chromosomes
+
+## Step 2: Generate read depth histograms (one per bin size)
+cnvnator -root ${SAMPLE}.root \
+  -his ${BIN} \
+  -d ${REF_DIR}    ## reference chromosome files for GC correction
+
+## Step 3: Compute statistics per bin (mean, variance)
+cnvnator -root ${SAMPLE}.root \
+  -stat ${BIN}
+
+## Step 4: RD signal partitioning (segmentation into CN states)
+cnvnator -root ${SAMPLE}.root \
+  -partition ${BIN}
+
+## Step 5: Call CNVs from segments
+cnvnator -root ${SAMPLE}.root \
+  -call ${BIN} > ${SAMPLE}_cnvnator_${BIN}bp.txt
+
+## Output format:
+## CNV_type chr:start-end size normalised_RD e-value1 e-value2 q0
+## CNV_type: deletion/duplication
+## normalised_RD: ~1.0 = het del, ~0 = hom del, ~1.5 = het dup
+## e-value1: based on t-test; e-value2: based on Gaussian mixture model
+## q0: fraction of reads mapping to MAPQ=0 (high q0 = repetitive region)
+
+## Filter: keep high-quality calls
+awk '$8 < 0.5' ${SAMPLE}_cnvnator_${BIN}bp.txt > ${SAMPLE}_cnvnator_highQ.txt
+## q0 < 0.5 means fewer than 50% of reads have MAPQ=0 (non-repetitive)
+
+## Convert to BED format for downstream intersect
+awk '{
+  split($2, a, /[:-]/);
+  print a[1], a[2], a[3], $1, $3, $4
+}' OFS="\t" ${SAMPLE}_cnvnator_highQ.txt > ${SAMPLE}_cnvnator.bed
+
+echo "CNVnator calls: $(wc -l < ${SAMPLE}_cnvnator_highQ.txt)"
+echo "Deletions: $(grep deletion ${SAMPLE}_cnvnator_highQ.txt | wc -l)"
+echo "Duplications: $(grep duplication ${SAMPLE}_cnvnator_highQ.txt | wc -l)"</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s2-cnvnator" data-filename="02_cnvnator_pipeline.sh"><i class="bi bi-download me-1"></i>02_cnvnator_pipeline.sh</button></div>
+</section>
+
+<section id="sv" class="mb-5">
+  <h2 class="section-divider">Step 3 &mdash; SV Callers: Manta and LUMPY</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash -- Manta (split-read + PE) and SMOOVE/LUMPY structural variant calling</span><button class="btn-copy">Copy</button></div>
+<pre id="s3-manta">## ================================================================
+## Manta v1.6+ -- split-read + paired-end SV calling
+## Manta uses local assembly for precise breakpoints
+## ================================================================
+
+BAM="sample01_sorted_markdup.bam"
+REF="IRGSP1.0_genome.fasta"
+OUTDIR="manta_output"
+
+## Step 1: Configure Manta
+configManta.py \
+  --bam ${BAM} \
+  --referenceFasta ${REF} \
+  --runDir ${OUTDIR}
+
+## Step 2: Run Manta (uses all available cores automatically)
+${OUTDIR}/runWorkflow.py -j 16 -m local
+
+## Main outputs:
+## candidateSV.vcf.gz: all candidate SVs (lower quality filter)
+## diploidSV.vcf.gz: high-quality diploid SVs (use this)
+## candidateSmallIndels.vcf.gz: for GATK HaplotypeCaller as indel candidates
+
+## Step 3: Filter Manta output
+bcftools view \
+  -f PASS \                              ## only PASS filter variants
+  -i 'SVLEN >= 50 || SVTYPE == "BND"' \ ## SVs >= 50 bp; all translocations
+  ${OUTDIR}/results/variants/diploidSV.vcf.gz | \
+  bcftools sort | bgzip -c > manta_filtered.vcf.gz
+tabix -p vcf manta_filtered.vcf.gz
+
+## ================================================================
+## SMOOVE (wrapper around LUMPY) -- population-level SV genotyping
+## Best for cohort studies; genotypes SVs across all samples jointly
+## ================================================================
+
+## Step 1: Call SVs per sample
+for BAM_FILE in *.bam; do
+  SAMPLE_NAME=$(basename ${BAM_FILE} _sorted_markdup.bam)
+  smoove call \
+    --outdir smoove_per_sample \
+    --name ${SAMPLE_NAME} \
+    --fasta ${REF} \
+    -p 8 \
+    --genotype \
+    ${BAM_FILE}
+done
+
+## Step 2: Merge all sample VCFs into a unified site list
+smoove merge \
+  --name rice3k \
+  --fasta ${REF} \
+  --outdir smoove_merged \
+  smoove_per_sample/*.genotyped.vcf.gz
+
+## Step 3: Re-genotype all samples at merged sites
+for VCF_FILE in smoove_per_sample/*.genotyped.vcf.gz; do
+  SAMPLE_NAME=$(basename ${VCF_FILE} .genotyped.vcf.gz)
+  smoove genotype \
+    --duphold \                          ## annotate with depth-based quality
+    --name ${SAMPLE_NAME} \
+    --outdir smoove_genotyped \
+    --fasta ${REF} \
+    --vcf smoove_merged/rice3k.sites.vcf.gz \
+    ${SAMPLE_NAME}_sorted_markdup.bam
+done
+
+## Step 4: Paste into multi-sample VCF
+smoove paste \
+  --name rice3k_cohort \
+  --outdir smoove_final \
+  smoove_genotyped/*.vcf.gz
+
+## Output: rice3k_cohort.smoove.square.vcf.gz
+## This is a multi-sample SV VCF with genotypes at all sites in all samples</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s3-manta" data-filename="03_manta_smoove_sv.sh"><i class="bi bi-download me-1"></i>03_manta_smoove_sv.sh</button></div>
+</section>
+
+<section id="merge" class="mb-5">
+  <h2 class="section-divider">Step 4 &mdash; Merging and Filtering Callers</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash + R -- Intersect CNVnator and Manta calls; calculate false positive rates</span><button class="btn-copy">Copy</button></div>
+<pre id="s4-merge">## ================================================================
+## Merge CNVnator (RD) + Manta (SR+PE) calls
+## Variants supported by both methods = high-confidence CNVs
+## ================================================================
+
+## Convert Manta VCF to BED (for bedtools intersect)
+bcftools view -i 'SVTYPE=="DEL" || SVTYPE=="DUP"' manta_filtered.vcf.gz | \
+  bcftools query \
+    -f '%CHROM\t%POS\t%END\t%SVTYPE\t%SVLEN\n' | \
+  awk '{if($5<0) $5=-$5; print}' OFS="\t" > manta_deldups.bed
+
+## CNVnator BED already created in step 2
+## Intersect: require 50% reciprocal overlap
+bedtools intersect \
+  -a cnvnator_filtered.bed \
+  -b manta_deldups.bed \
+  -f 0.5 -r \                ## 50% reciprocal overlap
+  -wa -wb \
+  > confirmed_cnvs.bed
+
+echo "CNVnator calls: $(wc -l < cnvnator_filtered.bed)"
+echo "Manta calls: $(wc -l < manta_deldups.bed)"
+echo "Confirmed by both (50% overlap): $(wc -l < confirmed_cnvs.bed)"
+
+## ================================================================
+## R: CNV quality filter and annotation
+## ================================================================
+library(dplyr)
+cnvs <- read.table("confirmed_cnvs.bed", sep="\t",
+  col.names=c("chr","start","end","type","size","norm_RD",
+              "chr2","start2","end2","type2","size2"))
+cnvs$size_kb <- cnvs$size / 1000
+
+## Quality filters:
+## 1. Remove CNVs in repetitive regions (high q0)
+## 2. Remove very small CNVs (< 1 kb) -- likely noise
+## 3. Remove CNVs in centromeres/telomeres
+cnvs_filtered <- cnvs %>%
+  filter(size_kb >= 1) %>%
+  filter(!grepl("chrUn|random|scaffold", chr))
+
+cat("High-confidence CNVs after filtering:", nrow(cnvs_filtered), "\n")
+cat("  Deletions:", sum(cnvs_filtered$type == "deletion"), "\n")
+cat("  Duplications:", sum(cnvs_filtered$type == "duplication"), "\n")
+cat("  Size range:", round(min(cnvs_filtered$size_kb),1), "-",
+    round(max(cnvs_filtered$size_kb),1), "kb\n")</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s4-merge" data-filename="04_merge_cnv_callers.sh"><i class="bi bi-download me-1"></i>04_merge_cnv_callers.sh</button></div>
+</section>
+
+<section id="genotype" class="mb-5">
+  <h2 class="section-divider">Step 5 &mdash; CNV Genotyping Across a Population</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash -- Genotype CNV sites in all samples using SVTyper and duphold</span><button class="btn-copy">Copy</button></div>
+<pre id="s5-geno">## ================================================================
+## Genotype CNV sites across a population
+## Two approaches: SVTyper (PE+SR) and duphold (depth validation)
+## ================================================================
+
+## Method A: SVTyper -- genotype SV sites in each sample
+## First create a merged site VCF from discovery set
+for BAM in *.bam; do
+  SAMPLE=$(basename ${BAM} _sorted_markdup.bam)
+  svtyper \
+    --bam ${BAM} \
+    --vcf confirmed_svs.vcf \     ## merged discovery VCF
+    --output ${SAMPLE}_svtyped.vcf
+done
+
+## Method B: duphold -- annotate depth fold-change at each SV
+## duphold integrates read-depth evidence into any SV VCF
+for BAM in *.bam; do
+  SAMPLE=$(basename ${BAM} _sorted_markdup.bam)
+  duphold \
+    --threads 8 \
+    --vcf confirmed_svs.vcf \
+    --bam ${BAM} \
+    --fasta reference.fasta \
+    --output ${SAMPLE}_duphold.bcf
+  bcftools convert -O z ${SAMPLE}_duphold.bcf > ${SAMPLE}_duphold.vcf.gz
+  tabix -p vcf ${SAMPLE}_duphold.vcf.gz
+done
+
+## duphold key annotations added to FORMAT field:
+## DHFC: fold-change vs flanking regions (expected: DEL < 0.7, DUP > 1.3)
+## DHFFC: fold-change vs flanking + GC correction
+## DHBFC: fold-change in background windows (for homozygous deletions)
+
+## Filter using duphold annotations (removes false positives efficiently)
+bcftools filter \
+  -i '(SVTYPE=="DEL" && FMT/DHFC < 0.7) || (SVTYPE=="DUP" && FMT/DHFC > 1.3)' \
+  merged_genotyped.vcf.gz > depth_confirmed_svs.vcf</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s5-geno" data-filename="05_cnv_genotype.sh"><i class="bi bi-download me-1"></i>05_cnv_genotype.sh</button></div>
+</section>
+
+<section id="visualise" class="mb-5">
+  <h2 class="section-divider">Step 6 &mdash; CNV Visualisation in R</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>R -- CNV genome-wide profile, size distribution, and region zoom</span><button class="btn-copy">Copy</button></div>
+<pre id="s6-viz">library(ggplot2); library(dplyr)
+
+## Load per-bin read depth (output from mosdepth --quantize)
+depth <- read.table("sample01.regions.bed.gz", header=FALSE,
+                    col.names=c("chr","start","end","depth"))
+depth$pos_mb <- (depth$start + depth$end) / 2 / 1e6
+mean_depth <- mean(depth$depth)
+depth$log2r <- log2(depth$depth / mean_depth + 0.001)  ## pseudocount
+
+## Genome-wide CNV profile (one panel per chromosome)
+ggplot(depth %>% filter(grepl("^chr[0-9]", chr)), aes(pos_mb, log2r)) +
+  geom_point(size=0.2, alpha=0.3, colour="#2171b5") +
+  geom_hline(yintercept=0, colour="grey50", linewidth=0.4) +
+  geom_hline(yintercept=c(-1, 0.585, 1), linetype="dashed",
+             colour=c("red","orange","red"), linewidth=0.3) +
+  facet_wrap(~chr, ncol=4, scales="free_x") +
+  scale_y_continuous(limits=c(-3, 2.5)) +
+  labs(x="Position (Mb)", y="Log2 copy ratio",
+       title="Genome-wide copy number profile",
+       subtitle="Dashed lines: -1=het del, +0.585=het dup, +1=hom dup") +
+  theme_minimal(base_size=9)
+ggsave("cnv_genome_profile.png", width=14, height=10, dpi=200)
+
+## CNV size distribution
+cnvs <- read.table("confirmed_cnvs.bed", header=FALSE)
+colnames(cnvs) <- c("chr","start","end","type","size")
+cnvs$size_kb <- cnvs$size / 1000
+cnvs$type2 <- ifelse(grepl("deletion", cnvs$type, ignore.case=TRUE), "Deletion", "Duplication")
+ggplot(cnvs, aes(size_kb, fill=type2)) +
+  geom_histogram(bins=50, colour="white", linewidth=0.2, position="identity", alpha=0.7) +
+  scale_x_log10(name="CNV size (kb, log scale)") +
+  scale_fill_manual(values=c("Deletion"="#e41a1c","Duplication"="#377eb8")) +
+  labs(y="Count", fill="CNV type", title="CNV size distribution") +
+  theme_bw(base_size=12)
+ggsave("cnv_size_distribution.png", width=7, height=4, dpi=200)</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s6-viz" data-filename="06_cnv_visualise.R"><i class="bi bi-download me-1"></i>06_cnv_visualise.R</button></div>
+</section>
+
+<section id="pitfalls" class="mb-5">
+  <h2 class="section-divider">Common Pitfalls</h2>
+  <div class="param-table">
+    <table class="table table-bordered mb-0">
+      <thead class="table-dark"><tr><th>Problem</th><th>Symptom</th><th>Fix</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Repetitive regions inflate CNV calls</strong></td><td>Hundreds of CNVs in satellite DNA, centromeres, telomeres</td><td>Filter by q0 &gt; 0.5 in CNVnator output. Mask repeat regions with bedtools subtract using RepeatMasker BED. Check CNV coordinates in UCSC Repeat Masker track.</td></tr>
+        <tr><td><strong>GC bias creates false CNV pattern</strong></td><td>Systematic deletions in high-GC promoters; duplications in AT-rich regions</td><td>CNVnator and Control-FREEC apply GC correction. For custom pipelines use LOESS regression: fit depth ~ GC%, then divide each bin depth by the predicted value.</td></tr>
+        <tr><td><strong>Unequal sequencing depth between samples</strong></td><td>Sample with lower depth has more false deletion calls</td><td>Always normalise to genome-wide mean depth per sample, not globally. Never compare raw read counts between samples.</td></tr>
+        <tr><td><strong>PCR duplicates inflate duplication calls</strong></td><td>Tandem duplications appear larger or at higher copy number</td><td>Always mark and exclude PCR duplicates (Picard MarkDuplicates) before any CNV analysis. For amplicon libraries, use UMI-aware deduplication.</td></tr>
+        <tr><td><strong>Manta misses tandem duplications</strong></td><td>Large tandem dups detected by CNVnator but not Manta</td><td>Tandem duplications are harder for split-read callers because both breakpoints are at similar sequences. Use CNVnator + Manta union (OR) for duplications, but AND (intersection) for deletions.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="mb-5">
+  <div class="d-flex justify-content-between">
+    <a href="index.html" class="btn btn-outline-secondary rounded-pill px-4"><i class="bi bi-grid me-2"></i>All Tutorials</a>
+    <a href="genome-wide-association-gwas-advanced.html" class="btn btn-primary rounded-pill px-4">Advanced GWAS <i class="bi bi-arrow-right ms-2"></i></a>
+  </div>
+</section>
+
+      </div>
+    </div>
+  </div>
+</div>
+<footer class="site-footer">
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-lg-6"><h5 class="text-white fw-bold mb-3"><span style="color:#ff9933;">Indian</span><span style="color:var(--ieb-primary);">Elucid</span><span style="color:var(--ieb-accent);">Biology</span></h5><p class="small">Free, interactive bioinformatics tutorials.</p></div>
+      <div class="col-lg-6 text-lg-end"><p class="small mb-1">Founded by <strong>Ankush Sharma</strong></p><div class="d-flex gap-3 justify-content-lg-end"><a href="https://github.com/ank-man" target="_blank" class="text-white fs-5"><i class="bi bi-github"></i></a><a href="https://www.linkedin.com/in/ankush-sharma-290307/" target="_blank" class="text-white fs-5"><i class="bi bi-linkedin"></i></a><a href="mailto:mr.ank2999@gmail.com" class="text-white fs-5"><i class="bi bi-envelope"></i></a></div></div>
+    </div>
+    <hr class="border-secondary mt-4 mb-3">
+    <p class="text-center small mb-0">&copy; 2025 IndianElucidBiology</p>
+  </div>
+</footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/main.js"></script>
+<script src="../js/live-spreadsheet.js"></script>
+</body>
+</html>

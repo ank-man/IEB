@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Population Genomics, Phylogeography &amp; Comparative Methods — Module 7 | IndianElucidBiology</title>
+  <meta name="description" content="Advanced population genomics and phylogeography: PSMC/MSMC demographic inference, D-statistics and introgression detection, Bayesian phylogeography in BEAST2, species delimitation (BPP, mPTP), phylogenetic comparative methods (MCMCglmm, phylopath), co-phylogenetics, and ancient DNA processing.">
+  <meta name="keywords" content="PSMC, MSMC, D-statistics, ABBA-BABA, introgression, phylogeography, BEAST2, species delimitation, BPP, mPTP, MCMCglmm, phylopath, co-phylogenetics, ancient DNA, mapDamage">
+  <link rel="canonical" href="https://indianelucidbiology.github.io/tutorials/phylogenetics-deep-dive-module7.html">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="../css/style.css" rel="stylesheet">
+</head>
+<body>
+<div class="progress-tracker"></div>
+<nav class="navbar navbar-expand-lg fixed-top">
+  <div class="container">
+    <a class="navbar-brand" href="../index.html"><span class="brand-indian">Indian</span><span class="brand-elucid">Elucid</span><span class="brand-biology">Biology</span></a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav"><span class="navbar-toggler-icon"></span></button>
+    <div class="collapse navbar-collapse" id="mainNav">
+      <ul class="navbar-nav ms-auto me-3">
+        <li class="nav-item"><a class="nav-link" href="../index.html">Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="phylogenetics-deep-dive-module6.html">Module 6</a></li>
+      </ul>
+      <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode">&#9790;</button>
+    </div>
+  </div>
+</nav>
+
+<section class="tutorial-hero">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-lg-8">
+        <nav aria-label="breadcrumb"><ol class="breadcrumb mb-3" style="--bs-breadcrumb-divider-color:rgba(255,255,255,0.5);"><li class="breadcrumb-item"><a href="../index.html" class="text-white-50 text-decoration-none">Home</a></li><li class="breadcrumb-item"><a href="phylogenetics-iqtree-raxml-orthomcl-tutorial.html" class="text-white-50 text-decoration-none">Phylogenetics</a></li><li class="breadcrumb-item active text-white">Module 7</li></ol></nav>
+        <h1 class="display-5 fw-bold text-white mb-3">Module 7 — PopGen, Phylogeography &amp; Comparative Methods</h1>
+        <p class="lead text-white-50 mb-4">Demographic Inference · Introgression Detection · Phylogeographic Modeling · Species Delimitation · Advanced Comparative Methods · Paleogenomics</p>
+        <div class="d-flex gap-3 flex-wrap">
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-clock me-1"></i> ~180 min</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-bar-chart me-1"></i> Advanced</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-terminal me-1"></i> Bash / R / Python</span>
+        </div>
+      </div>
+      <div class="col-lg-4 text-center d-none d-lg-block">
+        <img src="../img/Byte4.png" alt="Byte" class="img-fluid" style="max-height:230px;filter:drop-shadow(0 10px 30px rgba(0,0,0,0.4));">
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="container py-5">
+  <div class="row">
+    <div class="col-lg-3 d-none d-lg-block">
+      <div class="toc-sidebar">
+        <h6 class="fw-bold text-muted text-uppercase small mb-3">On this page</h6>
+        <nav class="nav flex-column">
+          <a class="nav-link" href="#s7-1">7.1 Demographic Inference</a>
+          <a class="nav-link" href="#s7-2">7.2 Admixture &amp; Introgression</a>
+          <a class="nav-link" href="#s7-3">7.3 Phylogeographic Modeling</a>
+          <a class="nav-link" href="#s7-4">7.4 Species Delimitation</a>
+          <a class="nav-link" href="#s8-1">8.1 Phylogenetic GLMMs</a>
+          <a class="nav-link" href="#s8-4">8.4 Co-phylogenetics</a>
+          <a class="nav-link" href="#s9-1">9.1 Ancient DNA Processing</a>
+          <a class="nav-link" href="#ai-prompt">AI Prompt Guide</a>
+          <a class="nav-link" href="#errors">Troubleshooting</a>
+          <a class="nav-link" href="#mnemonics">Mnemonics</a>
+        </nav>
+      </div>
+    </div>
+    <div class="col-lg-9">
+      <div class="tutorial-content">
+
+<!-- ============================================================ -->
+<!--  7.1 — Demographic Inference                                 -->
+<!-- ============================================================ -->
+<section id="s7-1" class="mb-5">
+  <h2 class="section-divider">7.1 — Demographic Inference</h2>
+
+  <div class="param-table">
+    <table class="table table-striped mb-0">
+      <thead><tr><th>Tool</th><th>Input</th><th>Time Range</th><th>Strengths</th></tr></thead>
+      <tbody>
+        <tr><td><strong>PSMC</strong></td><td>1 diploid genome</td><td>~20 kya – 3 Mya</td><td>Needs only 1 individual; deep history</td></tr>
+        <tr><td><strong>MSMC2</strong></td><td>2–8 haplotypes</td><td>~1 kya – 3 Mya</td><td>Cross-coalescence → split times</td></tr>
+        <tr><td><strong>SMC++</strong></td><td>Hundreds of genomes</td><td>~100 ya – 100 kya</td><td>Recent demography with many samples</td></tr>
+        <tr><td><strong>Stairway Plot 2</strong></td><td>SFS from many samples</td><td>~100 ya – 1 Mya</td><td>No phasing needed, SFS-based</td></tr>
+        <tr><td><strong>fastsimcoal2</strong></td><td>Joint SFS</td><td>Any</td><td>Complex multi-population models</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash — PSMC &amp; MSMC2</span><button class="btn-copy">Copy</button></div>
+<pre id="script-psmc"># PSMC: infer Ne(t) from a single diploid genome
+# Step 1: Generate consensus diploid sequence
+samtools mpileup -C50 -uf reference.fa sample.bam | \
+  bcftools call -c | vcfutils.pl vcf2fq -d 10 -D 100 | \
+  gzip > diploid.fq.gz
+
+# Step 2: Create PSMC input
+fq2psmcfa -q20 diploid.fq.gz > diploid.psmcfa
+
+# Step 3: Run PSMC
+psmc -N25 -t15 -r5 -p "4+25*2+4+6" -o output.psmc diploid.psmcfa
+
+# Step 4: Bootstrap (100 replicates for CIs)
+splitfa diploid.psmcfa > split.psmcfa
+seq 100 | xargs -P 16 -I{} psmc -N25 -t15 -r5 \
+  -p "4+25*2+4+6" -b -o round{}.psmc split.psmcfa
+
+# Step 5: Plot
+psmc_plot.pl -u 1.4e-08 -g 25 -p output output.psmc
+# -u: mutation rate per site per generation
+# -g: generation time in years
+# Output: Ne(t) curve from ~20 kya to ~3 Mya
+
+# MSMC2: cross-coalescence for population split times
+msmc2 --fixedRecombination -t 16 \
+  -o pop1_pop2 \
+  pop1_hap1.txt pop1_hap2.txt pop2_hap1.txt pop2_hap2.txt
+# Output: relative cross-coalescence rate (rCCR)
+# rCCR = 1 → single population; rCCR = 0 → fully separated
+# The time when rCCR drops from 1 to 0 = population split time</pre>
+  </div>
+  <div class="download-bar">
+    <span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span>
+    <button class="btn-download-script" data-script-id="script-psmc" data-filename="psmc_msmc2.sh"><i class="bi bi-download me-1"></i> psmc_msmc2.sh</button>
+  </div>
+
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash — fastsimcoal2 Complex Demographics</span><button class="btn-copy">Copy</button></div>
+<pre id="script-fsc"># fastsimcoal2: fit complex demographic models to joint SFS
+# Step 1: Compute joint SFS from VCF
+# Use easySFS or ANGSD to generate observed SFS
+
+# Step 2: Define demographic model (.tpl + .est files)
+# Example: 2 populations with divergence + migration + bottleneck
+# model.tpl:
+# //Parameters for the coalescent simulation program:
+# 2 samples to simulate :
+# //Population effective sizes (number of genes)
+# NPOP1
+# NPOP2
+# //Samples sizes
+# 20
+# 20
+# //Growth rates
+# 0
+# 0
+# //Number of migration matrices
+# 2
+# //Migration matrix 0
+# 0 MIG12
+# MIG21 0
+# //Migration matrix 1
+# 0 0
+# 0 0
+# //historical events: time, src, sink, migrants, resize, growth, migmat
+# 1 historical events
+# TDIV 1 0 1 RESIZE 0 1
+
+# Step 3: Run optimization
+fsc27 -t model.tpl -e model.est -n 100000 -m -M \
+  -L 40 -c 16 -B 16 --multiSFS
+# -L 40: 40 optimization cycles
+# -M: compute SFS from maximum likelihood parameters
+
+# Step 4: Bootstrap for confidence intervals
+# Run 50-100 non-parametric bootstraps from simulated SFS
+
+# Step 5: Model comparison with AIC
+# Compare nested models (with/without migration, bottleneck, etc.)</pre>
+  </div>
+  <div class="download-bar">
+    <span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span>
+    <button class="btn-download-script" data-script-id="script-fsc" data-filename="fastsimcoal2.sh"><i class="bi bi-download me-1"></i> fastsimcoal2.sh</button>
+  </div>
+
+  <div class="thumb-rule">
+    <strong>Thumb Rule — Scaling PSMC/MSMC:</strong> All results depend on two numbers you provide: mutation rate (μ) and generation time (g). If either is wrong, all dates shift proportionally. Always report the μ and g used, and show how results change with alternative values.
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!--  7.2 — Admixture & Introgression Detection                  -->
+<!-- ============================================================ -->
+<section id="s7-2" class="mb-5">
+  <h2 class="section-divider">7.2 — Admixture &amp; Introgression Detection</h2>
+
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash — D-statistics &amp; Dsuite</span><button class="btn-copy">Copy</button></div>
+<pre id="script-dstat"># D-statistics (ABBA-BABA) framework
+# Tests: is there excess allele sharing between P2 and P3?
+# Topology: ((P1,P2),P3),O)
+# D = 0: no introgression (ILS only)
+# D > 0: P2-P3 introgression (excess ABBA)
+# D < 0: P1-P3 introgression (excess BABA)
+
+# Dsuite: efficient D-statistics for all population trios
+Dsuite Dtrios -t species_tree.nwk input.vcf.gz populations.txt
+# Output: BBAA, ABBA, BABA counts + D-statistic + p-value for all trios
+
+# f-branch statistic: assign introgression to specific branches
+Dsuite Fbranch species_tree.nwk Dtrios_output.txt > fbranch.txt
+# Visualize with:
+python dtools.py fbranch.txt species_tree.nwk
+
+# ADMIXTOOLS2 in R: formal tests
+library(admixtools)
+f2_blocks <- f2_from_geno("prefix")  # EIGENSTRAT format input
+
+# f3 test: f3(A; B, C) < 0 means A is admixed from B and C
+f3_result <- qp3pop(f2_blocks, source1="Pop_B", source2="Pop_C",
+                     target="Pop_A")
+
+# f4 test: Patterson's D equivalent
+f4_result <- qpDstat(f2_blocks, pop1="P1", pop2="P2",
+                      pop3="P3", pop4="O")
+
+# qpAdm: model target as mixture of source populations
+qpadm_result <- qpadm(f2_blocks, target="Admixed_Pop",
+                        sources=c("Source1","Source2"),
+                        outgroups=c("Outgroup1","Outgroup2","Outgroup3"))
+
+# qpGraph: fit an admixture graph
+# Requires specifying a topology and testing fit</pre>
+  </div>
+  <div class="download-bar">
+    <span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span>
+    <button class="btn-download-script" data-script-id="script-dstat" data-filename="dstats_admixtools.sh"><i class="bi bi-download me-1"></i> dstats_admixtools.sh</button>
+  </div>
+
+  <div class="mnemonic-box">
+    <span class="mnemonic-label">Mnemonic</span>
+    <p class="mnemonic-phrase">"<strong>ABBA</strong> = <strong>A</strong>ncestral-<strong>B</strong>ack-<strong>B</strong>ack-<strong>A</strong>ncestral"</p>
+    <p class="mnemonic-detail">In the pattern ABBA, P1 has ancestral allele, P2 has derived, P3 has derived, outgroup has ancestral. Excess ABBA over BABA means P2 and P3 share more alleles than expected under ILS alone → introgression between P2 and P3.</p>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!--  7.3 — Phylogeographic Modeling                             -->
+<!-- ============================================================ -->
+<section id="s7-3" class="mb-5">
+  <h2 class="section-divider">7.3 — Phylogeographic Modeling</h2>
+
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Workflow — BEAST2 Discrete Phylogeography</span><button class="btn-copy">Copy</button></div>
+<pre># Discrete trait phylogeography in BEAST2:
+# 1. BEAUti: load alignment
+# 2. Tip Dates: if heterochronous (e.g., viral sequences)
+# 3. Partitions tab: add a "discrete trait" partition
+#    - Column = geographic location for each sample
+# 4. Clock model for trait: strict clock
+# 5. Substitution model for trait: symmetric or asymmetric
+#    - BSSVS (Bayesian Stochastic Search Variable Selection)
+#    - Identifies significant migration routes
+# 6. Tree prior: coalescent or birth-death
+# 7. MCMC: 100,000,000+ generations
+
+# After running:
+# - SpreaD3: visualize geographic spread on a map
+#   java -jar SpreaD3.jar
+#   Input: MCC tree with location annotations
+#   Output: animated KML file for Google Earth
+#   or D3.js visualization
+
+# Continuous phylogeography:
+# Instead of discrete locations, use latitude/longitude coordinates
+# BEAUti: set tip locations as continuous trait (x,y coordinates)
+# Diffusion model: random walk, Cauchy, or relaxed random walk
+# Visualize with SpreaD3 continuous mode</pre>
+  </div>
+
+  <h4 class="fw-bold mt-4">Structured Coalescent (BASTA / Mascot)</h4>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash</span><button class="btn-copy">Copy</button></div>
+<pre># Mascot (BEAST2 package): structured coalescent
+# More appropriate than discrete trait models when population structure
+# is strong and gene flow is ongoing (not just historical events)
+
+# Install: BEAST2 Package Manager → MASCOT
+# BEAUti setup:
+# - Tree prior: Structured Coalescent (Mascot)
+# - Assign each sample to a population/deme
+# - Parameters: Ne per deme, migration rates between demes
+# - MCMC: very long chains (structured coalescent is slow)
+
+# Advantage over discrete trait: properly models the coalescent
+# process within structured populations
+# Disadvantage: limited to ~10 demes, computationally expensive</pre>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!--  7.4 — Species Delimitation                                  -->
+<!-- ============================================================ -->
+<section id="s7-4" class="mb-5">
+  <h2 class="section-divider">7.4 — Species Delimitation</h2>
+
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash — BPP &amp; mPTP</span><button class="btn-copy">Copy</button></div>
+<pre id="script-delimit"># BPP: Bayesian Phylogenetics and Phylogeography
+# Joint species delimitation and species tree estimation
+# Uses multispecies coalescent — most rigorous method
+
+# bpp.ctl:
+  seed = -1
+  seqfile = alignment.phy
+  Imapfile = imap.txt      # maps individuals → species
+  outfile = bpp_output.txt
+  speciesdelimitation = 1   # 1 = delimitation mode
+  speciestree = 1           # 1 = also estimate species tree
+  species&tree = 4  A B C D  # initial species assignment
+                    3 3 2 2   # samples per species
+                    ((A,B),(C,D));  # guide tree
+  usedata = 1
+  nloci = 100
+  cleandata = 0
+  thetaprior = gamma(2, 100)
+  tauprior = gamma(2, 200)
+  finetune = 1: 5 0.001 0.001 0.001 0.3 0.33 1.0
+  burnin = 50000
+  sampfreq = 5
+  nsample = 100000
+
+bpp --cfile bpp.ctl
+
+# mPTP: multi-rate Poisson Tree Processes
+# Single-locus, distance-based — fast but less rigorous
+mptp --tree_file ml_tree.nwk --output_file delimit_result \
+  --ml --multi --minbr_auto
+# Output: delimitation of species based on branch length distribution
+# Branches within species are shorter (coalescent) than between species
+
+# bGMYC: Bayesian GMYC (R package)
+# library(bGMYC)
+# result <- bgmyc.multiphylo(posterior_trees, mcmc=50000)
+# Similar to mPTP but uses Bayesian framework on a tree posterior</pre>
+  </div>
+  <div class="download-bar">
+    <span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span>
+    <button class="btn-download-script" data-script-id="script-delimit" data-filename="species_delimitation.sh"><i class="bi bi-download me-1"></i> species_delimitation.sh</button>
+  </div>
+
+  <div class="decision-box">
+    <h5><i class="bi bi-signpost-split me-2"></i>Integrative Species Delimitation</h5>
+    <ul>
+      <li><strong>BPP</strong> = gold standard for multilocus data (most rigorous, uses MSC)</li>
+      <li><strong>mPTP/GMYC</strong> = quick single-locus methods (good for barcoding data)</li>
+      <li><strong>DELINEATE</strong> = newer method for species delimitation with missing data</li>
+      <li><strong>Always combine</strong> molecular results with morphological, ecological, and geographic evidence (integrative taxonomy)</li>
+      <li><strong>Beware over-splitting:</strong> all methods tend to over-split when population structure is strong within species</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!--  8.1 — Phylogenetic GLMMs                                   -->
+<!-- ============================================================ -->
+<section id="s8-1" class="mb-5">
+  <h2 class="section-divider">8.1 — Phylogenetic Generalized Linear Mixed Models</h2>
+
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>R — MCMCglmm</span><button class="btn-copy">Copy</button></div>
+<pre id="script-mcmcglmm">library(MCMCglmm)
+library(ape)
+
+tree <- read.tree("dated_tree.nwk")
+# Create inverse phylogenetic covariance matrix
+inv.phylo <- inverseA(tree, nodes="ALL", scale=TRUE)
+
+data <- read.csv("species_data.csv")
+# Columns: animal (= species name matching tree), trait1, trait2, binary_trait
+
+# Gaussian response with phylogenetic random effect
+prior1 <- list(R=list(V=1, nu=0.002),
+               G=list(G1=list(V=1, nu=0.002)))
+model1 <- MCMCglmm(trait1 ~ trait2,
+                     random = ~animal,
+                     family = "gaussian",
+                     ginverse = list(animal=inv.phylo$Ainv),
+                     data = data,
+                     prior = prior1,
+                     nitt = 1300000, burnin = 300000, thin = 1000)
+summary(model1)
+
+# Binary response (e.g., presence/absence)
+prior2 <- list(R=list(V=1, fix=1),
+               G=list(G1=list(V=1, nu=0.002)))
+model2 <- MCMCglmm(binary_trait ~ trait1,
+                     random = ~animal,
+                     family = "categorical",
+                     ginverse = list(animal=inv.phylo$Ainv),
+                     data = data,
+                     prior = prior2,
+                     nitt = 2600000, burnin = 600000, thin = 2000)
+
+# Phylogenetic signal (heritability):
+# h2 = variance_phylo / (variance_phylo + variance_residual)
+h2 <- model1$VCV[,"animal"] /
+      (model1$VCV[,"animal"] + model1$VCV[,"units"])
+posterior.mode(h2)
+HPDinterval(h2)</pre>
+  </div>
+  <div class="download-bar">
+    <span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span>
+    <button class="btn-download-script" data-script-id="script-mcmcglmm" data-filename="mcmcglmm_phylo.R"><i class="bi bi-download me-1"></i> mcmcglmm_phylo.R</button>
+  </div>
+
+  <h4 class="fw-bold mt-4">Phylogenetic Path Analysis</h4>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>R — phylopath</span><button class="btn-copy">Copy</button></div>
+<pre># phylopath: test causal hypotheses among correlated traits
+library(phylopath)
+
+tree <- read.tree("dated_tree.nwk")
+data <- read.csv("species_traits.csv", row.names=1)
+
+# Define competing causal models as DAGs
+models <- define_model_set(
+  # Model 1: body_size → brain_size → longevity
+  m1 = c(brain_size ~ body_size, longevity ~ brain_size),
+  # Model 2: body_size → both brain_size and longevity independently
+  m2 = c(brain_size ~ body_size, longevity ~ body_size),
+  # Model 3: body_size → brain_size → longevity + direct effect
+  m3 = c(brain_size ~ body_size, longevity ~ brain_size + body_size)
+)
+
+# Fit all models with phylogenetic correction
+result <- phylo_path(models, data=data, tree=tree, model="lambda")
+
+# Compare with CICc (C-statistic information criterion)
+s <- summary(result)
+print(s)  # ranked by CICc — lowest is best
+
+# Average across best models
+avg_model <- average(result, cut_off=2)  # average models within delta CICc < 2
+plot(avg_model)</pre>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!--  8.4 — Co-phylogenetics                                      -->
+<!-- ============================================================ -->
+<section id="s8-4" class="mb-5">
+  <h2 class="section-divider">8.4 — Co-phylogenetics &amp; Host-Parasite Coevolution</h2>
+
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre id="script-cophylo"># PACo: Procrustean Approach to Cophylogeny
+library(paco)
+
+host_tree <- read.tree("host_tree.nwk")
+parasite_tree <- read.tree("parasite_tree.nwk")
+# Association matrix: which parasite on which host
+assoc <- read.csv("associations.csv")  # host, parasite columns
+
+D <- prepare_paco_data(host_tree, parasite_tree, assoc)
+D <- add_pcoords(D)
+result <- PACo(D, nperm=10000, seed=42)
+print(result)
+# Significant result → congruence between host and parasite phylogenies
+# Residuals per link: large residual = host switch event
+
+# ParaFit: global test of cospeciation
+library(ape)
+parafit_result <- parafit(
+  host_D=cophenetic(host_tree),
+  para_D=cophenetic(parasite_tree),
+  HP=assoc_matrix,
+  nperm=999
+)
+# Significant → host-parasite cospeciation signal
+
+# eMPRess: event-based reconciliation (GUI/command line)
+# Reconstructs: cospeciation, duplication, host switch, loss
+# empress --host host.nwk --parasite parasite.nwk --mapping assoc.txt</pre>
+  </div>
+  <div class="download-bar">
+    <span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span>
+    <button class="btn-download-script" data-script-id="script-cophylo" data-filename="cophylogenetics.R"><i class="bi bi-download me-1"></i> cophylogenetics.R</button>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!--  9.1 — Ancient DNA Processing                               -->
+<!-- ============================================================ -->
+<section id="s9-1" class="mb-5">
+  <h2 class="section-divider">9.1 — Ancient DNA (aDNA) Processing</h2>
+
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash — aDNA Pipeline</span><button class="btn-copy">Copy</button></div>
+<pre id="script-adna"># Ancient DNA has specific challenges:
+# 1. Short fragments (30-80 bp typical)
+# 2. C→T damage at 5' ends, G→A at 3' ends (deamination)
+# 3. Low endogenous content (1-10% in most samples)
+# 4. Contamination from modern DNA
+
+# Step 1: Adapter trimming (short overlapping fragments!)
+AdapterRemoval --file1 R1.fq.gz --file2 R2.fq.gz \
+  --collapse --trimns --trimqualities --minlength 30 \
+  --output1 trimmed_R1.fq.gz --output2 trimmed_R2.fq.gz \
+  --outputcollapsed collapsed.fq.gz
+
+# Step 2: Align with BWA-ALN (NOT BWA-MEM for short aDNA reads)
+bwa aln -l 1024 -n 0.01 -o 2 reference.fa collapsed.fq.gz > aln.sai
+bwa samse reference.fa aln.sai collapsed.fq.gz | \
+  samtools sort -o aligned.bam
+samtools index aligned.bam
+
+# Step 3: Remove duplicates
+picard MarkDuplicates I=aligned.bam O=dedup.bam M=metrics.txt \
+  REMOVE_DUPLICATES=true
+
+# Step 4: Authenticate — check damage patterns
+mapDamage2 -i dedup.bam -r reference.fa -d mapDamage_results/
+# Expect: elevated C→T at position 1 of reads (5' end)
+#         elevated G→A at last position (3' end)
+# If no damage pattern → likely modern contamination
+
+# Step 5: Rescale base qualities (account for damage)
+mapDamage2 -i dedup.bam -r reference.fa --rescale \
+  -d mapDamage_rescaled/
+
+# Step 6: PMDtools — filter for authentically ancient reads
+samtools view -h dedup.bam | \
+  pmdtools --threshold 3 --header | \
+  samtools view -Sb - > pmd_filtered.bam
+
+# Step 7: Contamination estimation
+# For mitochondrial data:
+schmutzi --notab ref_mt.fa dedup.bam
+# For nuclear: ANGSD contamination estimate (for males, X chromosome)
+angsd -i dedup.bam -r X: -doCounts 1 -iCounts 1 \
+  -minMapQ 30 -minQ 20
+
+# Step 8: Genotype likelihoods (for low-coverage aDNA)
+# Use ANGSD — never hard-call genotypes from low-coverage aDNA
+angsd -i pmd_filtered.bam -GL 2 -doGlf 2 \
+  -doMajorMinor 1 -SNP_pval 1e-6 -doMaf 1 \
+  -minMapQ 30 -minQ 20 -out ancient_GL</pre>
+  </div>
+  <div class="download-bar">
+    <span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span>
+    <button class="btn-download-script" data-script-id="script-adna" data-filename="adna_pipeline.sh"><i class="bi bi-download me-1"></i> adna_pipeline.sh</button>
+  </div>
+
+  <h4 class="fw-bold mt-4">Phylogenetic Placement of Ancient Samples</h4>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash</span><button class="btn-copy">Copy</button></div>
+<pre># EPA-ng: place short fragments into a reference tree
+# Build reference tree and alignment first (modern samples only)
+epa-ng --tree reference_tree.nwk --ref-msa reference_alignment.fasta \
+  --query ancient_sequences.fasta --redo
+
+# pplacer: alternative placement tool
+pplacer -t reference_tree.nwk -r reference_alignment.fasta \
+  -s reference.stats ancient_sequences.fasta
+
+# Output: .jplace file with placement probabilities
+# Visualize with gappa or iTOL</pre>
+  </div>
+
+  <div class="mnemonic-box">
+    <span class="mnemonic-label">Mnemonic</span>
+    <p class="mnemonic-phrase">"<strong>C</strong> to <strong>T</strong> at the <strong>T</strong>ip = an<strong>C</strong>ien<strong>T</strong>"</p>
+    <p class="mnemonic-detail">The hallmark of authentic ancient DNA is C→T substitutions at the 5' end of reads (cytosine deamination). If mapDamage doesn't show this pattern, your DNA is likely modern contamination. No damage = no trust.</p>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!--  AI PROMPT                                                    -->
+<!-- ============================================================ -->
+<section id="ai-prompt" class="mb-5">
+  <h2 class="fw-bold"><i class="bi bi-robot me-2"></i> AI Prompt Guide</h2>
+  <div class="ai-prompt-box">
+    <h5><i class="bi bi-robot me-2"></i> Population Genomics &amp; Phylogeography</h5>
+    <div class="ai-prompt-text">I have [WGS / RADseq / targeted capture] data from [NUMBER] individuals across [NUMBER] populations of [SPECIES].
+Reference genome: [available / de novo assembly needed].
+Coverage: [HIGH >20x / LOW 1-5x / ANCIENT <1x].
+
+I want to:
+1. Infer demographic history (Ne over time) with PSMC/MSMC2
+2. Test for introgression between [POP_A] and [POP_B] using D-statistics
+3. Fit a demographic model with fastsimcoal2 (divergence + migration + bottleneck)
+4. Perform species delimitation with BPP
+5. Run phylogeographic analysis in BEAST2 (discrete trait)
+6. [If aDNA]: process ancient samples with mapDamage authentication
+
+Please provide complete Bash/R scripts for each analysis including:
+- Proper input file preparation from VCF
+- SLURM scripts for HPC
+- Interpretation guidelines for key statistics
+- Visualization code for each result</div>
+    <button class="btn-copy-prompt mt-3"><i class="bi bi-clipboard me-1"></i> Copy Prompt</button>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!--  TROUBLESHOOTING                                              -->
+<!-- ============================================================ -->
+<section id="errors" class="mb-5">
+  <h2 class="fw-bold"><span class="step-number me-2">&#9888;</span> Troubleshooting</h2>
+
+  <div class="error-box">
+    <h6><i class="bi bi-exclamation-triangle me-2"></i>PSMC: Flat or unrealistic Ne curve</h6>
+    <p>Causes: (1) Too few heterozygous sites (low diversity species or too stringent filtering), (2) Excessive sequencing error masking true heterozygosity, (3) Wrong mutation rate or generation time. Check: minimum 20x coverage for PSMC, proper quality filtering, and try different -p (time interval) patterns.</p>
+  </div>
+
+  <div class="error-box">
+    <h6><i class="bi bi-exclamation-triangle me-2"></i>D-statistics: Significant D but unclear biological interpretation</h6>
+    <p>D-statistics detect excess allele sharing but can't distinguish introgression direction or timing. Use: (1) f-branch to localize introgression on the phylogeny, (2) Local ancestry inference (RFMix) to identify introgression tracts, (3) Multiple outgroups to verify outgroup is not the source of signal.</p>
+  </div>
+
+  <div class="error-box">
+    <h6><i class="bi bi-exclamation-triangle me-2"></i>BPP: Over-splits populations into too many "species"</h6>
+    <p>BPP tends to delimit population structure as species boundaries when gene flow is low. This is a known limitation. Solutions: (1) Use BPP with migration (A11 analysis), (2) Cross-validate with morphological and ecological data, (3) Increase prior on theta (allows more within-species variation), (4) Consider that "species" in BPP means "independently evolving lineage", not necessarily reproductively isolated species.</p>
+  </div>
+
+  <div class="error-box">
+    <h6><i class="bi bi-exclamation-triangle me-2"></i>mapDamage: No damage pattern detected in ancient sample</h6>
+    <p>Possible causes: (1) Sample is actually modern contamination — discard, (2) Library was UDG-treated (removes damaged bases — this is intentional for SNP calling), (3) Damage was already trimmed during adapter removal. Check library preparation protocol before concluding contamination.</p>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!--  MNEMONICS                                                    -->
+<!-- ============================================================ -->
+<section id="mnemonics" class="mb-5">
+  <h2 class="fw-bold"><i class="bi bi-lightbulb me-2"></i> Mnemonics &amp; Thumb Rules</h2>
+
+  <div class="mnemonic-box">
+    <span class="mnemonic-label">Mnemonic</span>
+    <p class="mnemonic-phrase">"<strong>P</strong>SMC for <strong>P</strong>ast, <strong>S</strong>MC++ for pre<strong>S</strong>ent"</p>
+    <p class="mnemonic-detail">PSMC resolves deep history (20 kya – 3 Mya) from a single genome. SMC++ resolves recent history (100 – 100,000 ya) from many genomes. Use both together for a complete demographic picture.</p>
+  </div>
+
+  <div class="mnemonic-box">
+    <span class="mnemonic-label">Mnemonic</span>
+    <p class="mnemonic-phrase">"<strong>D</strong> &gt; 0 = <strong>D</strong>erived sharing between P2 &amp; P3"</p>
+    <p class="mnemonic-detail">Positive D-statistic means P2 and P3 share more derived alleles than expected. This is the ABBA-BABA test. Always remember: D detects the signal but doesn't tell you the direction of gene flow — P3 could have introgressed into P2 OR vice versa.</p>
+  </div>
+
+  <div class="thumb-rule">
+    <strong>Thumb Rule — aDNA Coverage:</strong> For population genetics: ≥1x for genotype likelihoods (ANGSD). For phylogenetic placement: 0.1x can work with EPA-ng. For PSMC: need ≥20x (almost never achievable for ancient samples). For variant calling: never hard-call genotypes below 10x.
+  </div>
+
+  <div class="thumb-rule">
+    <strong>Thumb Rule — Species Delimitation:</strong> Use at least 3 independent lines of evidence: (1) Molecular (BPP/mPTP), (2) Morphological, (3) Ecological or geographic. Molecular methods alone tend to over-split, especially in structured populations with limited gene flow.
+  </div>
+</section>
+
+<!-- Navigation -->
+<section class="mb-5">
+  <div class="d-flex justify-content-between">
+    <a href="phylogenetics-deep-dive-module6.html" class="btn btn-outline-secondary rounded-pill px-4"><i class="bi bi-arrow-left me-2"></i>Module 6: Comp. Genomics</a>
+    <a href="phylogenetics-deep-dive-module8.html" class="btn btn-primary rounded-pill px-4">Module 8: Workflows &amp; Reproducibility <i class="bi bi-arrow-right ms-2"></i></a>
+  </div>
+</section>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-lg-6"><h5 class="text-white fw-bold mb-3"><span style="color:#ff9933;">Indian</span><span style="color:var(--ieb-primary);">Elucid</span><span style="color:var(--ieb-accent);">Biology</span></h5><p class="small">Free, interactive bioinformatics tutorials. Open source and community-driven.</p></div>
+      <div class="col-lg-6 text-lg-end"><p class="small mb-1">Founded by <strong>Ankush Sharma</strong></p><div class="d-flex gap-3 justify-content-lg-end"><a href="https://github.com/ank-man" target="_blank" class="text-white fs-5"><i class="bi bi-github"></i></a><a href="https://www.linkedin.com/in/ankush-sharma-290307/" target="_blank" class="text-white fs-5"><i class="bi bi-linkedin"></i></a><a href="mailto:mr.ank2999@gmail.com" class="text-white fs-5"><i class="bi bi-envelope"></i></a></div></div>
+    </div>
+    <hr class="border-secondary mt-4 mb-3">
+    <p class="text-center small mb-0">&copy; 2025 IndianElucidBiology — Founded by <a href="https://www.linkedin.com/in/ankush-sharma-290307/" class="text-white-50" target="_blank">Ankush Sharma</a>. Made with <span style="color:#e25555;">&#9829;</span> for the bioinformatics community.</p>
+  </div>
+</footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/main.js"></script>
+</body>
+</html>

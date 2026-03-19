@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Workflow Integration &amp; Reproducibility — Module 8: Snakemake, RevBayes, Simulation, Tree Visualization | IndianElucidBiology</title>
+  <meta name="description" content="Advanced phylogenomics workflows: Snakemake and Nextflow pipeline construction, RevBayes custom evolutionary models, simulation for validation (Seq-Gen, INDELible, SimPhy, SLiM, msprime), and publication-quality tree visualization (ggtree, iTOL, toytree, phytools).">
+  <meta name="keywords" content="Snakemake, Nextflow, RevBayes, phylogenomic pipeline, simulation, Seq-Gen, INDELible, SimPhy, SLiM, msprime, ggtree, iTOL, FigTree, tree visualization, reproducibility">
+  <link rel="canonical" href="https://indianelucidbiology.github.io/tutorials/phylogenetics-deep-dive-module8.html">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="../css/style.css" rel="stylesheet">
+</head>
+<body>
+<div class="progress-tracker"></div>
+<nav class="navbar navbar-expand-lg fixed-top">
+  <div class="container">
+    <a class="navbar-brand" href="../index.html"><span class="brand-indian">Indian</span><span class="brand-elucid">Elucid</span><span class="brand-biology">Biology</span></a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav"><span class="navbar-toggler-icon"></span></button>
+    <div class="collapse navbar-collapse" id="mainNav">
+      <ul class="navbar-nav ms-auto me-3">
+        <li class="nav-item"><a class="nav-link" href="../index.html">Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="phylogenetics-deep-dive-module7.html">Module 7</a></li>
+      </ul>
+      <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode">&#9790;</button>
+    </div>
+  </div>
+</nav>
+
+<section class="tutorial-hero">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-lg-8">
+        <nav aria-label="breadcrumb"><ol class="breadcrumb mb-3" style="--bs-breadcrumb-divider-color:rgba(255,255,255,0.5);"><li class="breadcrumb-item"><a href="../index.html" class="text-white-50 text-decoration-none">Home</a></li><li class="breadcrumb-item"><a href="phylogenetics-iqtree-raxml-orthomcl-tutorial.html" class="text-white-50 text-decoration-none">Phylogenetics</a></li><li class="breadcrumb-item active text-white">Module 8</li></ol></nav>
+        <h1 class="display-5 fw-bold text-white mb-3">Module 8 — Workflows, Simulation &amp; Visualization</h1>
+        <p class="lead text-white-50 mb-4">Snakemake/Nextflow Pipelines · RevBayes Custom Models · Simulation for Validation · Publication-Quality Tree Figures</p>
+        <div class="d-flex gap-3 flex-wrap">
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-clock me-1"></i> ~120 min</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-bar-chart me-1"></i> Advanced</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-terminal me-1"></i> Snakemake / Rev / R / Python</span>
+        </div>
+      </div>
+      <div class="col-lg-4 text-center d-none d-lg-block">
+        <img src="../img/Byte1.png" alt="Byte" class="img-fluid" style="max-height:230px;filter:drop-shadow(0 10px 30px rgba(0,0,0,0.4));">
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="container py-5">
+  <div class="row">
+    <div class="col-lg-3 d-none d-lg-block">
+      <div class="toc-sidebar">
+        <h6 class="fw-bold text-muted text-uppercase small mb-3">On this page</h6>
+        <nav class="nav flex-column">
+          <a class="nav-link" href="#s10-1">10.1 Pipeline Construction</a>
+          <a class="nav-link" href="#s10-2">10.2 RevBayes</a>
+          <a class="nav-link" href="#s10-3">10.3 Simulation</a>
+          <a class="nav-link" href="#s10-4">10.4 Tree Visualization</a>
+          <a class="nav-link" href="#ai-prompt">AI Prompt Guide</a>
+          <a class="nav-link" href="#errors">Troubleshooting</a>
+          <a class="nav-link" href="#mnemonics">Mnemonics</a>
+        </nav>
+      </div>
+    </div>
+    <div class="col-lg-9">
+      <div class="tutorial-content">
+
+<!-- ============================================================ -->
+<!--  10.1 — Pipeline Construction                                -->
+<!-- ============================================================ -->
+<section id="s10-1" class="mb-5">
+  <h2 class="section-divider">10.1 — Pipeline Construction (Snakemake &amp; Nextflow)</h2>
+
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Snakemake — Phylogenomic Pipeline</span><button class="btn-copy">Copy</button></div>
+<pre id="script-snakemake">"""
+Snakemake pipeline: raw loci → gene trees → species tree
+"""
+import glob
+
+LOCI = glob_wildcards("loci/{locus}.fasta").locus
+
+rule all:
+    input:
+        "results/species_tree.nwk",
+        "results/concordance.cf.tree",
+        "results/dated_tree.nex"
+
+rule align:
+    input:  "loci/{locus}.fasta"
+    output: "aligned/{locus}.aln"
+    threads: 4
+    conda:  "envs/phylo.yaml"
+    shell:  "mafft --auto --thread {threads} {input} > {output}"
+
+rule trim:
+    input:  "aligned/{locus}.aln"
+    output: "trimmed/{locus}.trim"
+    conda:  "envs/phylo.yaml"
+    shell:  "trimal -in {input} -out {output} -automated1"
+
+rule gene_tree:
+    input:  "trimmed/{locus}.trim"
+    output: "gene_trees/{locus}.treefile"
+    threads: 4
+    conda:  "envs/phylo.yaml"
+    shell:
+        "iqtree2 -s {input} -m MFP -bb 1000 "
+        "-T {threads} --prefix gene_trees/{wildcards.locus}"
+
+rule collect_gene_trees:
+    input:  expand("gene_trees/{locus}.treefile", locus=LOCI)
+    output: "results/all_gene_trees.nwk"
+    shell:  "cat {input} > {output}"
+
+rule astral:
+    input:  "results/all_gene_trees.nwk"
+    output: "results/species_tree.nwk"
+    conda:  "envs/phylo.yaml"
+    shell:
+        "java -jar $CONDA_PREFIX/share/astral/astral.jar "
+        "-i {input} -o {output} -t 2"
+
+rule concatenate:
+    input:  expand("trimmed/{locus}.trim", locus=LOCI)
+    output: "results/concat.phy"
+    conda:  "envs/phylo.yaml"
+    script: "scripts/concatenate.py"
+
+rule concordance:
+    input:
+        tree="results/species_tree.nwk",
+        genes="results/all_gene_trees.nwk",
+        aln="results/concat.phy"
+    output: "results/concordance.cf.tree"
+    threads: 8
+    conda:  "envs/phylo.yaml"
+    shell:
+        "iqtree2 -t {input.tree} --gcf {input.genes} "
+        "-s {input.aln} --scf 100 "
+        "-T {threads} --prefix results/concordance"
+
+rule dating:
+    input:
+        tree="results/species_tree.nwk",
+        aln="results/concat.phy"
+    output: "results/dated_tree.nex"
+    threads: 16
+    conda:  "envs/phylo.yaml"
+    shell:
+        "mcmctree mcmctree.ctl"</pre>
+  </div>
+  <div class="download-bar">
+    <span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span>
+    <button class="btn-download-script" data-script-id="script-snakemake" data-filename="Snakefile"><i class="bi bi-download me-1"></i> Snakefile</button>
+  </div>
+
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash — Running Snakemake on HPC</span><button class="btn-copy">Copy</button></div>
+<pre># Local run
+snakemake --cores 32 --use-conda
+
+# SLURM cluster execution
+snakemake --cores 500 --use-conda \
+  --cluster "sbatch --cpus-per-task={threads} --mem=32G \
+  --time=24:00:00 --output=logs/{rule}_{wildcards}.log" \
+  --jobs 50
+
+# With Snakemake profiles (recommended for HPC):
+snakemake --profile slurm_profile/
+
+# Dry run (check what would be executed)
+snakemake -n
+
+# Visualize DAG
+snakemake --dag | dot -Tpng > pipeline_dag.png</pre>
+  </div>
+
+  <h4 class="fw-bold mt-4">Nextflow Alternative</h4>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Nextflow</span><button class="btn-copy">Copy</button></div>
+<pre>#!/usr/bin/env nextflow
+nextflow.enable.dsl=2
+
+params.loci = "loci/*.fasta"
+params.outdir = "results"
+
+process ALIGN {
+    conda 'envs/phylo.yaml'
+    cpus 4
+    input: path(locus)
+    output: path("${locus.baseName}.aln")
+    script: "mafft --auto --thread $task.cpus $locus > ${locus.baseName}.aln"
+}
+
+process GENE_TREE {
+    conda 'envs/phylo.yaml'
+    cpus 4
+    input: path(aln)
+    output: path("${aln.baseName}.treefile")
+    script:
+    """
+    iqtree2 -s $aln -m MFP -bb 1000 -T $task.cpus \
+      --prefix ${aln.baseName}
+    """
+}
+
+process ASTRAL {
+    conda 'envs/phylo.yaml'
+    publishDir params.outdir
+    input: path(trees)
+    output: path("species_tree.nwk")
+    script:
+    """
+    cat $trees > all_trees.nwk
+    java -jar \$ASTRAL_JAR -i all_trees.nwk -o species_tree.nwk -t 2
+    """
+}
+
+workflow {
+    loci_ch = Channel.fromPath(params.loci)
+    aligned = ALIGN(loci_ch)
+    gene_trees = GENE_TREE(aligned)
+    ASTRAL(gene_trees.collect())
+}</pre>
+  </div>
+
+  <div class="thumb-rule">
+    <strong>Thumb Rule — Pipeline Choice:</strong> Snakemake = Python-native, easier to learn, great for academic labs. Nextflow = Java-based, better for cloud/container environments, preferred by large-scale bioinformatics cores. Both achieve the same goal — pick the one your lab already uses.
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!--  10.2 — RevBayes                                             -->
+<!-- ============================================================ -->
+<section id="s10-2" class="mb-5">
+  <h2 class="section-divider">10.2 — RevBayes for Custom Evolutionary Models</h2>
+
+  <p>RevBayes is a programmable Bayesian framework where you specify your own graphical model. Unlike BEAST2 (XML configuration), RevBayes uses the <strong>Rev language</strong> — a scripting language for probabilistic graphical models.</p>
+
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Rev — Basic Phylogenetic Analysis</span><button class="btn-copy">Copy</button></div>
+<pre id="script-revbayes"># RevBayes: GTR+G model with relaxed clock
+# Save as: analysis.Rev
+
+# Read data
+data = readDiscreteCharacterData("alignment.nex")
+n_taxa = data.ntaxa()
+taxa = data.taxa()
+
+# Tree topology + branch lengths (uniform prior on topology)
+topology ~ dnUniformTopology(taxa)
+for (i in 1:2*n_taxa-3) {
+    br_lens[i] ~ dnExponential(10.0)
+    moves[i] = mvScale(br_lens[i], weight=1.0)
+}
+phylogeny := treeAssembly(topology, br_lens)
+moves[2*n_taxa-2] = mvNNI(topology, weight=10.0)
+moves[2*n_taxa-1] = mvSPR(topology, weight=10.0)
+
+# GTR substitution model
+er ~ dnDirichlet(v(1,1,1,1,1,1))
+pi ~ dnDirichlet(v(1,1,1,1))
+moves[2*n_taxa] = mvBetaSimplex(er, weight=3.0)
+moves[2*n_taxa+1] = mvBetaSimplex(pi, weight=3.0)
+Q := fnGTR(er, pi)
+
+# Gamma rate variation
+alpha ~ dnExponential(1.0)
+moves[2*n_taxa+2] = mvScale(alpha, weight=2.0)
+site_rates := fnDiscretizeGamma(alpha, alpha, 4)
+
+# Phylogenetic CTMC
+seq ~ dnPhyloCTMC(tree=phylogeny, Q=Q,
+                    siteRates=site_rates, type="DNA")
+seq.clamp(data)
+
+# MCMC
+mymodel = model(phylogeny)
+monitors[1] = mnModel(filename="output.log", printgen=100)
+monitors[2] = mnFile(phylogeny, filename="output.trees", printgen=100)
+monitors[3] = mnScreen(printgen=1000)
+
+mymcmc = mcmc(mymodel, monitors, moves)
+mymcmc.run(generations=1000000)
+
+# Custom model example: site-heterogeneous mixture
+# (RevBayes can define ANY model — this is its superpower)
+# n_cats = 4
+# for (i in 1:n_cats) {
+#     pi_mix[i] ~ dnDirichlet(v(1,1,1,1))
+#     Q_mix[i] := fnGTR(er, pi_mix[i])
+# }
+# mix_weights ~ dnDirichlet(rep(1, n_cats))
+# Q_mixture := fnMixture(Q_mix, mix_weights)</pre>
+  </div>
+  <div class="download-bar">
+    <span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span>
+    <button class="btn-download-script" data-script-id="script-revbayes" data-filename="revbayes_analysis.Rev"><i class="bi bi-download me-1"></i> revbayes_analysis.Rev</button>
+  </div>
+
+  <div class="byte-callout byte-key">
+    <img src="../img/Byte3.png" alt="Byte">
+    <div>
+      <strong>When to use RevBayes over BEAST2/MrBayes:</strong>
+      <ul class="mb-0 mt-1">
+        <li>You need a model not implemented in any GUI tool</li>
+        <li>You want to combine tree inference with custom trait evolution models</li>
+        <li>You need joint estimation of phylogeny + diversification + trait evolution</li>
+        <li>You want full control over the graphical model specification</li>
+        <li>Teaching: RevBayes makes the statistical model explicit and transparent</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!--  10.3 — Simulation for Validation                            -->
+<!-- ============================================================ -->
+<section id="s10-3" class="mb-5">
+  <h2 class="section-divider">10.3 — Simulation for Validation</h2>
+
+  <div class="param-table">
+    <table class="table table-striped mb-0">
+      <thead><tr><th>Simulator</th><th>What It Simulates</th><th>Use Case</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Seq-Gen</strong></td><td>Sequences along a fixed tree</td><td>Testing tree inference accuracy</td></tr>
+        <tr><td><strong>INDELible</strong></td><td>Sequences with indels along a tree</td><td>Alignment method benchmarking</td></tr>
+        <tr><td><strong>SimPhy</strong></td><td>Gene trees under multispecies coalescent</td><td>Testing species tree methods</td></tr>
+        <tr><td><strong>msprime</strong></td><td>Coalescent genealogies + mutations</td><td>Population genetics simulations</td></tr>
+        <tr><td><strong>SLiM</strong></td><td>Forward-time evolution (selection, demography)</td><td>Complex evolutionary scenarios</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash — Seq-Gen &amp; SimPhy</span><button class="btn-copy">Copy</button></div>
+<pre id="script-simulate"># Seq-Gen: simulate sequences on a known tree
+# Test: can IQ-TREE recover the true tree?
+seq-gen -mGTR -l 1000 -n 100 -s 0.5 \
+  -f 0.3 0.2 0.2 0.3 \
+  -r 1.0 2.0 1.0 1.0 2.0 1.0 \
+  -a 0.5 \
+  < true_tree.nwk > simulated_alignments.phy
+# -m GTR: substitution model
+# -l 1000: 1000 sites
+# -n 100: 100 replicate datasets
+# -s 0.5: tree scale (substitutions per site)
+# -a 0.5: alpha parameter for gamma rate variation
+
+# SimPhy: simulate gene trees under the MSC + sequences
+simphy -rs 100 -rl f:500 -rg 1 \
+  -sp f:20 -sl f:10 -sb f:0.000001 \
+  -st f:1000000 -si f:1 \
+  -so f:1 -od 1 -op 1 -oc 1 \
+  -ol f:500 -om f:1 \
+  -v 3 -cs 293745 -o simphy_output
+# Then simulate sequences on each gene tree with Seq-Gen or INDELible
+
+# INDELible: simulate with insertions and deletions
+# control.txt:
+# [TYPE] NUCLEOTIDE 1
+# [MODEL] mymodel
+#   [submodel] GTR 0.5 2.0 0.5 0.5 2.0
+#   [statefreq] 0.3 0.2 0.2 0.3
+#   [rates] 0.5 0.2 4
+#   [indelmodel] POW 1.7 500
+#   [indelrate] 0.1
+# [TREE] t1 [rooted] ((A:0.1,B:0.2):0.3,(C:0.15,D:0.25):0.05);
+# [PARTITIONS] part1 [t1 mymodel 1000]
+# [EVOLVE] part1 100 sim_output
+indelible</pre>
+  </div>
+  <div class="download-bar">
+    <span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span>
+    <button class="btn-download-script" data-script-id="script-simulate" data-filename="simulation_validation.sh"><i class="bi bi-download me-1"></i> simulation_validation.sh</button>
+  </div>
+
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Python — msprime Coalescent Simulation</span><button class="btn-copy">Copy</button></div>
+<pre id="script-msprime">import msprime
+import tskit
+
+# Simulate a species tree with gene trees under the MSC
+# Two populations that diverged 100,000 generations ago
+demography = msprime.Demography()
+demography.add_population(name="Pop_A", initial_size=10000)
+demography.add_population(name="Pop_B", initial_size=10000)
+demography.add_population(name="Ancestor", initial_size=20000)
+demography.add_population_split(
+    time=100000, derived=["Pop_A", "Pop_B"], ancestral="Ancestor"
+)
+
+# Simulate 100 independent loci (gene trees)
+ts = msprime.sim_ancestry(
+    samples={"Pop_A": 10, "Pop_B": 10},
+    demography=demography,
+    sequence_length=10000,
+    num_replicates=100,
+    recombination_rate=1e-8,
+    random_seed=42
+)
+
+# Add mutations to each tree sequence
+for i, tree_seq in enumerate(ts):
+    mts = msprime.sim_mutations(
+        tree_seq, rate=1e-8, random_seed=42+i
+    )
+    # Export as VCF, FASTA, or tree sequence
+    with open(f"locus_{i}.vcf", "w") as f:
+        mts.write_vcf(f)
+
+# Analyze tree sequences directly with tskit
+# (much faster than sequence-based analysis)
+ts_single = msprime.sim_ancestry(
+    samples={"Pop_A": 50, "Pop_B": 50},
+    demography=demography,
+    sequence_length=1e7,
+    recombination_rate=1e-8
+)
+mts = msprime.sim_mutations(ts_single, rate=1e-8)
+
+# Compute diversity directly from tree sequence
+diversity_A = mts.diversity(sample_sets=[
+    [s.id for s in mts.samples() if mts.node(s.id).population == 0]
+])
+print(f"Pi (Pop A): {diversity_A}")</pre>
+  </div>
+  <div class="download-bar">
+    <span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span>
+    <button class="btn-download-script" data-script-id="script-msprime" data-filename="msprime_simulation.py"><i class="bi bi-download me-1"></i> msprime_simulation.py</button>
+  </div>
+
+  <div class="thumb-rule">
+    <strong>Thumb Rule — Validate Before Publish:</strong> Before claiming any phylogenomic result, simulate data under the null hypothesis and your alternative hypothesis. Can your method distinguish them? If not, your result may be an artifact. Simulations are the cheapest experiment you can run.
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!--  10.4 — Tree Visualization                                   -->
+<!-- ============================================================ -->
+<section id="s10-4" class="mb-5">
+  <h2 class="section-divider">10.4 — Tree Visualization &amp; Figure Production</h2>
+
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>R — ggtree Publication Figures</span><button class="btn-copy">Copy</button></div>
+<pre id="script-ggtree">library(ggtree)
+library(treeio)
+library(ggplot2)
+library(ggtreeExtra)
+
+# Basic tree with bootstrap support
+tree <- read.tree("species_tree.nwk")
+p <- ggtree(tree) +
+  geom_tiplab(size=3) +
+  geom_nodelab(aes(label=label), size=2, hjust=-0.1) +
+  theme_tree2()
+
+# Dated tree with 95% HPD node bars
+beast_tree <- read.beast("dated_tree.nex")
+p_dated <- ggtree(beast_tree, mrsd="2024-01-01") +
+  geom_range("height_0.95_HPD", color="steelblue", alpha=0.4, size=2) +
+  geom_tiplab(size=2.5) +
+  scale_x_continuous(labels=abs) +
+  xlab("Time (Ma)") +
+  theme_tree2()
+
+# Annotate with trait data (heatmap next to tree)
+trait_data <- read.csv("traits.csv", row.names=1)
+p_heat <- gheatmap(p, trait_data, offset=0.05, width=0.3,
+                    colnames_angle=45, colnames_offset_y=0.25) +
+  scale_fill_viridis_d() +
+  theme(legend.position="right")
+
+# Multi-panel phylogenomic figure
+# Panel 1: Species tree with support
+# Panel 2: Concordance factors
+# Panel 3: Divergence times
+library(patchwork)
+fig <- p_support + p_concordance + p_dated +
+  plot_layout(nrow=1, widths=c(1, 1, 1.5)) +
+  plot_annotation(tag_levels='A')
+ggsave("phylogenomic_figure.pdf", fig, width=18, height=8)
+
+# Circular tree with rate heatmap
+p_circ <- ggtree(beast_tree, layout="circular") +
+  geom_tiplab2(size=2) +
+  geom_treescale()
+
+# Co-phylogeny (tanglegram)
+library(phytools)
+cophylo_obj <- cophylo(host_tree, parasite_tree, assoc_matrix)
+plot(cophylo_obj, link.type="curved", link.col="gray50",
+     fsize=0.7, pts=FALSE)
+
+# Export for iTOL (online visualization)
+# Upload tree to https://itol.embl.de/
+# Add datasets as annotation files:
+# DATASET_COLORSTRIP, DATASET_HEATMAP, DATASET_BINARY, etc.</pre>
+  </div>
+  <div class="download-bar">
+    <span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span>
+    <button class="btn-download-script" data-script-id="script-ggtree" data-filename="ggtree_figures.R"><i class="bi bi-download me-1"></i> ggtree_figures.R</button>
+  </div>
+
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Python — toytree</span><button class="btn-copy">Copy</button></div>
+<pre id="script-toytree">import toytree
+import toyplot
+import numpy as np
+
+# Load tree
+tree = toytree.tree("species_tree.nwk")
+
+# Basic plot with support values
+canvas, axes, mark = tree.draw(
+    width=400, height=600,
+    tip_labels_align=True,
+    node_labels="support",
+    node_sizes=8,
+    node_colors=toytree.colors[2]
+)
+
+# Color branches by a trait
+trait_colors = {
+    "SpeciesA": "red", "SpeciesB": "red",
+    "SpeciesC": "blue", "SpeciesD": "blue",
+}
+edge_colors = []
+for node in tree.treenode.traverse():
+    if node.is_leaf():
+        edge_colors.append(trait_colors.get(node.name, "black"))
+    else:
+        edge_colors.append("black")
+
+canvas, axes, mark = tree.draw(
+    edge_colors=edge_colors,
+    edge_widths=2,
+    tip_labels_align=True
+)
+
+# Save as SVG/PDF
+import toyplot.svg
+toyplot.svg.render(canvas, "tree_figure.svg")</pre>
+  </div>
+  <div class="download-bar">
+    <span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span>
+    <button class="btn-download-script" data-script-id="script-toytree" data-filename="toytree_viz.py"><i class="bi bi-download me-1"></i> toytree_viz.py</button>
+  </div>
+
+  <div class="param-table">
+    <table class="table table-striped mb-0">
+      <thead><tr><th>Tool</th><th>Language</th><th>Best For</th><th>Output</th></tr></thead>
+      <tbody>
+        <tr><td><strong>ggtree</strong></td><td>R</td><td>Publication figures, complex annotations</td><td>PDF/SVG/PNG</td></tr>
+        <tr><td><strong>iTOL</strong></td><td>Web</td><td>Interactive exploration, large trees</td><td>SVG/PDF/PNG</td></tr>
+        <tr><td><strong>FigTree</strong></td><td>Java GUI</td><td>Quick viewing, BEAST2 output</td><td>SVG/PDF/PNG</td></tr>
+        <tr><td><strong>toytree</strong></td><td>Python</td><td>Pythonic workflow, Jupyter notebooks</td><td>SVG/HTML</td></tr>
+        <tr><td><strong>Dendroscope</strong></td><td>Java GUI</td><td>Very large trees (100k+ tips), networks</td><td>SVG/PDF</td></tr>
+        <tr><td><strong>phytools</strong></td><td>R</td><td>Trait mapping, ancestral states on trees</td><td>PDF/PNG</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="mnemonic-box">
+    <span class="mnemonic-label">Thumb Rule</span>
+    <p class="mnemonic-phrase">Figure production workflow</p>
+    <p class="mnemonic-detail">Use ggtree or toytree for the base tree layout → annotate programmatically → export as SVG → final touch-up in Inkscape/Illustrator if needed. Never manually draw phylogenies — always generate them from the actual tree file for reproducibility.</p>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!--  AI PROMPT                                                    -->
+<!-- ============================================================ -->
+<section id="ai-prompt" class="mb-5">
+  <h2 class="fw-bold"><i class="bi bi-robot me-2"></i> AI Prompt Guide</h2>
+  <div class="ai-prompt-box">
+    <h5><i class="bi bi-robot me-2"></i> Phylogenomic Pipeline &amp; Visualization</h5>
+    <div class="ai-prompt-text">I need to build a complete, reproducible phylogenomic pipeline for [NUMBER] loci from [NUMBER] taxa.
+
+The pipeline should go from raw FASTA loci to:
+1. Alignment (MAFFT) → trimming (trimAl) → gene trees (IQ-TREE)
+2. Species tree (ASTRAL) + concatenation (IQ-TREE partitioned)
+3. Concordance factors (gCF, sCF)
+4. Divergence dating (MCMCTree with [NUMBER] fossil calibrations)
+5. Ancestral state reconstruction for [TRAIT]
+
+Please write:
+1. A complete Snakemake pipeline with conda environments
+2. SLURM profile for HPC execution
+3. Simulation validation script (SimPhy + Seq-Gen) to test pipeline accuracy
+4. ggtree R script for a multi-panel publication figure showing:
+   - Species tree with bootstrap + concordance factors
+   - Dated tree with 95% HPD bars + geological timescale
+   - Trait heatmap alongside the tree
+5. A README with setup instructions</div>
+    <button class="btn-copy-prompt mt-3"><i class="bi bi-clipboard me-1"></i> Copy Prompt</button>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!--  TROUBLESHOOTING                                              -->
+<!-- ============================================================ -->
+<section id="errors" class="mb-5">
+  <h2 class="fw-bold"><span class="step-number me-2">&#9888;</span> Troubleshooting</h2>
+
+  <div class="error-box">
+    <h6><i class="bi bi-exclamation-triangle me-2"></i>Snakemake: "MissingInputException" or jobs fail silently on cluster</h6>
+    <p>Common HPC issues: (1) Check cluster logs (not just Snakemake output), (2) Ensure conda environments are created before submission (<code>snakemake --use-conda --conda-create-envs-only</code>), (3) Set <code>--latency-wait 60</code> for NFS file systems with slow metadata, (4) Use <code>--rerun-incomplete</code> to retry failed jobs.</p>
+  </div>
+
+  <div class="error-box">
+    <h6><i class="bi bi-exclamation-triangle me-2"></i>RevBayes: Syntax errors in Rev scripts</h6>
+    <p>Rev language quirks: (1) Use <code>:=</code> for deterministic variables, <code>~</code> for stochastic, <code>=</code> for constants, (2) Indexing starts at 1 (not 0), (3) Every move needs a weight, (4) Monitor all parameters you care about. Consult RevBayes tutorials at revbayes.github.io.</p>
+  </div>
+
+  <div class="error-box">
+    <h6><i class="bi bi-exclamation-triangle me-2"></i>ggtree: Tree tips don't match data rows</h6>
+    <p>The most common ggtree error. Ensure: (1) Row names in your data frame exactly match tip labels in the tree, (2) No extra whitespace or special characters, (3) Use <code>tree$tip.label</code> to check. Use <code>drop.tip()</code> to remove tips not in your data or add missing rows with NA.</p>
+  </div>
+
+  <div class="error-box">
+    <h6><i class="bi bi-exclamation-triangle me-2"></i>msprime: "DemographyError: population split time must be > 0"</h6>
+    <p>All times in msprime are in generations (not years). If your split time is 100,000 years and generation time is 25 years, use time=4000 generations. Also ensure derived populations exist before their split time and initial sizes are positive.</p>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!--  MNEMONICS                                                    -->
+<!-- ============================================================ -->
+<section id="mnemonics" class="mb-5">
+  <h2 class="fw-bold"><i class="bi bi-lightbulb me-2"></i> Mnemonics &amp; Thumb Rules</h2>
+
+  <div class="mnemonic-box">
+    <span class="mnemonic-label">Mnemonic</span>
+    <p class="mnemonic-phrase">"<strong>S</strong>imulate, <strong>A</strong>nalyze, <strong>C</strong>ompare — <strong>SAC</strong>"</p>
+    <p class="mnemonic-detail">The validation cycle: Simulate data under known conditions → Analyze with your pipeline → Compare inferred results to known truth. If your pipeline can't recover known truths from simulations, it won't recover truths from real data either.</p>
+  </div>
+
+  <div class="mnemonic-box">
+    <span class="mnemonic-label">Mnemonic</span>
+    <p class="mnemonic-phrase">"<strong>ggtree</strong> for <strong>G</strong>lamour, <strong>iTOL</strong> for <strong>I</strong>nteractive"</p>
+    <p class="mnemonic-detail">Use ggtree (R) when you need fine-grained control for publication figures. Use iTOL (web) when you need to quickly explore and share annotated trees. Both can produce publication-quality output, but ggtree gives you reproducible R scripts.</p>
+  </div>
+
+  <div class="thumb-rule">
+    <strong>Thumb Rule — Reproducibility:</strong> Every phylogenomic paper should provide: (1) All alignments and gene trees, (2) The species tree file, (3) The pipeline code (Snakemake/Nextflow), (4) Conda environment YAML, (5) All configuration files (BEAST2 XML, PAML ctl). Upload to Dryad, Zenodo, or GitHub.
+  </div>
+
+  <div class="thumb-rule">
+    <strong>Thumb Rule — msprime vs SLiM:</strong> Use msprime for demographic simulations (fast, coalescent-based). Use SLiM for selection simulations (forward-time, can model complex selection). For large neutral simulations with selection at specific sites, use SLiM with tree-sequence recording → msprime recap.
+  </div>
+</section>
+
+<!-- Navigation -->
+<section class="mb-5">
+  <div class="d-flex justify-content-between">
+    <a href="phylogenetics-deep-dive-module7.html" class="btn btn-outline-secondary rounded-pill px-4"><i class="bi bi-arrow-left me-2"></i>Module 7: PopGen &amp; Phylogeography</a>
+    <a href="../index.html" class="btn btn-primary rounded-pill px-4">Back to Home <i class="bi bi-house ms-2"></i></a>
+  </div>
+</section>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-lg-6"><h5 class="text-white fw-bold mb-3"><span style="color:#ff9933;">Indian</span><span style="color:var(--ieb-primary);">Elucid</span><span style="color:var(--ieb-accent);">Biology</span></h5><p class="small">Free, interactive bioinformatics tutorials. Open source and community-driven.</p></div>
+      <div class="col-lg-6 text-lg-end"><p class="small mb-1">Founded by <strong>Ankush Sharma</strong></p><div class="d-flex gap-3 justify-content-lg-end"><a href="https://github.com/ank-man" target="_blank" class="text-white fs-5"><i class="bi bi-github"></i></a><a href="https://www.linkedin.com/in/ankush-sharma-290307/" target="_blank" class="text-white fs-5"><i class="bi bi-linkedin"></i></a><a href="mailto:mr.ank2999@gmail.com" class="text-white fs-5"><i class="bi bi-envelope"></i></a></div></div>
+    </div>
+    <hr class="border-secondary mt-4 mb-3">
+    <p class="text-center small mb-0">&copy; 2025 IndianElucidBiology — Founded by <a href="https://www.linkedin.com/in/ankush-sharma-290307/" class="text-white-50" target="_blank">Ankush Sharma</a>. Made with <span style="color:#e25555;">&#9829;</span> for the bioinformatics community.</p>
+  </div>
+</footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/main.js"></script>
+</body>
+</html>

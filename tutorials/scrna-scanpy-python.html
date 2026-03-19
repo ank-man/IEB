@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Single-Cell RNA-seq with Scanpy (Python) | IndianElucidBiology</title>
+  <meta name="description" content="Complete scRNA-seq analysis pipeline in Python using Scanpy: QC, normalization, highly variable genes, PCA, UMAP, Leiden clustering, marker genes, and cell type annotation. Uses a real human PBMC dataset.">
+  <meta name="keywords" content="scRNA-seq, Scanpy, single cell, Python, UMAP, Leiden clustering, cell type annotation, marker genes, PCA, anndata, doublet detection, ambient RNA">
+  <link rel="canonical" href="https://indianelucidbiology.github.io/tutorials/scrna-scanpy-python.html">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="../css/style.css" rel="stylesheet">
+</head>
+<body>
+<div class="progress-tracker"></div>
+
+<nav class="navbar navbar-expand-lg fixed-top">
+  <div class="container">
+    <a class="navbar-brand" href="../index.html">
+      <span class="brand-indian">Indian</span><span class="brand-elucid">Elucid</span><span class="brand-biology">Biology</span>
+    </a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="mainNav">
+      <ul class="navbar-nav ms-auto me-3">
+        <li class="nav-item"><a class="nav-link" href="../index.html">Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="index.html">Tutorial Library</a></li>
+        <li class="nav-item"><a class="nav-link" href="proteomics-maxquant-perseus.html"><i class="bi bi-arrow-left me-1"></i>Proteomics</a></li>
+        <li class="nav-item"><a class="nav-link" href="metagenomics-mags-metabat2-checkm.html">MAGs<i class="bi bi-arrow-right ms-1"></i></a></li>
+      </ul>
+      <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode">&#9790;</button>
+    </div>
+  </div>
+</nav>
+
+<section class="tutorial-hero">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-lg-8">
+        <nav aria-label="breadcrumb">
+          <ol class="breadcrumb mb-3" style="--bs-breadcrumb-divider-color:rgba(255,255,255,0.5);">
+            <li class="breadcrumb-item"><a href="../index.html" class="text-white-50 text-decoration-none">Home</a></li>
+            <li class="breadcrumb-item"><a href="index.html" class="text-white-50 text-decoration-none">Tutorials</a></li>
+            <li class="breadcrumb-item active text-white">scRNA-seq with Scanpy</li>
+          </ol>
+        </nav>
+        <h1 class="display-5 fw-bold text-white mb-3">Single-Cell RNA-seq with Scanpy (Python)</h1>
+        <p class="lead text-white-50 mb-4">
+          Cell Ranger output &middot; AnnData object &middot; QC filtering &middot; doublet detection &middot; normalization &middot; HVGs &middot; PCA &middot; UMAP &middot; Leiden clustering &middot; marker genes &middot; cell type annotation
+        </p>
+        <div class="d-flex gap-3 flex-wrap">
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-clock me-1"></i> ~120 min</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-bar-chart me-1"></i> Intermediate</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-terminal me-1"></i> Python</span>
+        </div>
+      </div>
+      <div class="col-lg-4 text-center d-none d-lg-block">
+        <img src="../img/Byte3.png" alt="Byte" class="img-fluid" style="max-height:230px;filter:drop-shadow(0 10px 30px rgba(0,0,0,0.4));">
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="container py-5">
+  <div class="row">
+    <div class="col-lg-3 d-none d-lg-block">
+      <div class="toc-sidebar">
+        <h6 class="fw-bold text-muted text-uppercase small mb-3">On this page</h6>
+        <nav class="nav flex-column">
+          <a class="nav-link" href="#overview">Overview</a>
+          <a class="nav-link" href="#dataset">Dataset</a>
+          <a class="nav-link" href="#step1">1. Load &amp; Create AnnData</a>
+          <a class="nav-link" href="#step2">2. QC &amp; Cell Filtering</a>
+          <a class="nav-link" href="#step3">3. Normalization &amp; HVGs</a>
+          <a class="nav-link" href="#step4">4. PCA &amp; Neighbors</a>
+          <a class="nav-link" href="#step5">5. UMAP &amp; Leiden Clustering</a>
+          <a class="nav-link" href="#step6">6. Marker Genes &amp; Annotation</a>
+          <a class="nav-link" href="#step7">7. Differential Expression</a>
+        </nav>
+      </div>
+    </div>
+
+    <div class="col-lg-9">
+      <div class="tutorial-content">
+
+<section id="overview" class="mb-5">
+  <h2 class="section-divider">Overview</h2>
+  <p>Scanpy is the Python counterpart to R&rsquo;s Seurat — a comprehensive single-cell RNA-seq analysis toolkit built around the <strong>AnnData</strong> object format. It is tightly integrated with the scientific Python ecosystem (NumPy, pandas, matplotlib) and is the preferred tool in many computational biology groups. This tutorial follows the standard Scanpy workflow: preprocessing &rarr; dimensionality reduction &rarr; clustering &rarr; annotation.</p>
+  <div class="byte-callout">
+    <img src="../img/Byte1.png" alt="Byte">
+    <div>
+      <strong>Scanpy vs Seurat — which should you use?</strong>
+      <ul class="mb-0 mt-1 small">
+        <li><strong>Scanpy (Python):</strong> Faster for large datasets (&gt;100k cells). Better GPU support (RAPIDS/NVIDIA). Tight integration with deep learning frameworks (scVI, scANVI). Standard in many ML-heavy labs.</li>
+        <li><strong>Seurat (R):</strong> Richer ecosystem for downstream analysis (Monocle3 pseudotime, Signac ATAC integration). Better SCTransform normalisation. Standard in many biology-focused labs.</li>
+        <li><strong>Key:</strong> Both produce virtually identical biological results for standard workflows. Learn the one that matches your lab&rsquo;s language preference.</li>
+        <li><strong>Interoperability:</strong> Convert between them with <code>sceasy</code> or by saving/loading H5AD/RDS files.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="dataset" class="mb-5">
+  <h2 class="section-divider">Dataset</h2>
+  <p>We use the <strong>10x Genomics PBMC 3k</strong> dataset &mdash; 2,700 peripheral blood mononuclear cells from a healthy donor, sequenced with 10x Chromium v2. This is the canonical scRNA-seq tutorial dataset used by both Seurat and Scanpy in their official documentation.</p>
+  <div class="param-table">
+    <table class="table table-striped mb-0">
+      <thead><tr><th>Property</th><th>Value</th></tr></thead>
+      <tbody>
+        <tr><td>Organism</td><td><em>Homo sapiens</em> — peripheral blood mononuclear cells (PBMCs)</td></tr>
+        <tr><td>Technology</td><td>10x Chromium v2 (droplet-based, 3&prime; end)</td></tr>
+        <tr><td>Cells</td><td>~2,700 after QC</td></tr>
+        <tr><td>Source</td><td><a href="https://cf.10xgenomics.com/samples/cell/pbmc3k/pbmc3k_filtered_gene_bc_matrices.tar.gz" target="_blank">10x Genomics website</a></td></tr>
+        <tr><td>Expected cell types</td><td>CD4 T, CD8 T, NK, B cells, monocytes, dendritic cells, platelets</td></tr>
+        <tr><td>Also available via</td><td><code>sc.datasets.pbmc3k()</code> built into Scanpy</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="step1" class="mb-5">
+  <h2 class="section-divider">Step 1 — Load Data &amp; Create AnnData Object</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Python — Load 10x Cell Ranger output into Scanpy AnnData</span><button class="btn-copy">Copy</button></div>
+<pre id="s1-load">######################################################################
+## STEP 1: Load 10x Cell Ranger output into a Scanpy AnnData object
+## AnnData (Annotated Data) is the central data structure in Scanpy:
+##   adata.X       = count matrix (cells × genes)
+##   adata.obs     = cell metadata (barcodes, QC metrics, cluster labels)
+##   adata.var     = gene metadata (gene names, highly variable flag)
+##   adata.uns     = unstructured data (UMAP params, colour maps, etc.)
+##   adata.obsm    = dimensional reduction embeddings (PCA, UMAP coordinates)
+##   adata.obsp    = pairwise distances/connectivities between cells (KNN graph)
+######################################################################
+
+## Install dependencies (run once):
+## pip install scanpy python-igraph leidenalg scrublet
+
+import scanpy as sc        # single-cell analysis
+import numpy as np         # numerical operations
+import pandas as pd        # data frames
+import matplotlib.pyplot as plt  # plotting
+import warnings
+warnings.filterwarnings('ignore')
+
+## Scanpy settings
+sc.settings.verbosity = 3          # show detailed progress messages
+sc.logging.print_header()          # print scanpy version info
+sc.settings.set_figure_params(
+    dpi     = 150,                  # figure resolution
+    facecolor = 'white',            # white background for publication
+    figsize = (6, 5)               # default figure size
+)
+
+## --- Option A: Load from 10x Cell Ranger filtered_feature_bc_matrix folder ---
+## Cell Ranger outputs three files in this folder:
+##   matrix.mtx.gz   = sparse count matrix (Market Exchange Format)
+##   features.tsv.gz = gene names and IDs
+##   barcodes.tsv.gz = cell barcode sequences
+## sc.read_10x_mtx: reads all three files and creates an AnnData object
+adata = sc.read_10x_mtx(
+    "data/filtered_feature_bc_matrix/",  # path to Cell Ranger output folder
+    var_names  = 'gene_symbols',          # use gene symbols (GAPDH etc.) not Ensembl IDs
+    cache      = True                     # cache parsed data for faster re-loading
+)
+## After loading: adata.X is a sparse matrix (cells × 33,538 genes)
+
+## --- Option B: Load directly from Scanpy's built-in datasets ---
+## adata = sc.datasets.pbmc3k()
+
+print(adata)
+## AnnData object with n_obs × n_vars = 2700 × 32738
+## Rows (obs) = cells; Columns (var) = genes
+
+## Make gene names unique (some genes have duplicate symbols — mitochondrial, etc.)
+adata.var_names_make_unique()
+
+print(f"\nLoaded {adata.n_obs} cells and {adata.n_vars} genes")</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s1-load" data-filename="01_load_adata.py"><i class="bi bi-download me-1"></i>01_load_adata.py</button></div>
+</section>
+
+<section id="step2" class="mb-5">
+  <h2 class="section-divider">Step 2 — QC &amp; Cell Filtering</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Python — Calculate QC metrics, filter low-quality cells, doublet detection</span><button class="btn-copy">Copy</button></div>
+<pre id="s2-qc">######################################################################
+## STEP 2: Quality control — remove dead cells, empty droplets, doublets
+## Three key QC metrics:
+##   1. n_genes_by_counts : number of detected genes per cell
+##      Low = empty droplet or dead cell; Very high = possible doublet
+##   2. total_counts : total UMI counts per cell (library size)
+##      Low = empty or dying cell
+##   3. pct_counts_mt : % of counts from mitochondrial genes
+##      High % = dying cell (cytoplasmic mRNA leaks; mt transcripts remain)
+##      Typically filter cells with > 10-20% mitochondrial reads
+######################################################################
+
+## --- Step 2a: Identify mitochondrial genes ---
+## Mitochondrial genes in human data start with "MT-"
+## In mouse: "mt-" (lowercase)
+## Mark mitochondrial genes in the gene metadata (adata.var)
+adata.var['mt'] = adata.var_names.str.startswith('MT-')
+
+## --- Step 2b: Calculate QC metrics for each cell ---
+## sc.pp.calculate_qc_metrics:
+##   qc_vars=['mt'] : also compute % counts from mitochondrial genes
+##   percent_top=None : skip % in top-N genes (not needed here)
+##   log1p=False : report raw values, not log-transformed
+sc.pp.calculate_qc_metrics(
+    adata,
+    qc_vars   = ['mt'],
+    percent_top = None,
+    log1p     = False,
+    inplace   = True   # adds results directly to adata.obs
+)
+## adata.obs now contains:
+##   n_genes_by_counts : number of genes with >= 1 count per cell
+##   total_counts      : total UMI counts per cell
+##   pct_counts_mt     : % of counts from mitochondrial genes
+
+## --- Step 2c: Visualise QC distributions ---
+## Violin plots of QC metrics — helps you choose cutoffs
+sc.pl.violin(
+    adata,
+    ['n_genes_by_counts', 'total_counts', 'pct_counts_mt'],
+    jitter   = 0.4,           # show individual cell points
+    multi_panel = True,        # separate panel per metric
+    save    = '_qc_before_filter.png'
+)
+
+## Scatter: n_genes vs total_counts coloured by % mitochondrial
+sc.pl.scatter(adata, x='total_counts', y='n_genes_by_counts',
+              color='pct_counts_mt', save='_scatter_qc.png')
+
+## --- Step 2d: Apply QC filters ---
+## These thresholds are data-specific — adjust after visualising QC plots
+## Minimum thresholds:
+##   n_genes >= 200 : require at least 200 detected genes (remove empty droplets)
+##   n_genes <= 2500 : remove cells with unusually many genes (likely doublets)
+##     (PBMC 3k is v2 chemistry; newer v3 data can go up to 5000)
+## Mitochondrial:
+##   pct_counts_mt < 5% : remove dying cells
+print(f"Cells before QC filter: {adata.n_obs}")
+
+adata = adata[adata.obs.n_genes_by_counts >= 200, :]    # too few genes = empty
+adata = adata[adata.obs.n_genes_by_counts  < 2500, :]   # too many genes = doublet
+adata = adata[adata.obs.pct_counts_mt      < 5.0, :]    # high mt% = dying cell
+
+print(f"Cells after QC filter:  {adata.n_obs}")
+
+## --- Step 2e: Remove genes expressed in very few cells ---
+## Keep only genes detected in >= 3 cells
+## (very rare genes add noise without contributing to clustering)
+sc.pp.filter_genes(adata, min_cells=3)
+print(f"Genes after filtering: {adata.n_vars}")
+
+## --- Step 2f: Doublet detection with Scrublet ---
+## Scrublet simulates doublets by combining random pairs of real cells,
+## then scores each observed cell for its probability of being a doublet
+import scrublet as scr
+
+## Create a Scrublet object
+scrub = scr.Scrublet(adata.X, expected_doublet_rate=0.06)  # 6% expected for 10x 3k cells
+
+## Run doublet simulation and scoring
+doublet_scores, predicted_doublets = scrub.scrub_doublets(
+    min_counts     = 2,
+    min_cells      = 3,
+    min_gene_variability_pctl = 85,
+    n_prin_comps   = 30
+)
+
+## Add doublet scores to AnnData
+adata.obs['doublet_score']     = doublet_scores
+adata.obs['predicted_doublet'] = predicted_doublets
+
+print(f"\nPredicted doublets: {predicted_doublets.sum()}")
+print(f"Doublet rate: {predicted_doublets.mean():.1%}")
+
+## Remove predicted doublets
+adata = adata[~adata.obs['predicted_doublet'], :]
+print(f"Cells after doublet removal: {adata.n_obs}")</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s2-qc" data-filename="02_qc_filter.py"><i class="bi bi-download me-1"></i>02_qc_filter.py</button></div>
+  <div class="cmd-explain">
+    <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> QC thresholds decoded</div>
+    <table>
+      <tr><td><span class="cmd-emoji">&#128204;</span>pct_counts_mt threshold</td><td>There is no universal mitochondrial threshold. It depends on cell type (cardiomyocytes naturally have very high mt expression), tissue of origin, and dissociation protocol quality. For PBMCs: 5% is standard. For brain: 10-20%. For heart: up to 50%. Always plot the distribution and choose a threshold that separates a clear &ldquo;dying cell&rdquo; tail from the main cell population.</td></tr>
+      <tr><td><span class="cmd-emoji">&#127919;</span>Doublet rate ~6%</td><td>10x Chromium generates doublets at ~0.8% per 1,000 cells loaded. For 3k cells, that is ~2.4% (technical). Plus homotypic doublets (same cell type) which are hard to detect. Scrublet&rsquo;s expected_doublet_rate should match the 10x loading density — check the 10x website for the expected doublet rate for your chip version and cell loading concentration.</td></tr>
+    </table>
+  </div>
+</section>
+
+<section id="step3" class="mb-5">
+  <h2 class="section-divider">Step 3 — Normalization &amp; Highly Variable Genes</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Python — Normalize to 10k counts, log1p transform, highly variable gene selection</span><button class="btn-copy">Copy</button></div>
+<pre id="s3-norm">######################################################################
+## STEP 3: Normalization and highly variable gene (HVG) selection
+## Normalization: correct for differences in sequencing depth between cells
+## (cells with more total counts will appear to express all genes more)
+## HVG selection: focus downstream analysis on genes that vary between cells
+## (most genes are housekeeping genes with constant expression — not informative)
+######################################################################
+
+## --- Step 3a: Save raw counts for differential expression later ---
+## Before normalization, save the raw counts in adata.raw
+## This is important: DESeq2-style tools need RAW counts, not normalized
+## In Scanpy, adata.raw stores the pre-normalization count matrix
+adata.raw = adata    # stores current state (raw counts) in adata.raw
+
+## --- Step 3b: Total-count normalization ---
+## sc.pp.normalize_total: scale each cell so that total counts = target_sum
+## target_sum = 1e4 (10,000 counts per cell, "CP10K")
+## After this: each cell has the same total expression (10k counts)
+## A gene with 500 counts in a 10k-count cell = 5% of all expression
+sc.pp.normalize_total(
+    adata,
+    target_sum = 1e4     # normalize to 10,000 counts per cell (CP10K)
+)
+
+## --- Step 3c: Log(1+x) transformation ---
+## log1p: apply natural log(count + 1) to each normalized value
+## +1 before log prevents log(0) = -infinity for zero counts
+## After this: intensities are compressed and approximately normally distributed
+## The +1 pseudocount ensures zeros remain as zeros (log(0+1) = 0)
+sc.pp.log1p(adata)
+## adata.X now contains log-normalized expression values
+
+## --- Step 3d: Select highly variable genes ---
+## sc.pp.highly_variable_genes:
+##   Identifies genes with high variance relative to their mean expression
+##   (using the mean-dispersion relationship from negative binomial model)
+## min_mean = 0.0125 : minimum mean expression (filter very lowly expressed genes)
+## max_mean = 3      : maximum mean (filter very highly expressed housekeeping genes)
+## min_disp = 0.5    : minimum dispersion (variance-to-mean ratio)
+##   Higher min_disp = more stringent = fewer HVGs = faster but less complete
+## n_top_genes = 2000 : alternatively specify the number of top HVGs directly
+## batch_key : if you have multiple batches, compute HVGs per batch and take union
+sc.pp.highly_variable_genes(
+    adata,
+    min_mean   = 0.0125,
+    max_mean   = 3,
+    min_disp   = 0.5
+)
+print(f"Highly variable genes selected: {adata.var.highly_variable.sum()}")
+
+## --- Plot dispersion vs mean for HVG selection ---
+sc.pl.highly_variable_genes(adata, save='_hvg_selection.png')
+
+## --- Step 3e: Subset to HVGs for all downstream analysis ---
+adata = adata[:, adata.var.highly_variable]
+print(f"Working with {adata.n_vars} HVGs for dimensionality reduction and clustering")
+
+## --- Step 3f: Scale genes to unit variance (zero mean, unit SD per gene) ---
+## sc.pp.scale: z-score each gene across all cells
+## max_value=10 : clip extreme outliers at 10 SDs from mean
+##   (prevents highly expressed outlier cells from dominating PCA)
+sc.pp.scale(adata, max_value=10)</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s3-norm" data-filename="03_normalize_hvg.py"><i class="bi bi-download me-1"></i>03_normalize_hvg.py</button></div>
+</section>
+
+<section id="step4" class="mb-5">
+  <h2 class="section-divider">Step 4 — PCA &amp; Neighbor Graph</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Python — PCA, KNN graph, and batch correction with Harmony</span><button class="btn-copy">Copy</button></div>
+<pre id="s4-pca">######################################################################
+## STEP 4: PCA and KNN neighbor graph construction
+## PCA: reduces 2000-gene HVG space to 50 principal components
+## KNN graph: connects each cell to its K nearest neighbors in PC space
+## This graph is the basis for both UMAP embedding and clustering
+######################################################################
+
+## --- Step 4a: PCA ---
+## sc.tl.pca: computes PCA on the scaled HVG matrix
+## n_comps = 50  : compute top 50 principal components
+## use_highly_variable : only use HVGs (already subsetted, so redundant here)
+## svd_solver = 'arpack' : fast sparse solver (better than 'auto' for large datasets)
+sc.tl.pca(
+    adata,
+    n_comps        = 50,
+    svd_solver     = 'arpack',
+    random_state   = 42         # for reproducibility
+)
+
+## --- Plot variance explained by each PC ---
+sc.pl.pca_variance_ratio(adata, n_pcs=50, log=True,
+                          save='_pca_variance.png')
+## Elbow at PC ~10-15 for PBMC data: use 40-50 PCs for KNN graph
+## (including more PCs improves clustering but slows UMAP)
+
+## --- Step 4b: Build KNN neighbor graph ---
+## sc.pp.neighbors: builds the K-nearest-neighbor graph in PCA space
+## n_neighbors = 15 : each cell connects to its 15 nearest neighbors
+##   More neighbors = smoother UMAP, less fine-grained clusters
+##   Fewer neighbors = sharper clusters, noisier UMAP
+## n_pcs = 40       : use top 40 PCs (ignore PCs 41-50 which are mostly noise)
+## metric = 'cosine': use cosine distance (better than Euclidean for sparse data)
+##   Cosine distance normalizes for expression magnitude — important because
+##   cells with more total counts have larger Euclidean distances even if
+##   their expression profiles are identical
+sc.pp.neighbors(
+    adata,
+    n_neighbors = 15,
+    n_pcs       = 40,
+    metric      = 'cosine',
+    random_state = 42
+)
+
+## --- Step 4c: (Optional) Batch correction with Harmony ---
+## If you have data from multiple samples/batches, use Harmony before building neighbors
+## Harmony adjusts the PCA embedding to remove batch effects
+## scvi-tools or BBKNN are alternatives for more severe batch effects
+## pip install harmonypy
+import harmonypy as hm
+
+## If you had a 'batch' column in adata.obs:
+## harmony_out = hm.run_harmony(adata.obsm['X_pca'], adata.obs, 'batch', random_state=42)
+## adata.obsm['X_pca_harmony'] = harmony_out.Z_corr.T
+## Then use use_rep='X_pca_harmony' in sc.pp.neighbors() above
+
+print("PCA and KNN graph complete.")</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s4-pca" data-filename="04_pca_neighbors.py"><i class="bi bi-download me-1"></i>04_pca_neighbors.py</button></div>
+</section>
+
+<section id="step5" class="mb-5">
+  <h2 class="section-divider">Step 5 — UMAP &amp; Leiden Clustering</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Python — UMAP embedding and Leiden community detection</span><button class="btn-copy">Copy</button></div>
+<pre id="s5-umap">######################################################################
+## STEP 5: UMAP embedding and Leiden clustering
+## UMAP: creates a 2D visualisation of the KNN graph
+## Leiden: partitions the KNN graph into communities (= cell clusters)
+## IMPORTANT: clustering happens on the KNN GRAPH (not on UMAP coordinates!)
+## UMAP is only for visualisation — never cluster on UMAP coordinates
+######################################################################
+
+## --- Step 5a: Leiden clustering ---
+## sc.tl.leiden: graph-based community detection
+## resolution = 0.5 : controls cluster granularity
+##   Higher resolution = more, smaller clusters
+##   Lower resolution = fewer, larger clusters
+##   For PBMC 3k: 0.5 gives ~8 clusters (major cell types)
+##   For fine-grained subtypes: try 1.0-2.0
+sc.tl.leiden(
+    adata,
+    resolution   = 0.5,
+    random_state = 42     # random seed for reproducibility
+)
+print(f"Leiden clusters found: {adata.obs['leiden'].nunique()}")
+print(adata.obs['leiden'].value_counts())
+
+## --- Step 5b: UMAP embedding ---
+## sc.tl.umap: compute 2D UMAP coordinates from the KNN graph
+## min_dist = 0.3 : controls how tightly points cluster in UMAP space
+##   Smaller min_dist = tighter clusters (good for highlighting structure)
+##   Larger min_dist = more even spread (good for seeing relationships)
+## spread = 1.0 : global scale of the UMAP embedding
+sc.tl.umap(
+    adata,
+    min_dist     = 0.3,
+    spread       = 1.0,
+    random_state = 42
+)
+
+## --- Step 5c: Visualise UMAP ---
+## Color by Leiden cluster
+sc.pl.umap(adata, color='leiden',
+           legend_loc='on data',     # show cluster numbers on the UMAP
+           legend_fontsize=8,
+           title='PBMC 3k — Leiden clusters (resolution=0.5)',
+           save='_leiden_clusters.png')
+
+## Color by QC metrics to check cluster quality
+sc.pl.umap(adata, color=['n_genes_by_counts', 'pct_counts_mt', 'total_counts'],
+           ncols=3, save='_qc_umap.png')
+## Clusters dominated by high mt% or very low gene count = potential artifact clusters
+
+## Color by known marker genes to preview cell types
+known_markers = ['CD3D', 'CD4', 'CD8A', 'MS4A1', 'GNLY', 'NKG7',
+                 'CD14', 'FCGR3A', 'FCER1A', 'PPBP']
+sc.pl.umap(adata, color=known_markers, ncols=5,
+           use_raw=True,   # use raw counts for marker gene display
+           save='_known_markers.png')</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s5-umap" data-filename="05_umap_clustering.py"><i class="bi bi-download me-1"></i>05_umap_clustering.py</button></div>
+  <div class="fun-tip"><span class="fun-tip-icon">&#127758;</span><div><strong>UMAP is NOT for clustering:</strong> UMAP is a non-linear dimensionality reduction that preserves local (but not global) structure. Two clusters that appear close on UMAP may not be biologically related &mdash; UMAP distances are not meaningful. Always perform clustering on the KNN graph, then <em>visualise</em> those clusters on UMAP. Never run k-means or DBSCAN on UMAP coordinates for final cluster assignments.</div></div>
+</section>
+
+<section id="step6" class="mb-5">
+  <h2 class="section-divider">Step 6 — Marker Genes &amp; Cell Type Annotation</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Python — Rank genes per cluster and annotate cell types</span><button class="btn-copy">Copy</button></div>
+<pre id="s6-markers">######################################################################
+## STEP 6: Find marker genes and annotate cell types
+## sc.tl.rank_genes_groups: finds genes that are highly expressed in
+## each cluster compared to all other clusters (one-vs-rest comparison)
+## Method: Wilcoxon rank-sum test (non-parametric; recommended for scRNA-seq)
+######################################################################
+
+## --- Step 6a: Find marker genes for each cluster ---
+## sc.tl.rank_genes_groups: differential expression, cluster vs rest
+## method = 'wilcoxon' : Wilcoxon rank-sum test
+##   More robust than t-test for scRNA-seq (handles zero inflation better)
+##   'logreg' (logistic regression) is an alternative — better for rare populations
+## use_raw = True : use raw (log-normalized but unscaled) counts
+##   Raw counts give cleaner effect sizes for marker genes
+## n_genes = 25 : report top 25 markers per cluster
+sc.tl.rank_genes_groups(
+    adata,
+    groupby  = 'leiden',     # compare each Leiden cluster to all others
+    method   = 'wilcoxon',
+    use_raw  = True,
+    n_genes  = 25,
+    pts      = True          # also report fraction of cells expressing each gene
+)
+
+## --- Visualise top 5 markers per cluster ---
+sc.pl.rank_genes_groups(adata, n_genes=5, sharey=False,
+                         save='_marker_genes.png')
+
+## --- Dotplot: expression of top markers ---
+sc.pl.rank_genes_groups_dotplot(
+    adata,
+    n_genes   = 5,
+    groupby   = 'leiden',
+    standard_scale = 'var',   # scale each gene to [0,1] range for visual comparison
+    save      = '_dotplot_markers.png'
+)
+
+## --- Step 6b: Manual cell type annotation based on known markers ---
+## Common PBMC markers:
+##   CD4 T cells     : CD3D+, CD4+, IL7R+
+##   CD8 T cells     : CD3D+, CD8A+, CD8B+
+##   NK cells        : GNLY+, NKG7+, KLRD1+  (no CD3)
+##   B cells         : MS4A1 (CD20)+, CD79A+
+##   CD14 Monocytes  : CD14+, LYZ+, CST3+
+##   FCGR3A Monocytes: FCGR3A (CD16)+, MS4A7+
+##   Dendritic cells : FCER1A+, CST3+ (low CD14)
+##   Megakaryocytes  : PPBP+, PF4+
+
+## Assign cell type labels based on cluster marker gene review
+cell_type_map = {
+    '0': 'CD4 T cells',
+    '1': 'CD14 Monocytes',
+    '2': 'CD4 T cells',
+    '3': 'B cells',
+    '4': 'CD8 T cells',
+    '5': 'NK cells',
+    '6': 'FCGR3A Monocytes',
+    '7': 'Dendritic cells',
+    '8': 'Megakaryocytes'
+}
+## Note: exact mapping depends on your clustering result
+## Always validate by checking expression of canonical markers in each cluster
+adata.obs['cell_type'] = adata.obs['leiden'].map(cell_type_map)
+
+## --- Visualise annotated UMAP ---
+sc.pl.umap(adata, color='cell_type',
+           palette   = 'tab10',           # 10-colour palette for cell types
+           legend_loc = 'right margin',
+           title     = 'PBMC 3k — Annotated cell types',
+           save      = '_annotated_celltypes.png')</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s6-markers" data-filename="06_markers_annotation.py"><i class="bi bi-download me-1"></i>06_markers_annotation.py</button></div>
+</section>
+
+<section id="step7" class="mb-5">
+  <h2 class="section-divider">Step 7 — Differential Expression Between Conditions</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Python — Pseudo-bulk DE analysis with pydeseq2</span><button class="btn-copy">Copy</button></div>
+<pre id="s7-de">######################################################################
+## STEP 7: Pseudo-bulk differential expression between conditions
+## IMPORTANT: Do NOT run naive single-cell DE by treating each cell
+## as an independent sample. This pseudoreplication inflates sample size
+## and produces massive numbers of false positives.
+## CORRECT approach: pseudo-bulk aggregation
+##   1. Sum raw counts per cell type per donor (sample)
+##   2. Run bulk DE tools (DESeq2/edgeR) on the aggregated counts
+## This is equivalent to bulk RNA-seq per cell type per sample.
+######################################################################
+
+## pip install pydeseq2
+import pydeseq2
+from pydeseq2.dds import DeseqDataSet
+from pydeseq2.ds import DeseqStats
+import anndata
+
+## --- Example: stimulated vs resting CD4 T cells from PBMC data ---
+## We use the PBMC 3k stimulated vs resting dataset (Kang et al. 2018)
+## Download: https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE96583
+## adata has donor ID in adata.obs['donor'] and condition in adata.obs['condition']
+
+## --- Step 7a: Subset to cell type of interest ---
+cd4 = adata[adata.obs['cell_type'] == 'CD4 T cells'].copy()
+cd4.X = cd4.raw[:, cd4.var_names].X  # use raw counts for pseudo-bulk DE
+
+## --- Step 7b: Pseudo-bulk aggregation ---
+## For each donor × condition, sum counts across all cells of that type
+import scipy.sparse as sp
+
+## Create pseudo-bulk count matrix
+pb_counts  = {}
+pb_meta    = []
+
+for donor in cd4.obs['donor'].unique():
+    for condition in cd4.obs['condition'].unique():
+        ## Select cells for this donor + condition
+        mask   = (cd4.obs['donor'] == donor) & (cd4.obs['condition'] == condition)
+        subset = cd4[mask]
+        if subset.n_obs < 10:  # skip if fewer than 10 cells (unreliable aggregation)
+            continue
+        ## Sum counts across all selected cells (axis=0 = sum over cells)
+        if sp.issparse(subset.X):
+            counts_sum = np.array(subset.X.sum(axis=0)).flatten()
+        else:
+            counts_sum = subset.X.sum(axis=0)
+        sample_id  = f"{donor}_{condition}"
+        pb_counts[sample_id] = counts_sum
+        pb_meta.append({'sample': sample_id, 'donor': donor, 'condition': condition})
+
+## Build pseudo-bulk AnnData
+pb_df   = pd.DataFrame(pb_counts, index=cd4.var_names).T
+pb_meta_df = pd.DataFrame(pb_meta).set_index('sample')
+pb_adata = anndata.AnnData(X=pb_df.values, obs=pb_meta_df,
+                            var=pd.DataFrame(index=cd4.var_names))
+
+print(f"Pseudo-bulk samples: {pb_adata.n_obs}")
+print(f"Genes: {pb_adata.n_vars}")
+
+## --- Step 7c: DESeq2 via pydeseq2 ---
+## pydeseq2 = Python reimplementation of DESeq2 with identical statistics
+dds = DeseqDataSet(
+    adata      = pb_adata,
+    design_factors = ['condition'],   # test condition effect
+    ref_level  = ['condition', 'control'],   # reference = resting cells
+    refit_cooks = True
+)
+dds.deseq2()
+
+## Extract results
+stat_res = DeseqStats(dds, contrast=['condition', 'stimulated', 'control'])
+stat_res.summary()
+res_df   = stat_res.results_df.sort_values('padj')
+
+print(f"\nTop DE genes in CD4 T cells (stimulated vs control):")
+print(res_df.head(10))
+res_df.to_csv("pseudobulk_CD4_stim_vs_ctrl.csv")</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s7-de" data-filename="07_pseudobulk_de.py"><i class="bi bi-download me-1"></i>07_pseudobulk_de.py</button></div>
+  <div class="cmd-explain">
+    <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> Pseudo-bulk vs cell-level DE decoded</div>
+    <table>
+      <tr><td><span class="cmd-emoji">&#128202;</span>Why pseudo-bulk?</td><td>Running a Wilcoxon test between 500 stimulated T cells and 400 resting T cells treats each cell as an independent biological replicate. But all 500 stimulated cells came from the same donor — they are not independent. The biological variation between donors is what should drive the statistical test, not the variation between cells within a donor. Pseudo-bulk aggregation respects this: you compare 4 stimulated pseudo-samples (one per donor) vs 4 resting pseudo-samples.</td></tr>
+      <tr><td><span class="cmd-emoji">&#127919;</span>Minimum cells for pseudo-bulk</td><td>Pseudo-bulk requires at least 10&ndash;20 cells per cell type per sample to produce reliable aggregated counts. Rare cell types (&lt;10 cells) produce noisy pseudo-bulk profiles. The standard advice is to require &ge;10 cells and &ge;3 donors per condition for pseudo-bulk DE to be statistically valid.</td></tr>
+    </table>
+  </div>
+</section>
+
+<section class="mb-5">
+  <div class="d-flex justify-content-between">
+    <a href="proteomics-maxquant-perseus.html" class="btn btn-outline-secondary rounded-pill px-4"><i class="bi bi-arrow-left me-2"></i>Proteomics</a>
+    <a href="metagenomics-mags-metabat2-checkm.html" class="btn btn-primary rounded-pill px-4">MAG Binning <i class="bi bi-arrow-right ms-2"></i></a>
+  </div>
+</section>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-lg-6"><h5 class="text-white fw-bold mb-3"><span style="color:#ff9933;">Indian</span><span style="color:var(--ieb-primary);">Elucid</span><span style="color:var(--ieb-accent);">Biology</span></h5><p class="small">Free, interactive bioinformatics tutorials. Open source and community-driven.</p></div>
+      <div class="col-lg-6 text-lg-end"><p class="small mb-1">Founded by <strong>Ankush Sharma</strong></p><div class="d-flex gap-3 justify-content-lg-end"><a href="https://github.com/ank-man" target="_blank" class="text-white fs-5"><i class="bi bi-github"></i></a><a href="https://www.linkedin.com/in/ankush-sharma-290307/" target="_blank" class="text-white fs-5"><i class="bi bi-linkedin"></i></a><a href="mailto:mr.ank2999@gmail.com" class="text-white fs-5"><i class="bi bi-envelope"></i></a></div></div>
+    </div>
+    <hr class="border-secondary mt-4 mb-3">
+    <p class="text-center small mb-0">&copy; 2025 IndianElucidBiology &mdash; Made with <span style="color:#e25555;">&#9829;</span> for the bioinformatics community.</p>
+  </div>
+</footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/main.js"></script>
+</body>
+</html>

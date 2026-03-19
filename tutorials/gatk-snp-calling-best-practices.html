@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GATK4 Best Practices SNP Calling | IndianElucidBiology</title>
+  <meta name="description" content="Complete GATK4 variant calling tutorial using Arabidopsis halleri population dataset (PRJEB18647). BWA-MEM alignment, base quality score recalibration (BQSR), HaplotypeCaller, joint genotyping, and VQSR filtering.">
+  <link rel="canonical" href="https://indianelucidbiology.github.io/tutorials/gatk-snp-calling-best-practices.html">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="../css/style.css" rel="stylesheet">
+</head>
+<body>
+<div class="progress-tracker"></div>
+<nav class="navbar navbar-expand-lg fixed-top">
+  <div class="container">
+    <a class="navbar-brand" href="../index.html"><span class="brand-indian">Indian</span><span class="brand-elucid">Elucid</span><span class="brand-biology">Biology</span></a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav"><span class="navbar-toggler-icon"></span></button>
+    <div class="collapse navbar-collapse" id="mainNav">
+      <ul class="navbar-nav ms-auto me-3">
+        <li class="nav-item"><a class="nav-link" href="../index.html">Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="index.html">Tutorial Library</a></li>
+      </ul>
+      <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode">&#9790;</button>
+    </div>
+  </div>
+</nav>
+
+<section class="tutorial-hero">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-lg-8">
+        <nav aria-label="breadcrumb"><ol class="breadcrumb mb-3" style="--bs-breadcrumb-divider-color:rgba(255,255,255,0.5);"><li class="breadcrumb-item"><a href="../index.html" class="text-white-50 text-decoration-none">Home</a></li><li class="breadcrumb-item"><a href="index.html" class="text-white-50 text-decoration-none">Tutorials</a></li><li class="breadcrumb-item active text-white">GATK Best Practices</li></ol></nav>
+        <h1 class="display-5 fw-bold text-white mb-3">GATK4 Best Practices SNP &amp; Indel Calling</h1>
+        <p class="lead text-white-50 mb-4">Population genomics variant calling on four <em>Arabidopsis halleri</em> populations using the full GATK4 BQSR + HaplotypeCaller + joint genotyping pipeline.</p>
+        <div class="d-flex gap-3 flex-wrap">
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-clock me-1"></i>~180 min</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-database me-1"></i>PRJEB18647</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-bar-chart me-1"></i>Advanced</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-terminal me-1"></i>Bash</span>
+        </div>
+      </div>
+      <div class="col-lg-4 text-center d-none d-lg-block">
+        <img src="../img/Byte3.png" alt="Byte" class="img-fluid" style="max-height:220px;filter:drop-shadow(0 10px 30px rgba(0,0,0,0.4));">
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="container py-5">
+  <div class="row">
+    <div class="col-lg-3 d-none d-lg-block">
+      <div class="toc-sidebar">
+        <h6 class="fw-bold text-muted text-uppercase small mb-3">On this page</h6>
+        <nav class="nav flex-column">
+          <a class="nav-link" href="#overview">Overview</a>
+          <a class="nav-link" href="#dataset">Dataset</a>
+          <a class="nav-link" href="#setup">Setup &amp; Organization</a>
+          <a class="nav-link" href="#step0">0. QC</a>
+          <a class="nav-link" href="#step1">1. BWA-MEM Alignment</a>
+          <a class="nav-link" href="#step2">2. Pre-processing</a>
+          <a class="nav-link" href="#step3">3. BQSR Round 1</a>
+          <a class="nav-link" href="#step4">4. HaplotypeCaller</a>
+          <a class="nav-link" href="#step5">5. Joint Genotyping</a>
+          <a class="nav-link" href="#step6">6. Variant Filtering</a>
+          <a class="nav-link" href="#results">Expected Results</a>
+          <a class="nav-link" href="#errors">Troubleshooting</a>
+        </nav>
+      </div>
+    </div>
+    <div class="col-lg-9">
+      <div class="tutorial-content">
+
+        <section id="overview" class="mb-5">
+          <h2 class="section-divider">Overview</h2>
+          <p>The GATK Best Practices workflow for germline short variant discovery is the gold standard for SNP and indel calling from short-read DNA sequencing data. This tutorial follows the workflow exactly as described for diploid organisms.</p>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <div class="p-3 rounded-3 h-100" style="background:var(--bs-tertiary-bg)">
+                <h6 class="fw-bold"><i class="bi bi-arrow-right-circle me-2 text-primary"></i>Pipeline Steps</h6>
+                <ol class="small mb-0">
+                  <li>FastQC quality check</li>
+                  <li>BWA-MEM alignment to reference</li>
+                  <li>Sort, mark duplicates (Picard)</li>
+                  <li>BQSR round 1 &mdash; base quality recalibration</li>
+                  <li>HaplotypeCaller &mdash; per-sample gVCF</li>
+                  <li>GenomicsDBImport + joint genotyping</li>
+                  <li>Variant quality score recalibration (VQSR)</li>
+                </ol>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="p-3 rounded-3 h-100" style="background:var(--bs-tertiary-bg)">
+                <h6 class="fw-bold"><i class="bi bi-tools me-2 text-success"></i>Tools Required</h6>
+                <ul class="small mb-0">
+                  <li>BWA (bwa-mem2 or bwa)</li>
+                  <li>samtools</li>
+                  <li>Picard (MarkDuplicates)</li>
+                  <li>GATK4 (BaseRecalibrator, HaplotypeCaller, GenotypeGVCFs)</li>
+                  <li>bcftools / VCFtools (filtering)</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <div class="mt-3">
+            <img src="../../assets/gatk-workflow.png" alt="GATK Workflow" class="img-fluid rounded-3 border" style="max-height:300px;">
+            <p class="text-muted small mt-1">GATK best practices workflow overview. Image from the Bioinformatics Workbook (Arun Seetharam).</p>
+          </div>
+        </section>
+
+        <section id="dirstructure" class="mb-5">
+          <h2 class="section-divider">Ideal Directory Structure</h2>
+          <p>GATK workflows generate many intermediate files. Strict folder discipline prevents overwriting and makes debugging easier.</p>
+          <div class="dir-tree">
+            <div class="dir-tree-header"><i class="bi bi-folder2-open"></i> gatk_ahalleri_project/</div>
+<span class="tree-folder">gatk_ahalleri_project/</span>
+├── <span class="tree-folder">0_index/</span>             <span class="tree-note"># reference FASTA + BWA index + .dict + .fai</span>
+├── <span class="tree-folder tree-active">1_data/</span>              <span class="tree-note"># raw FASTQ (read-only!)</span>
+│   ├── <span class="tree-file">ERR1760144_1.fastq.gz</span>
+│   └── <span class="tree-note">... (8 files, 4 samples × 2)</span>
+├── <span class="tree-folder">2_fastqc/</span>            <span class="tree-note"># FastQC + MultiQC reports</span>
+├── <span class="tree-folder">3_pre-processing/</span>    <span class="tree-note"># sorted BAM, MarkDuplicates output</span>
+│   ├── <span class="tree-output">ERR1760144.sorted.bam</span>
+│   └── <span class="tree-output">ERR1760144.dedup.bam</span>  <span class="tree-note"># duplicates marked</span>
+├── <span class="tree-folder">4_gatk-round-1/</span>      <span class="tree-note"># BaseRecalibrator tables (pre-BQSR)</span>
+├── <span class="tree-folder">5_recalibration/</span>     <span class="tree-note"># BQSR-recalibrated BAMs</span>
+│   └── <span class="tree-output">ERR1760144.bqsr.bam</span>
+├── <span class="tree-folder">6_gatk_round-2/</span>      <span class="tree-note"># per-sample gVCF files (HaplotypeCaller output)</span>
+│   └── <span class="tree-output">ERR1760144.g.vcf.gz</span>
+└── <span class="tree-folder">7_filtering/</span>         <span class="tree-note"># joint-genotyped + hard-filtered VCF</span>
+    ├── <span class="tree-output">all_samples.vcf.gz</span>
+    └── <span class="tree-output">all_samples.filtered.vcf.gz</span>
+          </div>
+          <div class="fun-tip"><span class="fun-tip-icon">🧰</span><div><strong>Why all these folders?</strong> GATK is a multi-step pipeline where each step takes the previous step's output. If a later step fails, you want to restart from the last successful step — not from scratch! Keeping outputs in separate numbered folders lets you pick up exactly where you left off.</div></div>
+        </section>
+
+        <section id="dataset" class="mb-5">
+          <h2 class="section-divider">Dataset</h2>
+          <p>Four populations of <em>Arabidopsis halleri</em> subsp. <em>halleri</em> sequenced to estimate genomic diversity and population differentiation (<a href="https://bmcgenomics.biomedcentral.com/articles/10.1186/s12864-016-3459-7" target="_blank">Fischer et al., 2016</a>). Reference genome: <em>A. halleri</em> Ahal2.2 (Ensembl Plants).</p>
+          <div class="param-table">
+            <table class="table table-striped mb-0">
+              <thead><tr><th>Sample</th><th>ENA ID</th><th>Read Length</th><th>Insert Size</th><th>Total Bases</th></tr></thead>
+              <tbody>
+                <tr><td>Aha18</td><td>ERR1760144</td><td>202 bp</td><td>250 bp</td><td>21.4 Gb</td></tr>
+                <tr><td>AhaN1</td><td>ERR1760145</td><td>200 bp</td><td>150 bp</td><td>30.1 Gb</td></tr>
+                <tr><td>AhaN3</td><td>ERR1760146</td><td>200 bp</td><td>150 bp</td><td>29.6 Gb</td></tr>
+                <tr><td>AhaN4</td><td>ERR1760147</td><td>200 bp</td><td>150 bp</td><td>31.2 Gb</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="setup" class="mb-5">
+          <h2 class="section-divider">Setup &amp; Directory Organization</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash — Create directory structure and download data</span><button class="btn-copy">Copy</button></div>
+<pre id="setup-dirs">mkdir -p {0_index,1_data,2_fastqc,3_pre-processing,4_gatk-round-1,5_recalibration,6_gatk_round-2,7_filtering}
+
+# Download reads from ENA (faster than SRA)
+cd 1_data
+wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR176/004/ERR1760144/ERR1760144_1.fastq.gz
+wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR176/004/ERR1760144/ERR1760144_2.fastq.gz
+wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR176/005/ERR1760145/ERR1760145_1.fastq.gz
+wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR176/005/ERR1760145/ERR1760145_2.fastq.gz
+wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR176/006/ERR1760146/ERR1760146_1.fastq.gz
+wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR176/006/ERR1760146/ERR1760146_2.fastq.gz
+wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR176/007/ERR1760147/ERR1760147_1.fastq.gz
+wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR176/007/ERR1760147/ERR1760147_2.fastq.gz
+cd ..
+
+# Download A. halleri reference genome
+cd 0_index
+wget ftp://ftp.ensemblgenomes.org/pub/plants/release-43/fasta/arabidopsis_halleri/dna/Arabidopsis_halleri.Ahal2.2.dna.toplevel.fa.gz
+gunzip Arabidopsis_halleri.Ahal2.2.dna.toplevel.fa.gz
+cd ..</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="setup-dirs" data-filename="00_setup_dirs.sh"><i class="bi bi-download me-1"></i>00_setup_dirs.sh</button></div>
+          <div class="cmd-explain">
+            <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> Setup commands decoded</div>
+            <table>
+              <tr><td><span class="cmd-emoji">📁</span>mkdir -p {0_index,...}</td><td>Brace expansion creates all 8 directories in one command. The <code>-p</code> flag means "no error if they already exist". Running this at the start ensures your pipeline never fails due to a missing output folder.</td></tr>
+              <tr><td><span class="cmd-emoji">🔒</span>samtools faidx</td><td>Creates a <code>.fai</code> index of the reference FASTA. GATK requires this to quickly jump to any genomic coordinate. Think of it as adding page numbers to a book.</td></tr>
+              <tr><td><span class="cmd-emoji">📖</span>gatk CreateSequenceDictionary</td><td>Creates a <code>.dict</code> file listing all chromosomes and their lengths. GATK uses this as a "table of contents" to validate that your BAM and reference have matching chromosomes before running expensive analyses.</td></tr>
+              <tr><td><span class="cmd-emoji">🗺️</span>bwa-mem2 index</td><td>Builds a BWA-MEM2 index of the reference (faster modern version of BWA). Like HISAT2-build but for DNA — required before alignment. Takes ~15 min for a plant-sized genome.</td></tr>
+            </table>
+          </div>
+        </section>
+
+        <section id="step0" class="mb-5">
+          <h2 class="section-divider">Step 0 — Quality Check</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash — FastQC on all samples</span><button class="btn-copy">Copy</button></div>
+<pre id="s0-qc">cd 2_fastqc
+for fq in ../1_data/*.fastq.gz; do
+    ln -s $fq
+done
+
+module load parallel
+module load fastqc
+parallel "fastqc {}" ::: *.fastq.gz
+cd ..</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s0-qc" data-filename="01_fastqc.sh"><i class="bi bi-download me-1"></i>01_fastqc.sh</button></div>
+        </section>
+
+        <section id="step1" class="mb-5">
+          <h2 class="section-divider">Step 1 — BWA-MEM Alignment</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash — BWA index + alignment with read groups (SLURM)</span><button class="btn-copy">Copy</button></div>
+<pre id="s1-bwa">#!/bin/bash
+#SBATCH -N 1
+#SBATCH --ntasks-per-node=16
+#SBATCH --time=48:00:00
+#SBATCH --job-name=bwa_align
+#SBATCH --output=bwa_align.%j.out
+#SBATCH --error=bwa_align.%j.err
+
+module load bwa
+module load samtools
+
+REF="0_index/Arabidopsis_halleri.Ahal2.2.dna.toplevel.fa"
+OUTDIR="3_pre-processing"
+
+# Index the reference (run once)
+bwa index ${REF}
+samtools faidx ${REF}
+
+# Declare sample metadata (name, ERR ID)
+declare -A SAMPLES=(
+    [Aha18]=ERR1760144
+    [AhaN1]=ERR1760145
+    [AhaN3]=ERR1760146
+    [AhaN4]=ERR1760147
+)
+
+for SAMPLE in "${!SAMPLES[@]}"; do
+    ERR="${SAMPLES[$SAMPLE]}"
+    R1="1_data/${ERR}_1.fastq.gz"
+    R2="1_data/${ERR}_2.fastq.gz"
+
+    echo "Aligning: ${SAMPLE} (${ERR})"
+
+    # Read Group tag is CRITICAL for GATK - identifies sample in multi-sample VCF
+    RG="@RG\tID:${ERR}\tSM:${SAMPLE}\tPL:ILLUMINA\tLB:${SAMPLE}_lib1\tPU:${ERR}.1"
+
+    bwa mem -t 16 \
+        -R "${RG}" \
+        ${REF} ${R1} ${R2} \
+        | samtools view -bS - \
+        | samtools sort -o ${OUTDIR}/${SAMPLE}.sorted.bam -
+
+    samtools index ${OUTDIR}/${SAMPLE}.sorted.bam
+done</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s1-bwa" data-filename="02_bwa_align.sh"><i class="bi bi-download me-1"></i>02_bwa_align.sh</button></div>
+          <div class="cmd-explain">
+            <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> BWA-MEM flags decoded</div>
+            <table>
+              <tr><td><span class="cmd-emoji">🧵</span>-t 16</td><td>Use 16 CPU <strong>t</strong>hreads. BWA-MEM scales well — 16 threads is ~12× faster than single-threaded for these large WGS datasets.</td></tr>
+              <tr><td><span class="cmd-emoji">🏷️</span>-R "@RG\t..."</td><td><strong>R</strong>ead Group tag — the most important GATK requirement. It embeds sample metadata into every alignment record. <code>SM:</code>=sample name (appears in VCF header), <code>ID:</code>=run ID, <code>PL:</code>=platform (ILLUMINA), <code>LB:</code>=library. GATK will refuse to run HaplotypeCaller without these tags.</td></tr>
+              <tr><td><span class="cmd-emoji">🔀</span>pipe <code>|</code> to samtools</td><td>BWA writes to stdout, which we pipe directly to <code>samtools view</code> (SAM→BAM) then <code>samtools sort</code>. This saves ~15 GB of temporary SAM disk space per sample by never writing the SAM at all.</td></tr>
+            </table>
+          </div>
+          <div class="fun-tip"><span class="fun-tip-icon">🏷️</span><div><strong>Read Group anatomy:</strong> <code>@RG\tID:ERR1760144\tSM:Aha18\tPL:ILLUMINA\tLB:Aha18_lib1\tPU:ERR1760144.1</code> — think of it as a barcode label on every read saying "I came from sample Aha18, sequenced on Illumina, in run ERR1760144". Without it, GATK can't distinguish which sample a read belongs to during joint genotyping!</div></div>
+          <div class="thumb-rule mt-3"><strong>Read Groups are mandatory for GATK.</strong> Without <code>@RG</code> tags, HaplotypeCaller will crash or produce incorrect results. The <code>SM:</code> tag becomes the sample name in the final VCF. The <code>ID:</code> tag uniquely identifies each sequencing run. Always add read groups at the alignment step.</div>
+        </section>
+
+        <section id="step2" class="mb-5">
+          <h2 class="section-divider">Step 2 — Mark Duplicates with Picard</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash — Picard MarkDuplicates</span><button class="btn-copy">Copy</button></div>
+<pre id="s2-dedup">#!/bin/bash
+#SBATCH -N 1
+#SBATCH --ntasks-per-node=8
+#SBATCH --time=24:00:00
+#SBATCH --job-name=markdup
+#SBATCH --output=markdup.%j.out
+#SBATCH --mem=32G
+
+module load picard
+module load samtools
+
+INDIR="3_pre-processing"
+
+for SAMPLE in Aha18 AhaN1 AhaN3 AhaN4; do
+    echo "Marking duplicates: ${SAMPLE}"
+
+    picard MarkDuplicates \
+        INPUT=${INDIR}/${SAMPLE}.sorted.bam \
+        OUTPUT=${INDIR}/${SAMPLE}.dedup.bam \
+        METRICS_FILE=${INDIR}/${SAMPLE}.dup_metrics.txt \
+        REMOVE_DUPLICATES=false \
+        ASSUME_SORTED=true \
+        VALIDATION_STRINGENCY=SILENT
+
+    samtools index ${INDIR}/${SAMPLE}.dedup.bam
+
+    echo "  Duplication metrics:"
+    grep -A2 "ESTIMATED_LIBRARY_SIZE" ${INDIR}/${SAMPLE}.dup_metrics.txt | tail -2
+done</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s2-dedup" data-filename="03_markduplicates.sh"><i class="bi bi-download me-1"></i>03_markduplicates.sh</button></div>
+          <div class="cmd-explain">
+            <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> Picard MarkDuplicates parameters</div>
+            <table>
+              <tr><td><span class="cmd-emoji">📥</span>INPUT / OUTPUT</td><td>Input sorted BAM and output deduplicated BAM. The output BAM keeps all reads — duplicates are <em>flagged</em> (not deleted). GATK will automatically ignore flagged duplicates during variant calling.</td></tr>
+              <tr><td><span class="cmd-emoji">📊</span>METRICS_FILE</td><td>Writes a duplication statistics file. Open this to see your library complexity — high duplication (&gt;50%) means low-complexity library or over-sequencing, not a pipeline error.</td></tr>
+              <tr><td><span class="cmd-emoji">🚫</span>REMOVE_DUPLICATES=false</td><td>Keeps duplicates in the BAM with a flag bit set rather than physically removing them. This is the GATK-recommended approach — it preserves the BAM for other analyses and lets you change the duplicate-handling strategy later.</td></tr>
+              <tr><td><span class="cmd-emoji">✅</span>ASSUME_SORTED=true</td><td>Skips the sort check (we already sorted with samtools). Speeds up processing by ~20%.</td></tr>
+            </table>
+          </div>
+          <div class="fun-tip"><span class="fun-tip-icon">🎭</span><div><strong>What IS a duplicate?</strong> When the same DNA fragment gets sequenced more than once (common with PCR amplification), the copies are "duplicates". They look like extra evidence for a variant but are really the same molecule. GATK marks them so it only counts each unique molecule once — otherwise, a PCR artifact would look like a real high-frequency variant!</div></div>
+        </section>
+
+        <section id="step3" class="mb-5">
+          <h2 class="section-divider">Step 3 — Base Quality Score Recalibration (BQSR)</h2>
+          <p>BQSR corrects systematic errors in base quality scores assigned by the sequencer. It requires a set of known variant sites to identify non-variant positions for modeling.</p>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash — GATK BaseRecalibrator + ApplyBQSR</span><button class="btn-copy">Copy</button></div>
+<pre id="s3-bqsr">#!/bin/bash
+#SBATCH -N 1
+#SBATCH --ntasks-per-node=8
+#SBATCH --time=48:00:00
+#SBATCH --job-name=bqsr
+#SBATCH --output=bqsr.%j.out
+#SBATCH --mem=32G
+
+module load gatk/4.2.0.0
+module load samtools
+
+REF="0_index/Arabidopsis_halleri.Ahal2.2.dna.toplevel.fa"
+INDIR="3_pre-processing"
+OUTDIR="5_recalibration"
+
+# Create GATK sequence dictionary (required)
+gatk CreateSequenceDictionary -R ${REF}
+
+# NOTE: For A. halleri, download known SNPs from Ensembl:
+# wget http://ftp.ensemblgenomes.org/pub/plants/release-43/vcf/arabidopsis_halleri/Arabidopsis_halleri.vcf.gz
+KNOWN_SITES="0_index/Arabidopsis_halleri.vcf.gz"
+
+for SAMPLE in Aha18 AhaN1 AhaN3 AhaN4; do
+    echo "BQSR for: ${SAMPLE}"
+
+    # Step 1: Build recalibration table
+    gatk BaseRecalibrator \
+        -I ${INDIR}/${SAMPLE}.dedup.bam \
+        -R ${REF} \
+        --known-sites ${KNOWN_SITES} \
+        -O ${OUTDIR}/${SAMPLE}.recal_data.table
+
+    # Step 2: Apply the recalibration
+    gatk ApplyBQSR \
+        -I ${INDIR}/${SAMPLE}.dedup.bam \
+        -R ${REF} \
+        --bqsr-recal-file ${OUTDIR}/${SAMPLE}.recal_data.table \
+        -O ${OUTDIR}/${SAMPLE}.bqsr.bam
+
+    samtools index ${OUTDIR}/${SAMPLE}.bqsr.bam
+    echo "  Done: ${SAMPLE}.bqsr.bam"
+done</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s3-bqsr" data-filename="04_bqsr.sh"><i class="bi bi-download me-1"></i>04_bqsr.sh</button></div>
+          <div class="cmd-explain">
+            <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> BQSR commands decoded</div>
+            <table>
+              <tr><td><span class="cmd-emoji">📐</span>BaseRecalibrator</td><td>Scans every base in the BAM and builds a statistical model of quality score errors. It uses known variant sites as "ground truth" — positions where a mismatch from the reference is a real SNP, not a sequencing error. Output: a recalibration table.</td></tr>
+              <tr><td><span class="cmd-emoji">🔧</span>ApplyBQSR</td><td>Reads the recalibration table and rewrites the quality scores in the BAM. Bases that were systematically underestimated get higher scores; overestimated bases get lower scores. The result is a BAM where quality scores accurately reflect actual error probabilities.</td></tr>
+              <tr><td><span class="cmd-emoji">📍</span>--known-sites</td><td>A VCF of known variants for the species. These sites are excluded from error modeling because a mismatch there is a real SNP, not a sequencing error. Without this, GATK would "learn" from real variants and over-correct quality scores.</td></tr>
+            </table>
+          </div>
+          <div class="fun-tip"><span class="fun-tip-icon">🔬</span><div><strong>Why does BQSR matter?</strong> Illumina assigns base quality scores (Phred scale) during sequencing, but these scores have systematic biases — e.g., bases after a GGC context are consistently over-scored. BQSR fixes these biases, giving GATK more accurate error probabilities, which improves variant detection sensitivity and reduces false positives.</div></div>
+        </section>
+
+        <section id="step4" class="mb-5">
+          <h2 class="section-divider">Step 4 — HaplotypeCaller (per-sample gVCF)</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash — HaplotypeCaller in GVCF mode</span><button class="btn-copy">Copy</button></div>
+<pre id="s4-hc">#!/bin/bash
+#SBATCH -N 1
+#SBATCH --ntasks-per-node=8
+#SBATCH --time=72:00:00
+#SBATCH --job-name=haplotypecaller
+#SBATCH --output=hc.%j.out
+#SBATCH --mem=32G
+
+module load gatk/4.2.0.0
+
+REF="0_index/Arabidopsis_halleri.Ahal2.2.dna.toplevel.fa"
+INDIR="5_recalibration"
+OUTDIR="4_gatk-round-1"
+
+for SAMPLE in Aha18 AhaN1 AhaN3 AhaN4; do
+    echo "HaplotypeCaller: ${SAMPLE}"
+
+    # -ERC GVCF = emit all sites for later joint genotyping
+    # This allows combining samples without re-running the slow HC step
+    gatk HaplotypeCaller \
+        -R ${REF} \
+        -I ${INDIR}/${SAMPLE}.bqsr.bam \
+        -O ${OUTDIR}/${SAMPLE}.g.vcf.gz \
+        -ERC GVCF \
+        --native-pair-hmm-threads 8
+
+    echo "  gVCF created: ${SAMPLE}.g.vcf.gz"
+done</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s4-hc" data-filename="05_haplotypecaller.sh"><i class="bi bi-download me-1"></i>05_haplotypecaller.sh</button></div>
+          <div class="cmd-explain">
+            <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> HaplotypeCaller flags decoded</div>
+            <table>
+              <tr><td><span class="cmd-emoji">🧬</span>-ERC GVCF</td><td><strong>E</strong>mit <strong>R</strong>eference <strong>C</strong>onfidence in GVCF mode. Records evidence at every genomic position (not just variant sites). This enables efficient joint genotyping: add a new sample later by just adding its gVCF — no need to re-run the slow HC step on old samples.</td></tr>
+              <tr><td><span class="cmd-emoji">🧵</span>--native-pair-hmm-threads 8</td><td>HaplotypeCaller's most compute-intensive step (pairHMM likelihood calculation) runs on 8 threads. This alone can 4–8× speed up the per-sample runtime.</td></tr>
+              <tr><td><span class="cmd-emoji">📄</span>-O sample.g.vcf.gz</td><td>Output a bgzip-compressed GVCF. The <code>.g.vcf.gz</code> extension convention signals this is a GVCF (not a regular VCF) to downstream tools.</td></tr>
+            </table>
+          </div>
+          <div class="byte-callout mt-3">
+            <img src="../img/Byte2.png" alt="Byte">
+            <div><strong>Why GVCF mode?</strong> Running HaplotypeCaller with <code>-ERC GVCF</code> creates per-sample gVCF files that record evidence for ALL sites (variant and non-variant). This enables efficient joint genotyping by combining gVCFs without re-running the expensive HaplotypeCaller step when new samples are added later.</div>
+          </div>
+        </section>
+
+        <section id="step5" class="mb-5">
+          <h2 class="section-divider">Step 5 — Joint Genotyping</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash — GenomicsDBImport + GenotypeGVCFs</span><button class="btn-copy">Copy</button></div>
+<pre id="s5-joint">#!/bin/bash
+#SBATCH -N 1
+#SBATCH --ntasks-per-node=16
+#SBATCH --time=48:00:00
+#SBATCH --job-name=joint_genotype
+#SBATCH --mem=64G
+
+module load gatk/4.2.0.0
+
+REF="0_index/Arabidopsis_halleri.Ahal2.2.dna.toplevel.fa"
+GVCF_DIR="4_gatk-round-1"
+OUTDIR="6_gatk_round-2"
+DB_DIR="genomicsdb"
+
+# Get chromosome/scaffold list from reference dict
+INTERVALS=$(grep "^@SQ" ${REF%.fa}.dict | awk '{print $2}' | sed 's/SN://' | tr '\n' ' ')
+
+# Step 1: Consolidate gVCFs into GenomicsDB
+gatk GenomicsDBImport \
+    -V ${GVCF_DIR}/Aha18.g.vcf.gz \
+    -V ${GVCF_DIR}/AhaN1.g.vcf.gz \
+    -V ${GVCF_DIR}/AhaN3.g.vcf.gz \
+    -V ${GVCF_DIR}/AhaN4.g.vcf.gz \
+    --genomicsdb-workspace-path ${DB_DIR} \
+    --intervals chr1 \
+    --reader-threads 8
+
+# Step 2: Joint genotyping across all samples
+gatk GenotypeGVCFs \
+    -R ${REF} \
+    -V gendb://${DB_DIR} \
+    -O ${OUTDIR}/all_samples.raw.vcf.gz
+
+echo "Raw VCF created: ${OUTDIR}/all_samples.raw.vcf.gz"
+
+# Quick stats
+gatk CountVariants -V ${OUTDIR}/all_samples.raw.vcf.gz</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s5-joint" data-filename="06_joint_genotyping.sh"><i class="bi bi-download me-1"></i>06_joint_genotyping.sh</button></div>
+        </section>
+
+        <section id="step6" class="mb-5">
+          <h2 class="section-divider">Step 6 — Variant Filtering</h2>
+          <p>For organisms without high-quality known variant databases for VQSR training, use hard filters as an alternative:</p>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash — Hard Filtering (SNPs and Indels)</span><button class="btn-copy">Copy</button></div>
+<pre id="s6-filter">#!/bin/bash
+#SBATCH -N 1
+#SBATCH --ntasks-per-node=8
+#SBATCH --mem=16G
+
+module load gatk/4.2.0.0
+module load bcftools
+
+RAW="6_gatk_round-2/all_samples.raw.vcf.gz"
+OUTDIR="7_filtering"
+
+# Extract SNPs only
+gatk SelectVariants -V ${RAW} --select-type-to-include SNP \
+    -O ${OUTDIR}/raw.snps.vcf.gz
+
+# Apply GATK recommended hard filters for SNPs
+# QD < 2.0 : Variant Confidence/Quality by Depth
+# MQ < 40.0 : RMS Mapping Quality
+# FS > 60.0 : Fisher Strand bias
+# SOR > 3.0 : Strand Odds Ratio
+# MQRankSum < -12.5 : Mapping Quality Rank Sum Test
+# ReadPosRankSum < -8.0 : Read Position Rank Sum Test
+gatk VariantFiltration \
+    -V ${OUTDIR}/raw.snps.vcf.gz \
+    --filter-expression "QD < 2.0"            --filter-name "QD2" \
+    --filter-expression "MQ < 40.0"           --filter-name "MQ40" \
+    --filter-expression "FS > 60.0"           --filter-name "FS60" \
+    --filter-expression "SOR > 3.0"           --filter-name "SOR3" \
+    --filter-expression "MQRankSum < -12.5"   --filter-name "MQRankSum-12.5" \
+    --filter-expression "ReadPosRankSum < -8.0" --filter-name "ReadPosRankSum-8" \
+    -O ${OUTDIR}/filtered.snps.vcf.gz
+
+# Keep only PASS variants
+bcftools view -f PASS ${OUTDIR}/filtered.snps.vcf.gz \
+    -O z -o ${OUTDIR}/final.snps.pass.vcf.gz
+bcftools index ${OUTDIR}/final.snps.pass.vcf.gz
+
+echo "Final SNP count:"
+bcftools stats ${OUTDIR}/final.snps.pass.vcf.gz | grep "^SN" | grep "SNPs"
+
+# Also filter indels
+gatk SelectVariants -V ${RAW} --select-type-to-include INDEL \
+    -O ${OUTDIR}/raw.indels.vcf.gz
+
+gatk VariantFiltration \
+    -V ${OUTDIR}/raw.indels.vcf.gz \
+    --filter-expression "QD < 2.0"   --filter-name "QD2" \
+    --filter-expression "FS > 200.0" --filter-name "FS200" \
+    --filter-expression "SOR > 10.0" --filter-name "SOR10" \
+    --filter-expression "ReadPosRankSum < -20.0" --filter-name "ReadPosRankSum-20" \
+    -O ${OUTDIR}/filtered.indels.vcf.gz
+
+bcftools view -f PASS ${OUTDIR}/filtered.indels.vcf.gz \
+    -O z -o ${OUTDIR}/final.indels.pass.vcf.gz</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s6-filter" data-filename="07_variant_filtering.sh"><i class="bi bi-download me-1"></i>07_variant_filtering.sh</button></div>
+          <div class="cmd-explain">
+            <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> Hard filter expressions decoded</div>
+            <table>
+              <tr><td><span class="cmd-emoji">📉</span>QD &lt; 2.0</td><td><strong>Q</strong>uality by <strong>D</strong>epth — variant quality score divided by read depth. Low QD means weak variant signal relative to coverage. Real variants typically have QD &gt; 10.</td></tr>
+              <tr><td><span class="cmd-emoji">🧭</span>MQ &lt; 40.0</td><td><strong>M</strong>apping <strong>Q</strong>uality — RMS mapping quality of reads. Low MQ means reads aligned to repetitive regions where the mapping is uncertain. Variants there are unreliable.</td></tr>
+              <tr><td><span class="cmd-emoji">🎣</span>FS &gt; 60.0</td><td><strong>F</strong>isher <strong>S</strong>trand bias — measures if variant reads preferentially appear on one strand. PCR artifacts and errors often show extreme strand bias. Real SNPs are strand-balanced.</td></tr>
+              <tr><td><span class="cmd-emoji">✅</span>bcftools view -f PASS</td><td>Extracts only variants where the FILTER column is "PASS" (i.e., passed all filter expressions). Variants that failed any filter have their filter name written instead of PASS.</td></tr>
+            </table>
+          </div>
+          <div class="fun-tip"><span class="fun-tip-icon">🎯</span><div><strong>Hard filters vs VQSR:</strong> VQSR (Variant Quality Score Recalibration) is more powerful but needs large variant databases for training. For non-model organisms or small cohorts (&lt;30 samples), hard filters are the recommended alternative — simpler and still effective.</div></div>
+        </section>
+
+        <section id="results" class="mb-5">
+          <h2 class="section-divider">Expected Results</h2>
+          <div class="param-table">
+            <table class="table table-striped mb-0">
+              <thead><tr><th>Output</th><th>File</th><th>Expected Value</th></tr></thead>
+              <tbody>
+                <tr><td>Alignment rates</td><td>*.log</td><td>&gt;95% for all 4 samples</td></tr>
+                <tr><td>Duplication rate</td><td>*.dup_metrics.txt</td><td>10–30% (normal for short reads)</td></tr>
+                <tr><td>Raw variants</td><td>all_samples.raw.vcf.gz</td><td>~2–5M variants (SNPs + indels)</td></tr>
+                <tr><td>Filtered SNPs</td><td>final.snps.pass.vcf.gz</td><td>~1–3M high-quality SNPs</td></tr>
+                <tr><td>Filtered indels</td><td>final.indels.pass.vcf.gz</td><td>~200–500k high-quality indels</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="thumb-rule mt-3"><strong>Quality check your VCF.</strong> After filtering, plot the distribution of variant quality metrics (QD, FS, MQ) using R or Python to verify your filters were appropriate. A good SNP set should have a bimodal QD distribution with a clear separation between real variants (high QD) and noise (low QD).</div>
+        </section>
+
+        <section id="errors" class="mb-5">
+          <h2 class="fw-bold"><i class="bi bi-exclamation-triangle me-2 text-warning"></i>Troubleshooting</h2>
+          <div class="error-box">
+            <h6>HaplotypeCaller: "SAM/BAM/CRAM file is malformed" or missing read group</h6>
+            <p>GATK requires read groups on all BAM files. Check with <code>samtools view -H sample.bam | grep "^@RG"</code>. If missing, add with Picard's <code>AddOrReplaceReadGroups</code>.</p>
+          </div>
+          <div class="error-box">
+            <h6>GenomicsDBImport: runs out of memory or disk space</h6>
+            <p>Process one chromosome/scaffold at a time using <code>--intervals</code>. GenomicsDB can consume 10–50× the original gVCF size in temporary disk space. Use <code>--tmp-dir</code> to point to a partition with sufficient space.</p>
+          </div>
+          <div class="error-box">
+            <h6>BQSR: "No known sites provided" error</h6>
+            <p>For organisms without a dbSNP equivalent, do a "bootstrap" BQSR: (1) Call raw variants, (2) Hard-filter to high-confidence variants, (3) Use those as known sites for BQSR, (4) Re-call variants on the recalibrated BAMs.</p>
+          </div>
+        </section>
+
+        <div class="d-flex justify-content-between mt-4">
+          <a href="atac-seq-peak-calling.html" class="btn btn-outline-secondary rounded-pill px-4"><i class="bi bi-arrow-left me-2"></i>ATAC-seq</a>
+          <a href="genome-assembly-genomescope-spades.html" class="btn btn-primary rounded-pill px-4">Next: Genome Assembly <i class="bi bi-arrow-right ms-2"></i></a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-lg-6"><h5 class="text-white fw-bold mb-3"><span style="color:#ff9933;">Indian</span><span style="color:var(--ieb-primary);">Elucid</span><span style="color:var(--ieb-accent);">Biology</span></h5><p class="small">Tutorial adapted from the Bioinformatics Workbook (Iowa State University GIF). Original author: Arun Seetharam.</p></div>
+      <div class="col-lg-6 text-lg-end"><p class="small mb-1">Founded by <strong>Ankush Sharma</strong></p><div class="d-flex gap-3 justify-content-lg-end"><a href="https://github.com/ank-man" target="_blank" class="text-white fs-5"><i class="bi bi-github"></i></a><a href="https://www.linkedin.com/in/ankush-sharma-290307/" target="_blank" class="text-white fs-5"><i class="bi bi-linkedin"></i></a></div></div>
+    </div>
+    <hr class="border-secondary mt-4 mb-3">
+    <p class="text-center small mb-0">&copy; 2025 IndianElucidBiology. Based on <a href="https://bioinformaticsworkbook.org" class="text-white-50" target="_blank">bioinformaticsworkbook.org</a>.</p>
+  </div>
+</footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Demographic History with PSMC &amp; SMC++ | IndianElucidBiology</title>
+  <meta name="description" content="Reconstruct effective population size (Ne) trajectories from whole-genome sequences using PSMC (pairwise sequentially Markovian coalescent) and SMC++ for multi-sample inference. Uses snow leopard genome data.">
+  <meta name="keywords" content="PSMC, SMC++, demographic history, effective population size, Ne, coalescent, whole genome, population genomics, bottleneck, expansion, glacial cycles">
+  <link rel="canonical" href="https://indianelucidbiology.github.io/tutorials/popgen-psmc-demographic-history.html">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="../css/style.css" rel="stylesheet">
+</head>
+<body>
+<div class="progress-tracker"></div>
+<nav class="navbar navbar-expand-lg fixed-top">
+  <div class="container">
+    <a class="navbar-brand" href="../index.html"><span class="brand-indian">Indian</span><span class="brand-elucid">Elucid</span><span class="brand-biology">Biology</span></a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav"><span class="navbar-toggler-icon"></span></button>
+    <div class="collapse navbar-collapse" id="mainNav">
+      <ul class="navbar-nav ms-auto me-3">
+        <li class="nav-item"><a class="nav-link" href="../index.html">Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="index.html">Tutorial Library</a></li>
+        <li class="nav-item"><a class="nav-link" href="popgen-admixture-population-structure.html"><i class="bi bi-arrow-left me-1"></i>ADMIXTURE</a></li>
+        <li class="nav-item"><a class="nav-link" href="popgen-fst-selective-sweeps.html">Fst &amp; Sweeps<i class="bi bi-arrow-right ms-1"></i></a></li>
+      </ul>
+      <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode">&#9790;</button>
+    </div>
+  </div>
+</nav>
+
+<section class="tutorial-hero">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-lg-8">
+        <nav aria-label="breadcrumb"><ol class="breadcrumb mb-3" style="--bs-breadcrumb-divider-color:rgba(255,255,255,0.5);"><li class="breadcrumb-item"><a href="../index.html" class="text-white-50 text-decoration-none">Home</a></li><li class="breadcrumb-item"><a href="index.html" class="text-white-50 text-decoration-none">Tutorials</a></li><li class="breadcrumb-item active text-white">PSMC &amp; SMC++ Demographic History</li></ol></nav>
+        <h1 class="display-5 fw-bold text-white mb-3">Demographic History: PSMC &amp; SMC++</h1>
+        <p class="lead text-white-50 mb-4">Reconstruct Ne trajectories from genomes &middot; PSMC pairwise coalescent &middot; SMC++ multi-sample inference &middot; Confidence intervals via bootstrapping</p>
+        <div class="d-flex gap-3 flex-wrap">
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-clock me-1"></i> ~120 min</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-bar-chart me-1"></i> Advanced</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-terminal me-1"></i> Bash / Python / R</span>
+        </div>
+      </div>
+      <div class="col-lg-4 text-center d-none d-lg-block">
+        <img src="../img/Byte3.png" alt="Byte" class="img-fluid" style="max-height:230px;filter:drop-shadow(0 10px 30px rgba(0,0,0,0.4));">
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="container py-5">
+  <div class="row">
+    <div class="col-lg-3 d-none d-lg-block">
+      <div class="toc-sidebar">
+        <h6 class="fw-bold text-muted text-uppercase small mb-3">On this page</h6>
+        <nav class="nav flex-column">
+          <a class="nav-link" href="#overview">Overview</a>
+          <a class="nav-link" href="#dirstructure">Directory Structure</a>
+          <a class="nav-link" href="#dataset">Dataset</a>
+          <a class="nav-link" href="#step1">1. Align Reads to Reference</a>
+          <a class="nav-link" href="#step2">2. Call Consensus FASTA</a>
+          <a class="nav-link" href="#step3">3. Run PSMC</a>
+          <a class="nav-link" href="#step4">4. Bootstrap PSMC</a>
+          <a class="nav-link" href="#step5">5. Plot PSMC Results</a>
+          <a class="nav-link" href="#step6">6. SMC++ (Multi-Sample)</a>
+          <a class="nav-link" href="#step7">7. Convert Time to Years</a>
+        </nav>
+      </div>
+    </div>
+    <div class="col-lg-9">
+      <div class="tutorial-content">
+
+        <section id="overview" class="mb-5">
+          <h2 class="section-divider">Overview</h2>
+          <p>The Pairwise Sequentially Markovian Coalescent (PSMC; Li &amp; Durbin 2011) infers the history of effective population size (Ne) from a single diploid genome by analysing the distribution of heterozygous sites along chromosomes. Regions of the genome with many heterozygous sites coalesced recently (large Ne), while long runs of homozygosity coalesced long ago (small Ne). PSMC can reconstruct Ne up to ~5 Mya but struggles with very recent events (&lt;20,000 years). SMC++ (Terhorst et al. 2017) uses multiple individuals and can resolve more recent history.</p>
+          <div class="byte-callout">
+            <img src="../img/Byte1.png" alt="Byte">
+            <div><strong>Key parameters needed:</strong>
+              <ul class="mb-0 mt-1 small">
+                <li><strong>Mutation rate (&mu;):</strong> per-generation per-base mutation rate for your species. Critical for converting coalescent time to years.</li>
+                <li><strong>Generation time (g):</strong> average generation time in years. Also critical — wrong values shift the entire Ne curve in time.</li>
+                <li><strong>Coverage:</strong> PSMC requires &ge;15&times; mean depth. Below this, heterozygous sites are missed, leading to artificially low Ne estimates.</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <section id="dirstructure" class="mb-5">
+          <h2 class="section-divider">Ideal Directory Structure</h2>
+          <div class="dir-tree">
+            <div class="dir-tree-header"><i class="bi bi-folder2-open"></i> psmc_snowleopard/</div>
+<span class="tree-folder">psmc_snowleopard/</span>
+&#9500;&#9472;&#9472; <span class="tree-folder tree-active">0_reads/</span>                 <span class="tree-note"># raw FASTQ downloads</span>
+&#9500;&#9472;&#9472; <span class="tree-folder">1_alignment/</span>             <span class="tree-note"># BWA-MEM BAM + index</span>
+&#9474;   &#9500;&#9472;&#9472; <span class="tree-output">snowleopard.sorted.bam</span>
+&#9474;   &#9492;&#9472;&#9472; <span class="tree-output">snowleopard.sorted.bam.bai</span>
+&#9500;&#9472;&#9472; <span class="tree-folder">2_consensus/</span>             <span class="tree-note"># consensus diploid FASTA (for PSMC)</span>
+&#9474;   &#9492;&#9472;&#9472; <span class="tree-output">snowleopard_consensus.fa.gz</span>
+&#9500;&#9472;&#9472; <span class="tree-folder">3_psmc/</span>                  <span class="tree-note"># PSMC input and output</span>
+&#9474;   &#9500;&#9472;&#9472; <span class="tree-output">snowleopard.psmcfa</span>    <span class="tree-note"># encoded input file</span>
+&#9474;   &#9500;&#9472;&#9472; <span class="tree-output">snowleopard.psmc</span>      <span class="tree-note"># PSMC output</span>
+&#9474;   &#9492;&#9472;&#9472; <span class="tree-folder">bootstrap/</span>            <span class="tree-note"># 100 bootstrap runs</span>
+&#9500;&#9472;&#9472; <span class="tree-folder">4_smcpp/</span>                 <span class="tree-note"># SMC++ analysis</span>
+&#9474;   &#9500;&#9472;&#9472; <span class="tree-output">snowleopard.smc.gz</span>
+&#9474;   &#9492;&#9472;&#9472; <span class="tree-output">model.final.json</span>
+&#9492;&#9472;&#9472; <span class="tree-folder">5_plots/</span>
+    &#9500;&#9472;&#9472; <span class="tree-output">psmc_plot.png</span>
+    &#9492;&#9472;&#9472; <span class="tree-output">smcpp_plot.png</span>
+          </div>
+        </section>
+
+        <section id="dataset" class="mb-5">
+          <h2 class="section-divider">Dataset</h2>
+          <p>The <strong>snow leopard (<em>Panthera uncia</em>)</strong> whole-genome dataset represents an endangered large felid with a complex demographic history shaped by Pleistocene glacial cycles in Central Asia. Its manageable genome size (~2.4 Gb) and high-quality reference assembly make it a tractable PSMC tutorial dataset.</p>
+          <div class="param-table">
+            <table class="table table-striped mb-0">
+              <thead><tr><th>Property</th><th>Value</th></tr></thead>
+              <tbody>
+                <tr><td>Organism</td><td><em>Panthera uncia</em> (snow leopard)</td></tr>
+                <tr><td>Accession</td><td>PRJNA304161 (SRR2961478 &mdash; 30&times; WGS individual)</td></tr>
+                <tr><td>Reference genome</td><td>GCF_018350335.1 (NCBI RefSeq)</td></tr>
+                <tr><td>Mutation rate (&mu;)</td><td>~2.8 &times; 10<sup>&minus;9</sup> per site per generation (felid rate)</td></tr>
+                <tr><td>Generation time</td><td>~4 years</td></tr>
+                <tr><td>Publication</td><td>Cho et al. 2013, <em>Genome Biology</em></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="step1" class="mb-5">
+          <h2 class="section-divider">Step 1 — Align Reads to Reference</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash — Download reads and align with BWA-MEM</span><button class="btn-copy">Copy</button></div>
+<pre id="s1-align">mkdir -p 0_reads 1_alignment
+module load sra-toolkit bwa samtools/1.17
+
+# Download snow leopard WGS reads (~15 GB; use fasterq-dump for speed)
+fasterq-dump --split-files --outdir 0_reads SRR2961478
+gzip 0_reads/SRR2961478_*.fastq
+
+# Download snow leopard reference genome
+mkdir -p ref
+wget https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/018/350/335/GCF_018350335.1_PunCin_v1.0/\
+GCF_018350335.1_PunCin_v1.0_genomic.fna.gz -P ref/
+gunzip ref/GCF_018350335.1_PunCin_v1.0_genomic.fna.gz
+bwa index ref/GCF_018350335.1_PunCin_v1.0_genomic.fna
+
+# Align with BWA-MEM
+bwa mem \
+    -t 16 \
+    -R "@RG\tID:SRR2961478\tSM:snowleopard\tPL:ILLUMINA\tLB:lib1" \
+    ref/GCF_018350335.1_PunCin_v1.0_genomic.fna \
+    0_reads/SRR2961478_1.fastq.gz \
+    0_reads/SRR2961478_2.fastq.gz | \
+  samtools sort -@ 8 -o 1_alignment/snowleopard.sorted.bam
+
+samtools index 1_alignment/snowleopard.sorted.bam
+
+# Check mean depth (need >= 15x for PSMC)
+samtools depth -a 1_alignment/snowleopard.sorted.bam | \
+    awk '{sum+=$3; n++} END {print "Mean depth:", sum/n}'</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s1-align" data-filename="01_align_bwa.sh"><i class="bi bi-download me-1"></i>01_align_bwa.sh</button></div>
+          <div class="cmd-explain">
+            <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> Alignment flags decoded</div>
+            <table>
+              <tr><td><span class="cmd-emoji">&#127991;</span>-R "@RG\tID:...\tSM:...\tPL:...\tLB:..."</td><td>Read group tag. PSMC does not require it, but bcftools consensus (next step) uses the <code>SM</code> (sample name) field to name the output. Always add read groups to BAMs — many downstream tools silently fail without them.</td></tr>
+              <tr><td><span class="cmd-emoji">&#128202;</span>samtools depth -a | awk</td><td>Computes mean coverage across all sites including zeros (<code>-a</code> flag). PSMC requires &ge;15&times; mean depth. At lower coverage, heterozygous sites are missed and Ne is underestimated. The upper depth filter (next step) is set to 2&times; mean depth to exclude mapping artefacts in repetitive regions.</td></tr>
+            </table>
+          </div>
+        </section>
+
+        <section id="step2" class="mb-5">
+          <h2 class="section-divider">Step 2 — Call Consensus Diploid FASTA</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash — bcftools mpileup → consensus FASTA → PSMC input</span><button class="btn-copy">Copy</button></div>
+<pre id="s2-consensus">mkdir -p 2_consensus 3_psmc
+REF="ref/GCF_018350335.1_PunCin_v1.0_genomic.fna"
+BAM="1_alignment/snowleopard.sorted.bam"
+DEPTH=30   # approximate mean depth; set max to 2x mean
+
+# Step 1: Call variants with bcftools mpileup + call
+# This produces a diploid consensus VCF
+bcftools mpileup \
+    --min-MQ 30 \
+    --min-BQ 20 \
+    -Ou \
+    -f ${REF} \
+    ${BAM} | \
+  bcftools call \
+    -c \
+    --output-type z \
+    --output 2_consensus/snowleopard.vcf.gz
+
+bcftools index 2_consensus/snowleopard.vcf.gz
+
+# Step 2: Convert VCF to consensus FASTA
+# Mask sites with depth < 5 or > 2x mean (repetitive regions)
+vcfutils.pl vcf2fq \
+    -d 5 \
+    -D $((DEPTH * 2)) \
+    <(bcftools view 2_consensus/snowleopard.vcf.gz) | \
+  gzip > 2_consensus/snowleopard_consensus.fa.gz
+
+# Step 3: Convert consensus FASTA to PSMC input format (.psmcfa)
+# fq2psmcfa encodes heterozygous/homozygous state in 100 bp bins
+fq2psmcfa -q 20 2_consensus/snowleopard_consensus.fa.gz > 3_psmc/snowleopard.psmcfa
+
+# Check the psmcfa (each line = one 100 bp bin; T/t = het/hom, N = missing)
+head -5 3_psmc/snowleopard.psmcfa
+wc -l 3_psmc/snowleopard.psmcfa</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s2-consensus" data-filename="02_consensus_psmcfa.sh"><i class="bi bi-download me-1"></i>02_consensus_psmcfa.sh</button></div>
+          <div class="cmd-explain">
+            <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> Consensus FASTA and psmcfa decoded</div>
+            <table>
+              <tr><td><span class="cmd-emoji">&#128196;</span>bcftools call -c</td><td>Consensus caller mode: for each site, outputs the most likely diploid genotype. This is simpler than the gVCF mode needed for GATK joint calling — PSMC only needs to know if a site is heterozygous, not the exact alleles.</td></tr>
+              <tr><td><span class="cmd-emoji">&#127919;</span>vcfutils.pl vcf2fq -d 5 -D 60</td><td>Converts VCF to a diploid FASTQ where quality scores encode confidence. <code>-d 5</code> masks sites with depth &lt;5 (unreliable calls). <code>-D 60</code> masks ultra-high-depth sites (likely in repetitive regions where reads pile up falsely). The output FASTQ is then fed to <code>fq2psmcfa</code>.</td></tr>
+              <tr><td><span class="cmd-emoji">&#128202;</span>fq2psmcfa -q 20</td><td>Encodes the consensus FASTQ into PSMC&rsquo;s compact binary format. Each position is encoded as: <code>T</code> (confident heterozygous), <code>t</code> (confident homozygous), <code>N</code> (masked/insufficient data). The <code>-q 20</code> flag requires Phred Q&ge;20 to call a site. Windows of 100 bp are encoded as one character.</td></tr>
+            </table>
+          </div>
+        </section>
+
+        <section id="step3" class="mb-5">
+          <h2 class="section-divider">Step 3 — Run PSMC</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash — PSMC main run</span><button class="btn-copy">Copy</button></div>
+<pre id="s3-psmc">module load psmc/0.6.5
+
+# Run PSMC
+# -N 30: max 30 EM iterations
+# -t 15: upper limit on 2*N0*t (coalescent time)
+# -r 5:  upper limit on theta/rho ratio
+# -p "4+25*2+4+6": time segment pattern (standard for mammalian genomes)
+psmc \
+    -N 30 \
+    -t 15 \
+    -r 5 \
+    -p "4+25*2+4+6" \
+    -o 3_psmc/snowleopard.psmc \
+    3_psmc/snowleopard.psmcfa
+
+echo "PSMC complete. Output: 3_psmc/snowleopard.psmc"
+
+# Quick check: view the last iteration's Ne estimates
+# (columns: time interval, lambda = relative Ne, pi = theta, rho = recombination rate)
+grep "^RS" 3_psmc/snowleopard.psmc | tail -30</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s3-psmc" data-filename="03_run_psmc.sh"><i class="bi bi-download me-1"></i>03_run_psmc.sh</button></div>
+          <div class="cmd-explain">
+            <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> PSMC parameters decoded</div>
+            <table>
+              <tr><td><span class="cmd-emoji">&#128200;</span>-p "4+25*2+4+6"</td><td>The time segment pattern defines how coalescent time is divided into intervals. <code>4+25*2+4+6</code> = 4 short intervals, then 25 intervals of length 2, then 4 short, then 6 long. This gives 64 intervals total. More intervals = finer resolution but more parameters. The standard <code>4+25*2+4+6</code> pattern is recommended for mammalian genomes.</td></tr>
+              <tr><td><span class="cmd-emoji">&#127775;</span>-t 15</td><td>Maximum coalescent time in units of 2N&mu; generations. Setting this too low truncates ancient history; too high wastes intervals on time periods with no data. 15 is appropriate for most mammals. For very ancient divergences (&gt;5 Mya), increase to 20&ndash;25.</td></tr>
+              <tr><td><span class="cmd-emoji">&#128202;</span>-r 5</td><td>Upper bound on the &theta;/&rho; ratio (mutation rate / recombination rate). Set to 5 for mammals. Species with very high recombination (e.g. plants) may need a lower value (2&ndash;3). PSMC uses recombination to separate closely-related heterozygous sites.</td></tr>
+            </table>
+          </div>
+          <div class="fun-tip"><span class="fun-tip-icon">&#128336;</span><div><strong>Runtime:</strong> PSMC on a mammalian genome (~3 Gb) takes 2&ndash;6 hours on a single core. Each EM iteration reduces the likelihood. Check the log &mdash; if the likelihood decreases after iteration 20+, the model has converged. Unlike BEAST/MrBayes, PSMC is deterministic (no MCMC) so no chain convergence diagnostics are needed.</div></div>
+        </section>
+
+        <section id="step4" class="mb-5">
+          <h2 class="section-divider">Step 4 — Bootstrap PSMC</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash — Generate 100 bootstrap replicates for confidence intervals</span><button class="btn-copy">Copy</button></div>
+<pre id="s4-bootstrap">mkdir -p 3_psmc/bootstrap
+
+# splitfa splits the psmcfa into ~5 Mb segments for bootstrapping
+splitfa 3_psmc/snowleopard.psmcfa > 3_psmc/snowleopard_split.psmcfa
+
+# Generate 100 bootstrap replicates (shuffle and resample segments)
+# Run as a loop — each bootstrap takes ~2-6h; use an HPC array in practice
+for i in $(seq 1 100); do
+    psmc \
+        -N 30 \
+        -t 15 \
+        -r 5 \
+        -b \
+        -p "4+25*2+4+6" \
+        -o 3_psmc/bootstrap/round${i}.psmc \
+        3_psmc/snowleopard_split.psmcfa
+done
+
+echo "All bootstrap runs complete."
+
+# Combine original + bootstraps for plotting
+cat 3_psmc/snowleopard.psmc 3_psmc/bootstrap/*.psmc > 3_psmc/combined.psmc</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s4-bootstrap" data-filename="04_bootstrap_psmc.sh"><i class="bi bi-download me-1"></i>04_bootstrap_psmc.sh</button></div>
+          <div class="cmd-explain">
+            <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> Bootstrap strategy decoded</div>
+            <table>
+              <tr><td><span class="cmd-emoji">&#9986;</span>splitfa → bootstrap resampling</td><td>PSMC bootstraps by resampling chromosomal segments (not individuals). <code>splitfa</code> cuts the psmcfa into ~5 Mb segments, and the <code>-b</code> flag in PSMC causes it to randomly resample segments with replacement. 100 replicates give stable 95% CI bands on the Ne plot. Running 100 bootstraps is compute-intensive — submit as a SLURM array job.</td></tr>
+              <tr><td><span class="cmd-emoji">&#128202;</span>cat combined.psmc</td><td>Concatenate the original + all bootstrap runs into one file. The <code>psmc_plot.pl</code> script (next step) automatically recognises each run as a separate record separated by <code>//</code> delimiters and draws the bootstraps as shaded ribbons around the main estimate.</td></tr>
+            </table>
+          </div>
+        </section>
+
+        <section id="step5" class="mb-5">
+          <h2 class="section-divider">Step 5 — Plot PSMC Results</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash + R — Convert PSMC output to real time and plot</span><button class="btn-copy">Copy</button></div>
+<pre id="s5-plot">MU=2.8e-9    # mutation rate per site per generation (felid)
+G=4          # generation time in years
+
+# psmc_plot.pl: convert coalescent time to real time
+# -u: per-generation per-site mutation rate
+# -g: generation time in years
+# -R: output raw data (no plotting)
+psmc_plot.pl \
+    -u ${MU} \
+    -g ${G} \
+    -R \
+    3_psmc/psmc_plot \
+    3_psmc/combined.psmc
+
+# The above creates psmc_plot.0.txt (main) and psmc_plot.1.txt ... (bootstraps)
+# Plot with R for publication quality:
+Rscript - <<'EOF'
+library(ggplot2)
+library(tidyverse)
+
+mu <- 2.8e-9
+g  <- 4
+
+# Read main PSMC result (psmc_plot.pl -R output has cols: time(yr), Ne)
+main_psmc <- read.table("3_psmc/psmc_plot.0.txt", col.names=c("time","Ne"))
+
+# Read all bootstrap files
+boot_files <- list.files("3_psmc", pattern="psmc_plot\\.[0-9]+\\.txt", full.names=TRUE)
+boots <- map_dfr(boot_files[-1], function(f) {
+    d <- read.table(f, col.names=c("time","Ne"))
+    d$rep <- f
+    d
+})
+
+ggplot() +
+    geom_step(data=boots, aes(x=time/1e3, y=Ne/1e3, group=rep),
+              color="steelblue", alpha=0.15, linewidth=0.3) +
+    geom_step(data=main_psmc, aes(x=time/1e3, y=Ne/1e3),
+              color="#0d6efd", linewidth=1.2) +
+    scale_x_log10(labels=scales::comma) +
+    scale_y_log10(labels=scales::comma) +
+    labs(
+        x="Time (thousand years ago)",
+        y="Effective population size Ne (thousands)",
+        title="Snow Leopard — PSMC Demographic History",
+        subtitle=paste0("µ=", mu, " per site/gen, g=", g, " years")
+    ) +
+    annotation_logticks(sides="bl") +
+    theme_bw(base_size=13)
+
+ggsave("5_plots/psmc_plot.png", width=10, height=6, dpi=150)
+EOF</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s5-plot" data-filename="05_plot_psmc.sh"><i class="bi bi-download me-1"></i>05_plot_psmc.sh</button></div>
+          <div class="cmd-explain">
+            <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> PSMC plot and time conversion decoded</div>
+            <table>
+              <tr><td><span class="cmd-emoji">&#128336;</span>-u mutation rate -g generation time</td><td>PSMC estimates time in coalescent units (2N&mu;). Converting to years requires: <code>time_years = t_coalescent * 2 * N0 * g</code>, where N0 is the ancestral Ne. The <code>psmc_plot.pl</code> script handles this conversion automatically. Getting &mu; and g wrong shifts the entire Ne curve on the time axis — these are the biggest sources of uncertainty in PSMC results.</td></tr>
+              <tr><td><span class="cmd-emoji">&#128202;</span>scale_x_log10 + scale_y_log10</td><td>Log-log scale is standard for PSMC plots. It allows both ancient (~millions of years) and recent (~thousands of years) history to be visible simultaneously. Bootstrap replicates are plotted as transparent lines to form a confidence ribbon around the main estimate.</td></tr>
+            </table>
+          </div>
+          <div class="fun-tip"><span class="fun-tip-icon">&#127761;</span><div><strong>Expected snow leopard result:</strong> PSMC typically shows a large Ne (~100k) during warm interglacials, a bottleneck during the Last Glacial Maximum (~20 kya dropping to ~10&ndash;20k), and possible ancient bottlenecks during earlier glacial cycles (~100&ndash;200 kya). This correlates with known Pleistocene climate oscillations in Central Asian highlands.</div></div>
+        </section>
+
+        <section id="step6" class="mb-5">
+          <h2 class="section-divider">Step 6 — SMC++ (Multi-Sample Inference)</h2>
+          <p>SMC++ uses multiple individuals simultaneously and produces more accurate estimates for recent history (&lt;100 kya), where PSMC has low resolution.</p>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash — SMC++ workflow</span><button class="btn-copy">Copy</button></div>
+<pre id="s6-smcpp">mkdir -p 4_smcpp
+module load smcpp/1.15.4
+
+# SMC++ requires phased/unphased VCF (multi-sample, bgzipped + tabixed)
+# If you have multiple snow leopard individuals:
+VCF="multi_sample_snowleopard.vcf.gz"
+POP_FILE="population_ids.txt"   # one sample ID per line for the population
+
+# Step 1: Convert VCF to SMC++ input format (per chromosome)
+for CHR in $(seq 1 19); do
+    smc++ vcf2smc \
+        --pop snowleopard:${POP_FILE} \
+        --mask repeat_mask.bed.gz \
+        ${VCF} \
+        4_smcpp/snowleopard.chr${CHR}.smc.gz \
+        chr${CHR} \
+        snowleopard:$(paste -sd',' ${POP_FILE})
+done
+
+# Step 2: Estimate Ne using SMC++
+smc++ estimate \
+    --cores 8 \
+    --em-iterations 20 \
+    --output 4_smcpp/ \
+    2.8e-9 \
+    4_smcpp/snowleopard.chr*.smc.gz
+
+# Step 3: Plot the SMC++ model
+smc++ plot \
+    --csv \
+    4_smcpp/smcpp_result.csv \
+    4_smcpp/model.final.json
+
+echo "SMC++ model saved in 4_smcpp/model.final.json"</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s6-smcpp" data-filename="06_smcpp.sh"><i class="bi bi-download me-1"></i>06_smcpp.sh</button></div>
+          <div class="cmd-explain">
+            <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> SMC++ commands decoded</div>
+            <table>
+              <tr><td><span class="cmd-emoji">&#128196;</span>smc++ vcf2smc --pop popname:sample_file</td><td>Converts a multi-sample VCF into SMC++-format compressed files, one per chromosome. The <code>--pop</code> flag assigns individuals to a named population. <code>--mask</code> specifies regions to exclude (repeats, low-mappability) &mdash; strongly recommended to avoid artefacts in repetitive regions.</td></tr>
+              <tr><td><span class="cmd-emoji">&#128202;</span>smc++ estimate 2.8e-9</td><td>Runs the SMC++ optimiser. The positional argument is the mutation rate (&mu;). Unlike PSMC, SMC++ uses a spline-based model and penalised likelihood &mdash; it can resolve recent Ne changes that PSMC cannot. Outputs a JSON model file and CSV of Ne estimates at each time point.</td></tr>
+            </table>
+          </div>
+        </section>
+
+        <section id="step7" class="mb-5">
+          <h2 class="section-divider">Step 7 — Convert Time to Calendar Years</h2>
+          <div class="thumb-rule"><strong>Time conversion formula:</strong> PSMC outputs time in units of 2N&mu;. To convert: <code>T_years = t * 2 * N0 * g</code>, where t = coalescent time, N0 = ancestral Ne (from the flat region of the PSMC curve), g = generation time. SMC++ outputs time directly in generations; multiply by g to get years. Both methods are sensitive to assumed &mu; and g &mdash; always show sensitivity analyses by varying these parameters by &plusmn;50%.</div>
+          <div class="fun-tip"><span class="fun-tip-icon">&#128202;</span><div><strong>PSMC vs SMC++ complementarity:</strong> PSMC resolves ancient history well (100 kya &ndash; 5 Mya) from a single individual, while SMC++ resolves recent history well (1 kya &ndash; 100 kya) from multiple individuals. The ideal workflow is to run both and show them on the same plot &mdash; they should overlap and agree in the overlapping time range, validating your results.</div></div>
+        </section>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="container mb-5">
+  <div class="d-flex justify-content-between">
+    <a href="popgen-admixture-population-structure.html" class="btn btn-outline-secondary rounded-pill px-4"><i class="bi bi-arrow-left me-2"></i>ADMIXTURE Population Structure</a>
+    <a href="popgen-fst-selective-sweeps.html" class="btn btn-primary rounded-pill px-4">Fst &amp; Selective Sweeps <i class="bi bi-arrow-right ms-2"></i></a>
+  </div>
+</div>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-lg-6"><h5 class="text-white fw-bold mb-3"><span style="color:#ff9933;">Indian</span><span style="color:var(--ieb-primary);">Elucid</span><span style="color:var(--ieb-accent);">Biology</span></h5><p class="small">Free, interactive bioinformatics tutorials. Open source and community-driven.</p></div>
+      <div class="col-lg-6 text-lg-end"><p class="small mb-1">Founded by <strong>Ankush Sharma</strong></p><div class="d-flex gap-3 justify-content-lg-end"><a href="https://github.com/ank-man" target="_blank" class="text-white fs-5"><i class="bi bi-github"></i></a><a href="https://www.linkedin.com/in/ankush-sharma-290307/" target="_blank" class="text-white fs-5"><i class="bi bi-linkedin"></i></a><a href="mailto:mr.ank2999@gmail.com" class="text-white fs-5"><i class="bi bi-envelope"></i></a></div></div>
+    </div>
+    <hr class="border-secondary mt-4 mb-3">
+    <p class="text-center small mb-0">&copy; 2025 IndianElucidBiology &mdash; Made with <span style="color:#e25555;">&#9829;</span> for the bioinformatics community.</p>
+  </div>
+</footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/main.js"></script>
+</body>
+</html>

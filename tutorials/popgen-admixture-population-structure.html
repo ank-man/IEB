@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Population Structure with ADMIXTURE | IndianElucidBiology</title>
+  <meta name="description" content="Run ADMIXTURE on the Human HGDP panel to infer ancestry proportions across K populations, use cross-validation to select K, and produce publication-quality structure bar plots with ggplot2.">
+  <meta name="keywords" content="ADMIXTURE, population structure, HGDP, ancestry, K selection, cross-validation, LD pruning, PLINK, structure plot, ggplot2, population genomics">
+  <link rel="canonical" href="https://indianelucidbiology.github.io/tutorials/popgen-admixture-population-structure.html">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="../css/style.css" rel="stylesheet">
+</head>
+<body>
+<div class="progress-tracker"></div>
+<nav class="navbar navbar-expand-lg fixed-top">
+  <div class="container">
+    <a class="navbar-brand" href="../index.html"><span class="brand-indian">Indian</span><span class="brand-elucid">Elucid</span><span class="brand-biology">Biology</span></a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav"><span class="navbar-toggler-icon"></span></button>
+    <div class="collapse navbar-collapse" id="mainNav">
+      <ul class="navbar-nav ms-auto me-3">
+        <li class="nav-item"><a class="nav-link" href="../index.html">Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="index.html">Tutorial Library</a></li>
+        <li class="nav-item"><a class="nav-link" href="popgen-vcftools-plink-filtering.html"><i class="bi bi-arrow-left me-1"></i>VCF Filtering</a></li>
+        <li class="nav-item"><a class="nav-link" href="popgen-psmc-demographic-history.html">PSMC<i class="bi bi-arrow-right ms-1"></i></a></li>
+      </ul>
+      <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode">&#9790;</button>
+    </div>
+  </div>
+</nav>
+
+<section class="tutorial-hero">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-lg-8">
+        <nav aria-label="breadcrumb"><ol class="breadcrumb mb-3" style="--bs-breadcrumb-divider-color:rgba(255,255,255,0.5);"><li class="breadcrumb-item"><a href="../index.html" class="text-white-50 text-decoration-none">Home</a></li><li class="breadcrumb-item"><a href="index.html" class="text-white-50 text-decoration-none">Tutorials</a></li><li class="breadcrumb-item active text-white">ADMIXTURE Population Structure</li></ol></nav>
+        <h1 class="display-5 fw-bold text-white mb-3">Population Structure with ADMIXTURE</h1>
+        <p class="lead text-white-50 mb-4">LD pruning &amp; QC &middot; Cross-validation to select K &middot; Ancestry proportion inference &middot; Publication-quality structure bar plots</p>
+        <div class="d-flex gap-3 flex-wrap">
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-clock me-1"></i> ~90 min</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-bar-chart me-1"></i> Intermediate</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-terminal me-1"></i> Bash / R</span>
+        </div>
+      </div>
+      <div class="col-lg-4 text-center d-none d-lg-block">
+        <img src="../img/Byte3.png" alt="Byte" class="img-fluid" style="max-height:230px;filter:drop-shadow(0 10px 30px rgba(0,0,0,0.4));">
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="container py-5">
+  <div class="row">
+    <div class="col-lg-3 d-none d-lg-block">
+      <div class="toc-sidebar">
+        <h6 class="fw-bold text-muted text-uppercase small mb-3">On this page</h6>
+        <nav class="nav flex-column">
+          <a class="nav-link" href="#overview">Overview</a>
+          <a class="nav-link" href="#dirstructure">Directory Structure</a>
+          <a class="nav-link" href="#dataset">Dataset</a>
+          <a class="nav-link" href="#step1">1. Download &amp; Filter VCF</a>
+          <a class="nav-link" href="#step2">2. PLINK: Convert &amp; LD Prune</a>
+          <a class="nav-link" href="#step3">3. Run ADMIXTURE (K=2–10)</a>
+          <a class="nav-link" href="#step4">4. Cross-Validation &amp; Select K</a>
+          <a class="nav-link" href="#step5">5. Structure Bar Plot in R</a>
+        </nav>
+      </div>
+    </div>
+    <div class="col-lg-9">
+      <div class="tutorial-content">
+
+        <section id="overview" class="mb-5">
+          <h2 class="section-divider">Overview</h2>
+          <p>ADMIXTURE (Alexander et al. 2009) uses a maximum-likelihood approach to decompose each individual&rsquo;s genotype into proportional contributions from K hypothetical ancestral populations. It is the most widely-used method for population structure inference and produces the familiar &ldquo;STRUCTURE bar plots&rdquo; seen in population genetics papers.</p>
+          <div class="byte-callout">
+            <img src="../img/Byte1.png" alt="Byte">
+            <div>
+              <strong>Key concepts:</strong>
+              <ul class="mb-0 mt-1 small">
+                <li><strong>K:</strong> number of ancestral populations assumed. Choosing the right K is a statistical and biological question.</li>
+                <li><strong>Q matrix:</strong> per-individual ancestry proportions summing to 1.0. The output you plot as bars.</li>
+                <li><strong>P matrix:</strong> per-population allele frequencies at each SNP. Used for downstream analyses.</li>
+                <li><strong>Cross-validation error (CV):</strong> the metric to select K &mdash; choose K at the elbow or minimum.</li>
+                <li><strong>LD pruning is essential:</strong> correlated SNPs violate ADMIXTURE&rsquo;s independence assumption and inflate apparent structure.</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <section id="dirstructure" class="mb-5">
+          <h2 class="section-divider">Ideal Directory Structure</h2>
+          <div class="dir-tree">
+            <div class="dir-tree-header"><i class="bi bi-folder2-open"></i> admixture_hgdp/</div>
+<span class="tree-folder">admixture_hgdp/</span>
+&#9500;&#9472;&#9472; <span class="tree-folder tree-active">0_raw/</span>               <span class="tree-note"># HGDP VCF download</span>
+&#9500;&#9472;&#9472; <span class="tree-folder">1_plink/</span>             <span class="tree-note"># converted + LD-pruned BED files</span>
+&#9474;   &#9500;&#9472;&#9472; <span class="tree-output">hgdp.bed / .bim / .fam</span>
+&#9474;   &#9492;&#9472;&#9472; <span class="tree-output">hgdp_pruned.bed / .bim / .fam</span>
+&#9500;&#9472;&#9472; <span class="tree-folder">2_admixture/</span>         <span class="tree-note"># ADMIXTURE run output per K</span>
+&#9474;   &#9500;&#9472;&#9472; <span class="tree-output">hgdp_pruned.2.Q</span>      <span class="tree-note"># Q matrix for K=2</span>
+&#9474;   &#9500;&#9472;&#9472; <span class="tree-output">hgdp_pruned.2.P</span>
+&#9474;   &#9500;&#9472;&#9472; <span class="tree-output">hgdp_pruned.7.Q</span>      <span class="tree-note"># Q matrix for K=7 (best K)</span>
+&#9474;   &#9492;&#9472;&#9472; <span class="tree-output">cv_errors.txt</span>        <span class="tree-note"># cross-validation scores</span>
+&#9492;&#9472;&#9472; <span class="tree-folder">3_plots/</span>             <span class="tree-note"># R-generated figures</span>
+    &#9500;&#9472;&#9472; <span class="tree-output">cv_error_plot.png</span>
+    &#9492;&#9472;&#9472; <span class="tree-output">structure_plot_K7.png</span>
+          </div>
+        </section>
+
+        <section id="dataset" class="mb-5">
+          <h2 class="section-divider">Dataset</h2>
+          <p>The <strong>Human Genome Diversity Panel (HGDP)</strong> is a curated collection of 929 individuals from 54 worldwide populations genotyped at ~6 million SNPs. It is the benchmark dataset for population structure methods and covers all major continental groups.</p>
+          <div class="param-table">
+            <table class="table table-striped mb-0">
+              <thead><tr><th>Property</th><th>Value</th></tr></thead>
+              <tbody>
+                <tr><td>Organism</td><td><em>Homo sapiens</em></td></tr>
+                <tr><td>Dataset</td><td>HGDP &mdash; Bergstr&ouml;m et al. 2020, <em>Science</em></td></tr>
+                <tr><td>Accession</td><td>PRJEB31736 / <a href="https://www.internationalgenome.org/data-portal/data-collection/hgdp" target="_blank">1000 Genomes HGDP data portal</a></td></tr>
+                <tr><td>Individuals</td><td>929 (54 populations, 7 continental regions)</td></tr>
+                <tr><td>SNPs</td><td>~6.4 million high-quality SNPs</td></tr>
+                <tr><td>Reference</td><td>GRCh38</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="thumb-rule mt-3"><strong>Why HGDP?</strong> It is the original dataset used to validate ADMIXTURE (Alexander et al. 2009) and STRUCTURE. The well-known K=7 result (Africa, Europe, Middle East, Central/South Asia, East Asia, Oceania, Americas) makes it ideal for validating your pipeline output.</div>
+        </section>
+
+        <section id="step1" class="mb-5">
+          <h2 class="section-divider">Step 1 — Download &amp; Filter VCF</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash — Download HGDP VCF</span><button class="btn-copy">Copy</button></div>
+<pre id="s1-download">mkdir -p 0_raw
+cd 0_raw
+
+# Download HGDP high-coverage WGS VCF from 1000 Genomes data portal
+# Individual chromosome files (~2-8 GB each); start with chr22 for testing
+wget http://ftp.1000genomes.ebi.ac.uk/vol1/ftp/data_collections/HGDP/release/20230531/\
+hgdp_wgs.20190516.full.chr22.vcf.gz
+wget http://ftp.1000genomes.ebi.ac.uk/vol1/ftp/data_collections/HGDP/release/20230531/\
+hgdp_wgs.20190516.full.chr22.vcf.gz.tbi
+
+# Alternative: use the pre-filtered PLINK format release (smaller, recommended)
+wget http://ftp.1000genomes.ebi.ac.uk/vol1/ftp/data_collections/HGDP/release/20230531/\
+hgdp_wgs.20190516.full.chr22.vcf.gz
+
+# Pre-filter: biallelic SNPs only, MAF > 1%, max 5% missing
+module load bcftools/1.17
+bcftools view \
+    --type snps \
+    --min-alleles 2 --max-alleles 2 \
+    --min-af 0.01:minor \
+    hgdp_wgs.20190516.full.chr22.vcf.gz | \
+  bcftools view \
+    --include 'F_MISSING < 0.05' \
+    --output-type z \
+    --output hgdp_chr22_filtered.vcf.gz
+bcftools index --tbi hgdp_chr22_filtered.vcf.gz
+
+cd ..</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s1-download" data-filename="01_download_hgdp.sh"><i class="bi bi-download me-1"></i>01_download_hgdp.sh</button></div>
+          <div class="cmd-explain">
+            <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> Download and pre-filter decoded</div>
+            <table>
+              <tr><td><span class="cmd-emoji">&#128296;</span>bcftools view --type snps --min-alleles 2 --max-alleles 2</td><td>Keep only biallelic SNPs. Removes indels, multiallelic sites, and monomorphic sites. ADMIXTURE strictly requires biallelic SNPs — any other variant type causes errors.</td></tr>
+              <tr><td><span class="cmd-emoji">&#128202;</span>--min-af 0.01:minor</td><td>Remove sites where the minor allele frequency is below 1%. Extremely rare variants carry little population structure information and increase noise. For ADMIXTURE, 1&ndash;5% MAF cutoff is standard.</td></tr>
+              <tr><td><span class="cmd-emoji">&#128101;</span>--include 'F_MISSING &lt; 0.05'</td><td>bcftools expression to keep sites with &lt;5% missing genotypes. <code>F_MISSING</code> is a built-in INFO field computed on the fly from genotype data. More flexible than VCFtools <code>--max-missing</code> syntax.</td></tr>
+            </table>
+          </div>
+        </section>
+
+        <section id="step2" class="mb-5">
+          <h2 class="section-divider">Step 2 — PLINK: Convert &amp; LD Prune</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash — Convert to PLINK BED and LD prune</span><button class="btn-copy">Copy</button></div>
+<pre id="s2-plink">mkdir -p 1_plink
+module load plink2/2.0
+
+# Merge all chromosomes into one VCF first (if using full genome)
+# bcftools concat 0_raw/hgdp_chr*_filtered.vcf.gz -Oz -o 0_raw/hgdp_all_filtered.vcf.gz
+# For chr22 test:
+VCF="0_raw/hgdp_chr22_filtered.vcf.gz"
+
+# Convert VCF -> PLINK BED
+plink2 \
+    --vcf ${VCF} \
+    --make-bed \
+    --out 1_plink/hgdp \
+    --allow-extra-chr \
+    --set-all-var-ids '@_#' \
+    --snps-only just-acgt
+
+echo "Total SNPs: $(wc -l < 1_plink/hgdp.bim)"
+echo "Samples:    $(wc -l < 1_plink/hgdp.fam)"
+
+# LD pruning: window 200 SNPs, step 25, r^2 threshold 0.1
+# Strict (r^2 < 0.1) is required for ADMIXTURE
+plink2 \
+    --bfile 1_plink/hgdp \
+    --indep-pairwise 200 25 0.1 \
+    --allow-extra-chr \
+    --out 1_plink/ld_prune
+
+# Extract pruned SNPs
+plink2 \
+    --bfile 1_plink/hgdp \
+    --extract 1_plink/ld_prune.prune.in \
+    --make-bed \
+    --allow-extra-chr \
+    --out 1_plink/hgdp_pruned
+
+echo "SNPs after LD pruning: $(wc -l < 1_plink/hgdp_pruned.bim)"
+
+# ADMIXTURE requires no chromosome code "0" — recode if needed
+awk '{$1=0; print $0}' 1_plink/hgdp_pruned.bim > 1_plink/hgdp_pruned_recode.bim
+cp 1_plink/hgdp_pruned.bed 1_plink/hgdp_pruned_recode.bed
+cp 1_plink/hgdp_pruned.fam 1_plink/hgdp_pruned_recode.fam</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s2-plink" data-filename="02_plink_ld_prune.sh"><i class="bi bi-download me-1"></i>02_plink_ld_prune.sh</button></div>
+          <div class="cmd-explain">
+            <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> PLINK LD pruning decoded</div>
+            <table>
+              <tr><td><span class="cmd-emoji">&#127775;</span>--indep-pairwise 200 25 0.1</td><td>Window of 200 SNPs, shift 25 SNPs, remove one SNP per pair with r&sup2; &gt; 0.1. The larger window (200 vs. 50) and smaller r&sup2; cutoff (0.1) gives more aggressive pruning. For a globally diverse human dataset expect ~100k&ndash;200k SNPs to remain from millions — this is sufficient for ADMIXTURE.</td></tr>
+              <tr><td><span class="cmd-emoji">&#128296;</span>Recode chromosome to 0</td><td>ADMIXTURE 1.3.x cannot handle non-numeric chromosome codes. Setting column 1 of the .bim file to <code>0</code> (unknown chromosome) is the standard workaround for datasets with alphanumeric chromosome names.</td></tr>
+            </table>
+          </div>
+        </section>
+
+        <section id="step3" class="mb-5">
+          <h2 class="section-divider">Step 3 — Run ADMIXTURE (K=2–10)</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash — ADMIXTURE loop with cross-validation (SLURM array)</span><button class="btn-copy">Copy</button></div>
+<pre id="s3-admixture">#!/bin/bash
+#SBATCH --array=2-10
+#SBATCH -N 1
+#SBATCH --ntasks-per-node=8
+#SBATCH --mem=32G
+#SBATCH --time=12:00:00
+#SBATCH --job-name=admixture_K%a
+
+mkdir -p 2_admixture
+cd 2_admixture
+
+K=${SLURM_ARRAY_TASK_ID}
+BED="../1_plink/hgdp_pruned_recode.bed"
+
+# Run ADMIXTURE with cross-validation (5-fold CV)
+# -j8 uses 8 threads; --cv=5 performs 5-fold cross-validation
+admixture --cv=5 -j8 ${BED} ${K} | tee admixture_K${K}.log
+
+echo "Finished K=${K}"
+
+# After all jobs complete, collect CV errors:
+# grep "CV error" 2_admixture/admixture_K*.log | \
+#   awk '{print $3, $4}' | sed 's/K=//;s/)://' | sort -n > 2_admixture/cv_errors.txt</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s3-admixture" data-filename="03_run_admixture.sh"><i class="bi bi-download me-1"></i>03_run_admixture.sh</button></div>
+          <div class="cmd-explain">
+            <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> ADMIXTURE flags decoded</div>
+            <table>
+              <tr><td><span class="cmd-emoji">&#127775;</span>--cv=5</td><td>5-fold cross-validation. ADMIXTURE holds out 20% of genotypes per fold, trains on the remaining 80%, and computes prediction error on the held-out data. Lower CV error = better fit. The K with minimum CV error is statistically optimal.</td></tr>
+              <tr><td><span class="cmd-emoji">&#128101;</span>-j8</td><td>Number of CPU threads. ADMIXTURE parallelises the E-step of the EM algorithm across threads. Scales well to ~16 cores; beyond that returns diminish. Set to the number of cores you&rsquo;ve requested in SLURM.</td></tr>
+              <tr><td><span class="cmd-emoji">&#128202;</span>Output: .Q and .P files</td><td>The <code>.Q</code> file has one row per individual and K columns of ancestry proportions (sum to 1.0). The <code>.P</code> file has one row per SNP and K columns of allele frequencies in each ancestral population. You typically only need <code>.Q</code> for plotting.</td></tr>
+            </table>
+          </div>
+          <div class="fun-tip"><span class="fun-tip-icon">&#128336;</span><div><strong>Runtime note:</strong> For 929 individuals and ~150k SNPs, each K takes ~30&ndash;60 minutes on 8 cores. Run K=2&ndash;10 as a SLURM array so all jobs run in parallel. For non-HPC environments, run sequentially in a loop: <code>for K in $(seq 2 10); do admixture --cv=5 -j4 hgdp_pruned.bed $K; done</code></div></div>
+        </section>
+
+        <section id="step4" class="mb-5">
+          <h2 class="section-divider">Step 4 — Cross-Validation &amp; Select K</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash + R — Collect CV errors and plot</span><button class="btn-copy">Copy</button></div>
+<pre id="s4-cv">## Bash: collect CV errors from log files
+grep "CV error" 2_admixture/admixture_K*.log | \
+    awk '{print $3, $4}' | \
+    sed 's/K=//;s/)://' | \
+    sort -n > 2_admixture/cv_errors.txt
+
+cat 2_admixture/cv_errors.txt
+# Expected output:
+# 2 0.4821
+# 3 0.4512
+# 7 0.4201   <- lowest = best K
+# 10 0.4350</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s4-cv" data-filename="04_collect_cv.sh"><i class="bi bi-download me-1"></i>04_collect_cv.sh</button></div>
+          <div class="cmd-explain">
+            <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> CV error selection decoded</div>
+            <table>
+              <tr><td><span class="cmd-emoji">&#127919;</span>Minimum CV error = best statistical K</td><td>The K at the minimum cross-validation error is statistically optimal. However, biological context matters — for the HGDP dataset, K=7 matches known continental groups and is biologically interpretable, even if K=5 sometimes has slightly lower CV error depending on the SNP panel used.</td></tr>
+              <tr><td><span class="cmd-emoji">&#128202;</span>Elbow vs. minimum</td><td>Sometimes the CV error curve has an &ldquo;elbow&rdquo; (inflection point) before a flat region. Both the elbow K and the minimum K are defensible choices. Report both in your methods section and show multiple K values in supplementary figures.</td></tr>
+            </table>
+          </div>
+        </section>
+
+        <section id="step5" class="mb-5">
+          <h2 class="section-divider">Step 5 — Structure Bar Plot in R</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R — Publication-quality ADMIXTURE structure plot</span><button class="btn-copy">Copy</button></div>
+<pre id="s5-plot">library(tidyverse)
+library(ggplot2)
+library(RColorBrewer)
+
+K_BEST <- 7
+
+# Load Q matrix
+Q <- read.table(
+    paste0("2_admixture/hgdp_pruned_recode.", K_BEST, ".Q"),
+    header = FALSE
+)
+colnames(Q) <- paste0("K", 1:K_BEST)
+
+# Load FAM file for sample IDs
+fam <- read.table("1_plink/hgdp_pruned_recode.fam", header=FALSE)
+Q$sample_id <- fam$V2
+
+# Load metadata (region, population)
+# Download from: https://www.internationalgenome.org/data-portal/data-collection/hgdp
+meta <- read.table("metadata_hgdp.txt", header=TRUE, sep="\t") %>%
+    rename(sample_id = Sample)
+
+Q_meta <- left_join(Q, meta, by="sample_id") %>%
+    arrange(Region, Population, K1)
+
+# Convert to long format for ggplot
+Q_long <- Q_meta %>%
+    pivot_longer(cols=starts_with("K"), names_to="component", values_to="proportion")
+
+# Order individuals by region/population
+Q_long$sample_id <- factor(Q_long$sample_id, levels=unique(Q_meta$sample_id))
+
+# Structure bar plot
+ggplot(Q_long, aes(x=sample_id, y=proportion, fill=component)) +
+    geom_bar(stat="identity", width=1, position="stack") +
+    facet_grid(~ Region, scales="free_x", space="free_x") +
+    scale_fill_manual(values=brewer.pal(K_BEST, "Set1")) +
+    labs(
+        title = paste0("HGDP ADMIXTURE K=", K_BEST),
+        x = "Individual", y = "Ancestry proportion"
+    ) +
+    theme_bw(base_size=11) +
+    theme(
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        panel.spacing = unit(0.5, "mm"),
+        strip.text = element_text(size=8, face="bold"),
+        legend.position = "bottom"
+    ) +
+    guides(fill=guide_legend(title="Ancestry", nrow=1))
+
+ggsave("3_plots/structure_plot_K7.png", width=16, height=4, dpi=180)
+
+# CV error plot
+cv <- read.table("2_admixture/cv_errors.txt", col.names=c("K","CV"))
+ggplot(cv, aes(x=K, y=CV)) +
+    geom_line(color="#0d6efd") + geom_point(color="#0d6efd", size=3) +
+    geom_point(data=cv[which.min(cv$CV),], color="red", size=5, shape=17) +
+    scale_x_continuous(breaks=cv$K) +
+    labs(x="K (number of populations)", y="Cross-validation error",
+         title="ADMIXTURE CV error by K") +
+    theme_bw(base_size=13)
+ggsave("3_plots/cv_error_plot.png", width=7, height=5, dpi=150)</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s5-plot" data-filename="05_structure_plot.R"><i class="bi bi-download me-1"></i>05_structure_plot.R</button></div>
+          <div class="cmd-explain">
+            <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> Structure plot decoded</div>
+            <table>
+              <tr><td><span class="cmd-emoji">&#128200;</span>pivot_longer + geom_bar(stat="identity")</td><td>Convert the wide Q matrix (one column per K) to long format, then stack bars. Each individual is one vertical bar; colours show ancestry proportions. The key is ordering individuals by population and region so the plot shows clean transitions between groups.</td></tr>
+              <tr><td><span class="cmd-emoji">&#128101;</span>facet_grid(~ Region, scales="free_x", space="free_x")</td><td>Creates separate panels per continent, with panel widths proportional to the number of individuals in each region. This prevents large regions (Africa) from visually dominating the plot.</td></tr>
+            </table>
+          </div>
+          <div class="fun-tip"><span class="fun-tip-icon">&#127776;</span><div><strong>Expected HGDP K=7 result:</strong> Africa (orange), Europe (blue), Middle East (green), Central/South Asia (yellow), East Asia (red), Oceania (purple), Americas (pink). Each continental group should appear as a near-solid colour, with admixed individuals (e.g. Central Asian populations) showing multi-colour bars. This is the &ldquo;canonical&rdquo; ADMIXTURE result first shown by Alexander et al. 2009.</div></div>
+        </section>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="container mb-5">
+  <div class="d-flex justify-content-between">
+    <a href="popgen-vcftools-plink-filtering.html" class="btn btn-outline-secondary rounded-pill px-4"><i class="bi bi-arrow-left me-2"></i>VCF Filtering &amp; Pop Stats</a>
+    <a href="popgen-psmc-demographic-history.html" class="btn btn-primary rounded-pill px-4">PSMC &amp; Demographic History <i class="bi bi-arrow-right ms-2"></i></a>
+  </div>
+</div>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-lg-6"><h5 class="text-white fw-bold mb-3"><span style="color:#ff9933;">Indian</span><span style="color:var(--ieb-primary);">Elucid</span><span style="color:var(--ieb-accent);">Biology</span></h5><p class="small">Free, interactive bioinformatics tutorials. Open source and community-driven.</p></div>
+      <div class="col-lg-6 text-lg-end"><p class="small mb-1">Founded by <strong>Ankush Sharma</strong></p><div class="d-flex gap-3 justify-content-lg-end"><a href="https://github.com/ank-man" target="_blank" class="text-white fs-5"><i class="bi bi-github"></i></a><a href="https://www.linkedin.com/in/ankush-sharma-290307/" target="_blank" class="text-white fs-5"><i class="bi bi-linkedin"></i></a><a href="mailto:mr.ank2999@gmail.com" class="text-white fs-5"><i class="bi bi-envelope"></i></a></div></div>
+    </div>
+    <hr class="border-secondary mt-4 mb-3">
+    <p class="text-center small mb-0">&copy; 2025 IndianElucidBiology &mdash; Made with <span style="color:#e25555;">&#9829;</span> for the bioinformatics community.</p>
+  </div>
+</footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/main.js"></script>
+</body>
+</html>

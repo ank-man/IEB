@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Introgression: ABBA-BABA &amp; D-statistics with ADMIXTOOLS2 | IndianElucidBiology</title>
+  <meta name="description" content="Detect ancient and recent gene flow between populations using Patterson's D-statistics, f3/f4 statistics, fd-statistics, and ADMIXTOOLS2 qpGraph. Uses the Neanderthal introgression dataset and modern human SGDP panel.">
+  <meta name="keywords" content="ABBA-BABA, D-statistics, introgression, gene flow, ADMIXTOOLS2, Dsuite, f3, f4, fd, Patterson, Neanderthal, admixture, population genomics">
+  <link rel="canonical" href="https://indianelucidbiology.github.io/tutorials/popgen-abba-baba-introgression.html">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="../css/style.css" rel="stylesheet">
+</head>
+<body>
+<div class="progress-tracker"></div>
+
+<!-- =====================================================================
+     NAVBAR
+     ===================================================================== -->
+<nav class="navbar navbar-expand-lg fixed-top">
+  <div class="container">
+    <a class="navbar-brand" href="../index.html">
+      <span class="brand-indian">Indian</span><span class="brand-elucid">Elucid</span><span class="brand-biology">Biology</span>
+    </a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="mainNav">
+      <ul class="navbar-nav ms-auto me-3">
+        <li class="nav-item"><a class="nav-link" href="../index.html">Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="index.html">Tutorial Library</a></li>
+        <li class="nav-item"><a class="nav-link" href="popgen-fst-selective-sweeps.html"><i class="bi bi-arrow-left me-1"></i>Fst &amp; Sweeps</a></li>
+        <li class="nav-item"><a class="nav-link" href="popgen-treemix-migration.html">TreeMix<i class="bi bi-arrow-right ms-1"></i></a></li>
+      </ul>
+      <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode">&#9790;</button>
+    </div>
+  </div>
+</nav>
+
+<!-- =====================================================================
+     HERO
+     ===================================================================== -->
+<section class="tutorial-hero">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-lg-8">
+        <nav aria-label="breadcrumb">
+          <ol class="breadcrumb mb-3" style="--bs-breadcrumb-divider-color:rgba(255,255,255,0.5);">
+            <li class="breadcrumb-item"><a href="../index.html" class="text-white-50 text-decoration-none">Home</a></li>
+            <li class="breadcrumb-item"><a href="index.html" class="text-white-50 text-decoration-none">Tutorials</a></li>
+            <li class="breadcrumb-item active text-white">ABBA-BABA &amp; Introgression</li>
+          </ol>
+        </nav>
+        <h1 class="display-5 fw-bold text-white mb-3">Introgression: ABBA-BABA &amp; D-statistics</h1>
+        <p class="lead text-white-50 mb-4">
+          Patterson&rsquo;s D-statistic &middot; f3 &amp; f4 admixture fractions &middot; fd-statistic for local introgression &middot; ADMIXTOOLS2 graph fitting &middot; Dsuite multi-population tests
+        </p>
+        <div class="d-flex gap-3 flex-wrap">
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-clock me-1"></i> ~120 min</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-bar-chart me-1"></i> Advanced</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-terminal me-1"></i> Bash / R</span>
+        </div>
+      </div>
+      <div class="col-lg-4 text-center d-none d-lg-block">
+        <img src="../img/Byte3.png" alt="Byte" class="img-fluid" style="max-height:230px;filter:drop-shadow(0 10px 30px rgba(0,0,0,0.4));">
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =====================================================================
+     MAIN CONTENT
+     ===================================================================== -->
+<div class="container py-5">
+  <div class="row">
+
+    <!-- TOC sidebar -->
+    <div class="col-lg-3 d-none d-lg-block">
+      <div class="toc-sidebar">
+        <h6 class="fw-bold text-muted text-uppercase small mb-3">On this page</h6>
+        <nav class="nav flex-column">
+          <a class="nav-link" href="#overview">Overview</a>
+          <a class="nav-link" href="#dirstructure">Directory Structure</a>
+          <a class="nav-link" href="#dataset">Dataset</a>
+          <a class="nav-link" href="#step1">1. Download &amp; Prepare</a>
+          <a class="nav-link" href="#step2">2. Dsuite — All Population D-stats</a>
+          <a class="nav-link" href="#step3">3. ADMIXTOOLS2 — f3 &amp; f4</a>
+          <a class="nav-link" href="#step4">4. fd-statistic (Local Introgression)</a>
+          <a class="nav-link" href="#step5">5. ADMIXTOOLS2 — qpGraph</a>
+          <a class="nav-link" href="#step6">6. Visualise Results</a>
+        </nav>
+      </div>
+    </div>
+
+    <!-- Tutorial body -->
+    <div class="col-lg-9">
+      <div class="tutorial-content">
+
+<!-- ------------------------------------------------------------------ -->
+<!-- OVERVIEW                                                             -->
+<!-- ------------------------------------------------------------------ -->
+<section id="overview" class="mb-5">
+  <h2 class="section-divider">Overview</h2>
+  <p>When two populations that diverged long ago come back into secondary contact, they can exchange genetic material — a process called <strong>introgression</strong>. The ABBA-BABA test (Green et al. 2010) detects this by looking for an asymmetry in the pattern of shared derived alleles between four populations arranged in a tree. This tutorial covers the complete pipeline from raw allele counts to population graph fitting.</p>
+  <div class="byte-callout">
+    <img src="../img/Byte1.png" alt="Byte">
+    <div>
+      <strong>The four-taxon test — what are ABBA and BABA patterns?</strong><br>
+      For a tree <strong>((P1, P2), P3, Outgroup)</strong>:
+      <ul class="mb-0 mt-1 small">
+        <li><strong>ABBA:</strong> P1 has ancestral allele (A), P2 and P3 share derived allele (B) — suggests P2&ndash;P3 gene flow</li>
+        <li><strong>BABA:</strong> P1 and P3 share derived allele (B), P2 has ancestral allele (A) — suggests P1&ndash;P3 gene flow</li>
+        <li>Under a simple bifurcating tree: ABBA count ≈ BABA count → <strong>D ≈ 0</strong></li>
+        <li>If P3 introgressed into P2: more ABBA than BABA → <strong>D &gt; 0, Z-score &gt; 3</strong></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ------------------------------------------------------------------ -->
+<!-- DIRECTORY STRUCTURE                                                  -->
+<!-- ------------------------------------------------------------------ -->
+<section id="dirstructure" class="mb-5">
+  <h2 class="section-divider">Ideal Directory Structure</h2>
+  <div class="dir-tree">
+    <div class="dir-tree-header"><i class="bi bi-folder2-open"></i> introgression_human/</div>
+<span class="tree-folder">introgression_human/</span>
+&#9500;&#9472;&#9472; <span class="tree-folder tree-active">0_raw/</span>            <span class="tree-note"># VCF from SGDP + Neanderthal</span>
+&#9500;&#9472;&#9472; <span class="tree-folder">1_filtered/</span>       <span class="tree-note"># filtered biallelic SNPs</span>
+&#9500;&#9472;&#9472; <span class="tree-folder">2_popmap/</span>         <span class="tree-note"># population assignment files</span>
+&#9474;   &#9500;&#9472;&#9472; <span class="tree-file">popmap.txt</span>       <span class="tree-note"># sample → population mapping (for Dsuite)</span>
+&#9474;   &#9492;&#9472;&#9472; <span class="tree-file">tree.nwk</span>         <span class="tree-note"># guide tree (Newick format)</span>
+&#9500;&#9472;&#9472; <span class="tree-folder">3_dsuite/</span>         <span class="tree-note"># Dsuite Dtrios output</span>
+&#9500;&#9472;&#9472; <span class="tree-folder">4_admixtools/</span>     <span class="tree-note"># ADMIXTOOLS2 f3/f4/qpGraph</span>
+&#9500;&#9472;&#9472; <span class="tree-folder">5_fd/</span>             <span class="tree-note"># fd windowed introgression map</span>
+&#9492;&#9472;&#9472; <span class="tree-folder">6_plots/</span>          <span class="tree-note"># final figures</span>
+  </div>
+</section>
+
+<!-- ------------------------------------------------------------------ -->
+<!-- DATASET                                                              -->
+<!-- ------------------------------------------------------------------ -->
+<section id="dataset" class="mb-5">
+  <h2 class="section-divider">Dataset</h2>
+  <p>We use the <strong>Simons Genome Diversity Project (SGDP)</strong> modern human panel combined with the high-coverage Altai Neanderthal genome to replicate the canonical Neanderthal introgression analysis. This is the best-validated introgression dataset in all of genomics.</p>
+  <div class="param-table">
+    <table class="table table-striped mb-0">
+      <thead><tr><th>Property</th><th>Value</th></tr></thead>
+      <tbody>
+        <tr><td>Modern humans</td><td>SGDP — 279 individuals from 142 populations (<a href="https://www.simonsfoundation.org/simons-genome-diversity-project/" target="_blank">PRJEB9586</a>)</td></tr>
+        <tr><td>Neanderthal</td><td>Altai Neanderthal (high-coverage, <a href="https://www.ncbi.nlm.nih.gov/bioproject/PRJNA20345" target="_blank">PRJNA20345</a>)</td></tr>
+        <tr><td>Outgroup</td><td>Chimpanzee (Pan troglodytes) or Denisovan for polarisation</td></tr>
+        <tr><td>Reference</td><td>GRCh38</td></tr>
+        <tr><td>Expected D result</td><td>D &gt; 0 for all non-African populations vs African (Neanderthal introgression ~1&ndash;4%)</td></tr>
+        <tr><td>Publication</td><td>Meyer et al. 2012 <em>Science</em>; Mallick et al. 2016 <em>Nature</em></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="thumb-rule mt-3"><strong>Four-taxon setup:</strong> P1 = African population (e.g. Yoruba), P2 = non-African population (e.g. European/Asian), P3 = Altai Neanderthal, Outgroup = Chimpanzee. If Neanderthal introgressed into non-Africans after the out-of-Africa migration, we expect more ABBA (P2&ndash;P3 share derived allele) than BABA → D &gt; 0.</div>
+</section>
+
+<!-- ------------------------------------------------------------------ -->
+<!-- STEP 1 — DOWNLOAD & PREPARE                                         -->
+<!-- ------------------------------------------------------------------ -->
+<section id="step1" class="mb-5">
+  <h2 class="section-divider">Step 1 — Download &amp; Prepare Data</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash — Download SGDP VCF + Neanderthal and merge</span><button class="btn-copy">Copy</button></div>
+<pre id="s1-download">######################################################################
+## STEP 1: Download the SGDP modern human + Neanderthal VCF and prepare
+## for introgression analysis.
+## We need a single multi-sample VCF containing:
+##   1. Modern human diversity panel (SGDP)
+##   2. Altai Neanderthal (as an individual in the VCF)
+##   3. Outgroup alleles (chimpanzee or Denisovan)
+######################################################################
+
+mkdir -p 0_raw 1_filtered 2_popmap 3_dsuite 4_admixtools 5_fd 6_plots
+module load bcftools/1.17
+module load vcftools/0.1.16
+
+## --- Download the SGDP callset (chr1 for testing; ~1.5 GB per chromosome) ---
+## The full SGDP VCF is available from EBI at PRJEB9586
+## Here we use the publicly available chr-by-chr VCFs
+wget -P 0_raw/ \
+  ftp://ngs.sanger.ac.uk/production/sgdp/phase3-shapeit2-mvncall-integrated-hg38-PASS-chrs/\
+  chr1.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz
+wget -P 0_raw/ \
+  ftp://ngs.sanger.ac.uk/production/sgdp/phase3-shapeit2-mvncall-integrated-hg38-PASS-chrs/\
+  chr1.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz.tbi
+
+## --- Pre-filter: biallelic SNPs, MAF > 1%, < 5% missing ---
+## --type snps           : SNPs only (no indels, no MNPs)
+## --min-alleles 2       : minimum 2 alleles (= at least 1 alt allele)
+## --max-alleles 2       : maximum 2 alleles (biallelic only)
+## --min-af 0.01:minor   : minor allele frequency >= 1%
+## --include             : bcftools expression to filter missing data
+bcftools view \
+    --type snps \
+    --min-alleles 2 --max-alleles 2 \
+    --min-af 0.01:minor \
+    0_raw/chr1.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz | \
+  bcftools view \
+    --include 'F_MISSING < 0.05' \
+    --output-type z \
+    --output 1_filtered/sgdp_chr1_filtered.vcf.gz
+
+## Index the filtered VCF
+bcftools index --tbi 1_filtered/sgdp_chr1_filtered.vcf.gz
+
+## --- Check sample count ---
+echo "Number of samples: $(bcftools query -l 1_filtered/sgdp_chr1_filtered.vcf.gz | wc -l)"
+echo "Number of SNPs:    $(bcftools view --no-header 1_filtered/sgdp_chr1_filtered.vcf.gz | wc -l)"
+
+## --- Create the population mapping file for Dsuite ---
+## Format: two columns (tab-separated):
+##   Column 1: sample ID (must match VCF header exactly)
+##   Column 2: population name (e.g. Yoruba, French, Han, Neanderthal)
+## Neanderthal sample should be assigned the special label "Outgroup" or its own group
+## Use SGDP metadata from:
+## https://www.simonsfoundation.org/simons-genome-diversity-project/
+
+## Example: extract sample list and assign populations from metadata
+bcftools query -l 1_filtered/sgdp_chr1_filtered.vcf.gz > 2_popmap/all_samples.txt
+
+## You need to manually create popmap.txt based on SGDP metadata
+## Format example (first 5 lines):
+## S_Yoruba-1    Yoruba
+## S_Yoruba-2    Yoruba
+## S_French-1    French
+## S_Han-1       Han
+## AltaiNea      Neanderthal   ← the Neanderthal sample
+echo "Please create 2_popmap/popmap.txt manually based on SGDP metadata."
+echo "Then create 2_popmap/tree.nwk: ((Yoruba,(French,Han)),Neanderthal,Chimp);"</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s1-download" data-filename="01_download_prepare.sh"><i class="bi bi-download me-1"></i>01_download_prepare.sh</button></div>
+  <div class="cmd-explain">
+    <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> Data preparation decoded</div>
+    <table>
+      <tr><td><span class="cmd-emoji">&#128101;</span>Population map file</td><td>The popmap.txt file tells Dsuite which sample belongs to which population. Each line has: <code>sample_id [TAB] population_name</code>. The outgroup population must be listed last in the guide tree, and typically one population is designated as <code>Outgroup</code> for polarising alleles as ancestral/derived.</td></tr>
+      <tr><td><span class="cmd-emoji">&#127795;</span>Guide tree</td><td>A Newick-format tree specifying the known or expected relationships between populations. Dsuite uses this tree to determine which trio combinations of populations to test (P1, P2, P3). The topology should reflect the species/population phylogeny — incorrect topology can obscure real introgression signals.</td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- ------------------------------------------------------------------ -->
+<!-- STEP 2 — DSUITE ALL-POPULATION D-STATS                             -->
+<!-- ------------------------------------------------------------------ -->
+<section id="step2" class="mb-5">
+  <h2 class="section-divider">Step 2 — Dsuite: All-Population D-statistics</h2>
+  <p>Dsuite (Martin et al. 2021) efficiently computes D-statistics for all possible trio combinations across a multi-population dataset. It uses the guide tree to organise results.</p>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash — Dsuite Dtrios and Fbranch analysis</span><button class="btn-copy">Copy</button></div>
+<pre id="s2-dsuite">######################################################################
+## STEP 2: Run Dsuite to compute D-statistics for ALL trio combinations
+## This is the most efficient way to screen a multi-population dataset
+## for gene flow. Dsuite tests every possible (P1, P2, P3) combination
+## and produces a matrix of D-statistics and Z-scores.
+######################################################################
+
+## Dsuite installation: https://github.com/millanek/Dsuite
+## Compile with: make
+## Add to PATH: export PATH="/path/to/Dsuite/Build:$PATH"
+
+VCF="1_filtered/sgdp_chr1_filtered.vcf.gz"
+POPMAP="2_popmap/popmap.txt"
+TREE="2_popmap/tree.nwk"
+
+## --- Dsuite Dtrios: test all (P1, P2, P3) trios ---
+## Dtrios     : the subcommand for all-trio D-statistic testing
+## -t TREE    : guide tree — tells Dsuite which population is outgroup
+##              and organises trios according to tree topology
+## -n sgdp    : output file prefix (output saved in 3_dsuite/)
+## The last argument is the VCF file
+## NOTE: Dsuite automatically identifies the Outgroup population from the tree
+Dsuite Dtrios \
+    -t ${TREE} \
+    -n 3_dsuite/sgdp \
+    ${VCF} \
+    ${POPMAP}
+
+## Output files created:
+##   3_dsuite/sgdp_BBAA.txt    ← main D-statistic results
+##   3_dsuite/sgdp_Dmin.txt    ← minimum D among trios with the same P3
+##   3_dsuite/sgdp_tree.txt    ← results ordered by guide tree
+
+## --- View results: columns are P1, P2, P3, Dstatistic, Z-score, p-value ---
+## Z-score > 3 is the conventional significance threshold (equivalent to p < 0.001)
+echo "=== Top introgression signals (|Z-score| > 3) ==="
+awk 'NR>1 && ($5 > 3 || $5 < -3) {print}' 3_dsuite/sgdp_BBAA.txt | \
+    sort -k5 -rn | head -20
+
+## --- Dsuite Fbranch: estimate which branch received gene flow ---
+## Fbranch uses the BBAA file + the guide tree to determine which
+## specific branch in the tree is the source/recipient of introgression
+## This is more informative than raw D-statistics
+Dsuite Fbranch \
+    ${TREE} \
+    3_dsuite/sgdp_BBAA.txt \
+    > 3_dsuite/sgdp_Fbranch.txt
+
+echo "Fbranch results saved in 3_dsuite/sgdp_Fbranch.txt"</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s2-dsuite" data-filename="02_dsuite_dtrios.sh"><i class="bi bi-download me-1"></i>02_dsuite_dtrios.sh</button></div>
+  <div class="cmd-explain">
+    <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> Dsuite commands decoded</div>
+    <table>
+      <tr><td><span class="cmd-emoji">&#128200;</span>BBAA.txt vs Dmin.txt</td><td><code>BBAA.txt</code> contains results for the trio arrangement where the BBAA count (P2 and P3 share derived allele) exceeds BABA and ABBA — this is typically the topology-consistent arrangement. <code>Dmin.txt</code> reports the minimum D value among all arrangements of a trio — a conservative estimator that reduces false positives from tree misspecification.</td></tr>
+      <tr><td><span class="cmd-emoji">&#127795;</span>Fbranch</td><td>Fbranch post-processes Dtrios output to assign introgression signals to specific branches in the tree. Instead of asking &ldquo;did P2 and P3 exchange genes?&rdquo;, it asks &ldquo;which branch of the tree carries the excess gene flow?&rdquo;. This is essential for distinguishing direct introgression from shared ancient introgression.</td></tr>
+      <tr><td><span class="cmd-emoji">&#127919;</span>Z-score threshold</td><td>Z-score &gt; 3 (≈ p &lt; 0.001) is the conventional threshold for significant D-statistics. Z-scores are computed by jackknifing across blocks of the genome. More blocks = more stable Z-scores. For whole-genome data, use blocks of 5 Mb. For single-chromosome tests, results may be less stable.</td></tr>
+    </table>
+  </div>
+  <div class="fun-tip"><span class="fun-tip-icon">&#128101;</span><div><strong>Expected Neanderthal result:</strong> All non-African vs African trios with Neanderthal as P3 should show D &gt; 0 with Z-score &gt; 3. African populations should show D ≈ 0. This asymmetry — Neanderthal alleles in non-Africans but not Africans — is the original 2010 evidence for Neanderthal introgression published by Green et al.</div></div>
+</section>
+
+<!-- ------------------------------------------------------------------ -->
+<!-- STEP 3 — ADMIXTOOLS2 f3 & f4                                        -->
+<!-- ------------------------------------------------------------------ -->
+<section id="step3" class="mb-5">
+  <h2 class="section-divider">Step 3 — ADMIXTOOLS2: f3 and f4 Statistics</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>R — ADMIXTOOLS2 f3 (admixture test) and f4 (D-statistic)</span><button class="btn-copy">Copy</button></div>
+<pre id="s3-admixtools">######################################################################
+## STEP 3: Use ADMIXTOOLS2 to compute f3 and f4 statistics
+##
+## f3(A; B, C) = outgroup f3 = measures shared drift between B and C
+##   relative to outgroup A.
+##   Negative f3 = A is an ADMIXTURE of B and C (admixture test)
+##
+## f4(A, B; C, D) = equivalent to Patterson's D statistic
+##   = tests if (A,B) or (A,C) share more derived alleles with D
+##   Non-zero f4 = evidence of gene flow between (B,C) or (A,D)
+######################################################################
+
+## Install ADMIXTOOLS2 in R:
+## devtools::install_github("uqrmaie1/admixtools")
+
+library(admixtools)    # ADMIXTOOLS2 R package
+library(tidyverse)
+
+## --- Step 1: Build the SNP data object from VCF ---
+## This pre-computes allele frequency data and stores it in a compact format
+## for fast f-statistic calculations
+prefix <- "1_filtered/sgdp_chr1_filtered"   # VCF prefix (without .vcf.gz)
+outdir <- "4_admixtools/"
+
+## Convert VCF to ADMIXTOOLS2 format (creates .geno, .snp, .ind files)
+## vcf2eigenstrat() is a helper that calls plink internally
+## This step may take 10-30 minutes for large datasets
+vcf2eigenstrat(
+    vcf = paste0(prefix, ".vcf.gz"),
+    out = paste0(outdir, "sgdp_eigenstrat")
+)
+
+## --- Step 2: Load the data ---
+## read_plink() reads PLINK BED format; read_eigenstrat() for EIGENSTRAT format
+## popinfo: data frame mapping individual IDs to populations (from popmap.txt)
+popinfo <- read.table("2_popmap/popmap.txt",
+                      col.names = c("ind", "pop"), sep="\t")
+
+data <- read_eigenstrat(paste0(outdir, "sgdp_eigenstrat"), pops=popinfo)
+
+## --- Step 3: Compute f4 statistics (= Patterson's D) ---
+## f4(Yoruba, NonAfrican; Neanderthal, Chimp)
+## If non-African populations introgressed with Neanderthal:
+##   f4 should be NEGATIVE (excess shared derived alleles between NonAfrican and Neanderthal)
+## Define the four populations to test:
+f4_result <- f4(
+    data,
+    pop1 = "Yoruba",          # P1: African outgroup (no Neanderthal introgression)
+    pop2 = "French",          # P2: non-African test population
+    pop3 = "Neanderthal",     # P3: putative source of introgression
+    pop4 = "Chimp",           # P4: outgroup for polarising derived alleles
+    boot = TRUE               # bootstrap across SNP blocks for Z-scores
+)
+
+## --- View results ---
+cat("f4 estimate:", f4_result$est, "\n")
+cat("Z-score:    ", f4_result$z, "\n")
+cat("p-value:    ", 2*pnorm(-abs(f4_result$z)), "\n")
+## Significant f4 < 0 = evidence of Neanderthal gene flow into French
+
+## --- Step 4: Compute f3 admixture test ---
+## f3(Test; Source1, Source2)
+## Negative f3 = Test population is admixed between Source1 and Source2
+f3_result <- f3(
+    data,
+    pop1 = "French",          # Test: the potentially admixed population
+    pop2 = "Yoruba",          # Source 1: African-like source
+    pop3 = "Neanderthal",     # Source 2: Neanderthal-like source
+    boot = TRUE
+)
+
+cat("\nf3 estimate:", f3_result$est, "\n")
+cat("Z-score:    ", f3_result$z, "\n")
+## Significantly negative f3 = French is admixed between African + Neanderthal sources
+
+## --- Step 5: Scan f4 across all population pairs ---
+## This tests all combinations of populations systematically
+f4_all <- f4blockjack(
+    data,
+    pop1 = "Yoruba",
+    pop4 = "Chimp",
+    pops = unique(popinfo$pop)   # test all populations as P2 and P3
+)
+
+write.csv(f4_all, paste0(outdir, "f4_all_populations.csv"), row.names=FALSE)
+cat("\nf4 results for all population pairs saved.\n")</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s3-admixtools" data-filename="03_admixtools2_f3f4.R"><i class="bi bi-download me-1"></i>03_admixtools2_f3f4.R</button></div>
+  <div class="cmd-explain">
+    <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> f3 and f4 statistics decoded</div>
+    <table>
+      <tr><td><span class="cmd-emoji">&#128202;</span>f4 vs D-statistic</td><td>f4 and Patterson&rsquo;s D are mathematically equivalent — they both measure the same ABBA-BABA asymmetry. ADMIXTOOLS2 f4 uses a slightly different normalisation and reports an absolute estimate of shared genetic drift rather than a ratio. Both give the same sign and significance.</td></tr>
+      <tr><td><span class="cmd-emoji">&#10060;</span>Negative f3 = admixture</td><td>The f3 admixture test is one of the most powerful tests in population genomics. If f3(A; B, C) is significantly negative, population A cannot be explained by a simple tree relationship with B and C — it must be an admixture of B-like and C-like sources. This is a necessary condition for admixture, not sufficient — false negatives occur when the admixture is very ancient.</td></tr>
+      <tr><td><span class="cmd-emoji">&#127919;</span>boot = TRUE</td><td>Enables block jackknife resampling to estimate standard errors and Z-scores. Blocks of ~5 Mb are removed one at a time and the statistic is re-computed. This captures the correlation structure of the genome (LD) in the standard error estimate. Without bootstrapping, standard errors are underestimated.</td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- ------------------------------------------------------------------ -->
+<!-- STEP 4 — fd-STATISTIC (LOCAL INTROGRESSION)                        -->
+<!-- ------------------------------------------------------------------ -->
+<section id="step4" class="mb-5">
+  <h2 class="section-divider">Step 4 — fd-Statistic: Local Introgression Map</h2>
+  <p>The fd-statistic (Martin et al. 2015) is a windowed version of D that estimates the <em>proportion</em> of the genome introgressed in each window. This creates a map of where Neanderthal sequence survives in modern human genomes.</p>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Python — fd-statistic using Simon Martin's genomics_general scripts</span><button class="btn-copy">Copy</button></div>
+<pre id="s4-fd">######################################################################
+## STEP 4: Calculate windowed fd-statistic (Martin et al. 2015)
+## fd estimates the fraction of introgression in each genomic window
+## This gives a fine-scale map of which windows are enriched for
+## Neanderthal (or any donor population) ancestry
+##
+## Uses Simon Martin's genomics_general Python scripts:
+## https://github.com/simonhmartin/genomics_general
+######################################################################
+
+## Clone the genomics_general repository
+git clone https://github.com/simonhmartin/genomics_general.git
+## Add to Python path:
+export PYTHONPATH="${PWD}/genomics_general:${PYTHONPATH}"
+
+## --- Step 1: Convert VCF to GENO format (required by genomics_general) ---
+## parseVCF.py: converts VCF to a simpler per-site genotype format
+## --minQual 30 : minimum site QUAL score of 30
+## -i vcf       : input format is VCF
+## -o alleles   : output format = one allele per column per sample
+python genomics_general/VCF_processing/parseVCF.py \
+    --minQual 30 \
+    -i 1_filtered/sgdp_chr1_filtered.vcf.gz \
+    | bgzip > 5_fd/sgdp_chr1.geno.gz
+
+## Index the geno file
+bgzip -r 5_fd/sgdp_chr1.geno.gz
+
+## --- Step 2: Run windowed fd-statistic ---
+## ABBABABAwindows.py: the core script for ABBA-BABA window analysis
+## -g        : input GENO file
+## -o        : output file
+## -f        : output format (csv)
+## -w 50000  : window size = 50,000 bp (50 kb)
+## -m 50     : minimum number of SNPs per window (skip windows with <50 SNPs)
+## -s 25000  : step size = 25,000 bp (50% overlap between windows)
+## -p P1 Yoruba : assign samples to population P1 (African reference)
+## -p P2 French : assign samples to P2 (non-African test population)
+## -p P3 Neanderthal : P3 = putative introgression donor
+## -p O  Chimp : outgroup for ancestral allele polarisation
+## --fd      : also compute fd in addition to D (fd is the preferred windowed metric)
+python genomics_general/ABBABABAwindows.py \
+    -g 5_fd/sgdp_chr1.geno.gz \
+    -o 5_fd/fd_windows_chr1.csv \
+    -f csv \
+    -w 50000 \
+    -m 50 \
+    -s 25000 \
+    -p P1 Yoruba \
+    -p P2 French \
+    -p P3 Neanderthal \
+    -p O  Chimp \
+    --popsFile 2_popmap/popmap.txt \
+    --T 8 \
+    --fd
+
+## --- View output columns ---
+## scaffold, start, end, mid, sites, D, fd
+head 5_fd/fd_windows_chr1.csv
+echo "Windows computed: $(wc -l < 5_fd/fd_windows_chr1.csv)"
+
+## --- Identify top 5% windows with most Neanderthal introgression ---
+## fd > 0 and D > 0 = excess of Neanderthal-like alleles in this window
+awk -F',' 'NR>1 && $7 > 0' 5_fd/fd_windows_chr1.csv | \
+    sort -t',' -k7 -rn | head -20</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s4-fd" data-filename="04_fd_statistic.sh"><i class="bi bi-download me-1"></i>04_fd_statistic.sh</button></div>
+  <div class="cmd-explain">
+    <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> fd-statistic decoded</div>
+    <table>
+      <tr><td><span class="cmd-emoji">&#128202;</span>fd vs D</td><td>The genome-wide D-statistic is a single average — it cannot tell you <em>where</em> in the genome introgression occurred. fd is a windowed estimator that also corrects the denominator to be the maximum possible D under complete introgression, making it interpretable as a proportion (0 = no introgression, 1 = 100% introgressed). Use fd for mapping introgression, D for testing significance.</td></tr>
+      <tr><td><span class="cmd-emoji">&#127919;</span>-m 50 minimum SNPs</td><td>Windows with very few SNPs (especially on chromosome arms near centromeres and telomeres) produce unreliable fd estimates. Setting a minimum of 50 SNPs per window removes these. Windows with fewer SNPs show artificially extreme fd values due to statistical noise.</td></tr>
+    </table>
+  </div>
+  <div class="fun-tip"><span class="fun-tip-icon">&#129514;</span><div><strong>Known Neanderthal deserts and islands:</strong> The X chromosome and regions around centromeres show near-zero Neanderthal ancestry (Neanderthal &ldquo;deserts&rdquo;), while some autosomal regions show elevated fd &gt; 0.1 — these are the &ldquo;Neanderthal islands&rdquo; that survived selection. Your fd map for chr1 should match published maps from Sankararaman et al. 2014 or Vernot &amp; Akey 2014.</div></div>
+</section>
+
+<!-- ------------------------------------------------------------------ -->
+<!-- STEP 5 — qpGraph                                                    -->
+<!-- ------------------------------------------------------------------ -->
+<section id="step5" class="mb-5">
+  <h2 class="section-divider">Step 5 — ADMIXTOOLS2: qpGraph Population Graph Fitting</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>R — Fit a population graph with migration edges using qpGraph</span><button class="btn-copy">Copy</button></div>
+<pre id="s5-qpgraph">######################################################################
+## STEP 5: Fit a population graph (admixture graph) using ADMIXTOOLS2
+## qpGraph fits a model that explains the observed f-statistics
+## with a tree + migration edges (admixture proportions).
+## This is how we quantify HOW MUCH Neanderthal ancestry is in
+## non-African populations.
+######################################################################
+
+library(admixtools)
+library(tidyverse)
+
+## Load the data (same as Step 3)
+popinfo <- read.table("2_popmap/popmap.txt", col.names=c("ind","pop"), sep="\t")
+data <- read_eigenstrat("4_admixtools/sgdp_eigenstrat", pops=popinfo)
+
+## --- Define the population graph model ---
+## The graph is specified as a list of edges:
+##   "edge from to" = tree branch from parent to child
+##   "admix child parent1 parent2 proportion" = admixture edge
+## We test this model:
+##   Simple tree: ((Yoruba, (French, Han)), Neanderthal, Chimp)
+##   + one admixture edge: Neanderthal → ancestor of French+Han
+##   The proportion of this edge = estimated Neanderthal ancestry fraction
+
+## Define graph topology as R object
+## Each list element is: c(child_node, parent_node_1, parent_node_2, proportion)
+graph <- qpgraph(
+    data = data,
+    ## Define graph: pops + admixture edges
+    ## Format: edges defined as parent → child in tibble
+    edges = tribble(
+      ~from,          ~to,            ~weight,
+      "root",         "ancestral_AA", NA,        # root splits into African ancestor
+      "root",         "Nea",          NA,        #   and Neanderthal lineage
+      "ancestral_AA", "Yoruba",       NA,        # Yoruba = unadmixed African
+      "ancestral_AA", "nonAfrAnc",    NA,        # ancestor of non-Africans
+      "nonAfrAnc",    "French",       NA,        # French
+      "nonAfrAnc",    "Han",          NA,        # Han Chinese
+      "Nea",          "AltaiNea",     NA         # Altai Neanderthal
+    ),
+    ## Admixture edge: Neanderthal introgression into non-African ancestor
+    ## prop = proportion to estimate (between 0 and 1)
+    admix_edges = tribble(
+      ~from,   ~to,         ~prop,
+      "Nea",   "nonAfrAnc", 0.02   # starting value: 2% Neanderthal ancestry
+    ),
+    outgroup = "Chimp",    # all f-statistics computed relative to this outgroup
+    verbose = TRUE
+)
+
+## --- Fit the graph ---
+## This optimises the branch lengths and admixture proportions to minimise
+## the discrepancy between observed and expected f-statistics
+fit <- fit_graph(graph, data)
+
+## --- View results ---
+cat("Neanderthal admixture proportion:", fit$opt_edge_weights$w, "\n")
+cat("Graph fit score (worst Z-score):  ", fit$score, "\n")
+## A good fit has |Z-score| < 3 for all f-statistics (fit$score close to 0)
+
+## --- Save results ---
+saveRDS(fit, "4_admixtools/qpgraph_fit.rds")
+write.csv(fit$f3, "4_admixtools/fitted_f3.csv")</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s5-qpgraph" data-filename="05_qpgraph.R"><i class="bi bi-download me-1"></i>05_qpgraph.R</button></div>
+  <div class="cmd-explain">
+    <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> qpGraph decoded</div>
+    <table>
+      <tr><td><span class="cmd-emoji">&#128200;</span>fit$score</td><td>The fit score is the maximum absolute Z-score among all f-statistics. A score &lt; 3 means no f-statistic differs significantly from the model prediction — the graph fits the data well. A score &gt; 3 means the graph is missing at least one admixture event. Add more migration edges until the score drops below 3.</td></tr>
+      <tr><td><span class="cmd-emoji">&#127919;</span>Admixture proportion estimate</td><td>The fitted weight on the Neanderthal → non-African admixture edge is the estimated fraction of Neanderthal ancestry (~0.02 = 2%). This should match the ~1&ndash;4% range from published studies. If your estimate is far outside this range, check your outgroup specification and ancestry designation.</td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- ------------------------------------------------------------------ -->
+<!-- STEP 6 — VISUALISE                                                  -->
+<!-- ------------------------------------------------------------------ -->
+<section id="step6" class="mb-5">
+  <h2 class="section-divider">Step 6 — Visualise Results</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>R — Heatmap of D-statistics + fd genome map</span><button class="btn-copy">Copy</button></div>
+<pre id="s6-plot">######################################################################
+## STEP 6: Create publication-quality figures:
+##   Figure 1: Heatmap of D-statistics across all population pairs
+##   Figure 2: Genome-wide fd map (Neanderthal ancestry per window)
+######################################################################
+
+library(ggplot2)
+library(tidyverse)
+library(viridis)      # colour-blind friendly colour scales
+
+## ---- Figure 1: D-statistic heatmap ---------------------------------
+## Load Dsuite results
+dstats <- read.table("3_dsuite/sgdp_BBAA.txt", header=TRUE)
+## Columns: P1, P2, P3, Dstatistic, Z-score, p-value, f_D, ...
+
+## Filter: only trios with Neanderthal as P3
+nea_trios <- dstats %>%
+    filter(P3 == "Neanderthal") %>%
+    mutate(
+        significant = abs(Zscore) > 3,   # TRUE if Z-score exceeds threshold
+        D_clipped = pmax(-0.5, pmin(0.5, Dstatistic))  # clip extreme values for display
+    )
+
+## Heatmap: P1 vs P2, coloured by D-statistic
+## Red = positive D (P2 shares more derived alleles with Neanderthal than P1)
+ggplot(nea_trios, aes(x=P1, y=P2, fill=D_clipped)) +
+    geom_tile() +
+    geom_text(aes(label=ifelse(significant, "*", "")), size=3) +
+    scale_fill_gradient2(
+        low="blue", mid="white", high="red", midpoint=0,
+        limits=c(-0.5, 0.5), name="D-statistic"
+    ) +
+    labs(
+        title="D-statistics (P3 = Altai Neanderthal, Outgroup = Chimp)",
+        subtitle="* = |Z-score| > 3 (significant)",
+        x="P1 population", y="P2 population"
+    ) +
+    theme_bw(base_size=11) +
+    theme(axis.text.x = element_text(angle=45, hjust=1, size=8))
+
+ggsave("6_plots/dstats_heatmap.png", width=12, height=10, dpi=150)
+
+## ---- Figure 2: fd genome map for chr1 ------------------------------
+fd_data <- read.csv("5_fd/fd_windows_chr1.csv") %>%
+    filter(!is.na(fd), fd >= 0, fd <= 1)   # keep valid fd values (0 to 1)
+
+ggplot(fd_data, aes(x=mid/1e6, y=fd)) +
+    ## Points: each window coloured by D-statistic
+    geom_point(aes(color=D), size=0.5, alpha=0.7) +
+    ## Smoothed trend line to show regional patterns
+    geom_smooth(color="black", se=FALSE, method="loess", span=0.05, linewidth=0.8) +
+    scale_color_viridis_c(option="plasma", name="D-statistic") +
+    labs(
+        x="Position on Chr1 (Mb)",
+        y="fd (Neanderthal introgression fraction)",
+        title="Local Neanderthal ancestry across Chromosome 1 (French vs Yoruba)"
+    ) +
+    theme_bw(base_size=12)
+
+ggsave("6_plots/fd_chr1_map.png", width=14, height=5, dpi=150)</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s6-plot" data-filename="06_visualise_introgression.R"><i class="bi bi-download me-1"></i>06_visualise_introgression.R</button></div>
+  <div class="cmd-explain">
+    <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> Visualisation decoded</div>
+    <table>
+      <tr><td><span class="cmd-emoji">&#127798;</span>geom_tile() heatmap</td><td>A tile plot where each cell is coloured by the D-statistic between a P1&ndash;P2 pair (with Neanderthal as P3). Asterisks mark statistically significant values. Red cells = P2 shares more alleles with Neanderthal than P1 (evidence of introgression specifically in P2). The diagonal is empty (can&rsquo;t compare a population to itself).</td></tr>
+      <tr><td><span class="cmd-emoji">&#127752;</span>scale_color_viridis_c(option="plasma")</td><td>Viridis colour scales are perceptually uniform and accessible to colour-blind readers. The <code>"plasma"</code> option goes from dark purple (low) to yellow (high) and is ideal for continuous data. Always use perceptually uniform colour scales for genomic maps.</td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- Navigation -->
+<section class="mb-5">
+  <div class="d-flex justify-content-between">
+    <a href="popgen-fst-selective-sweeps.html" class="btn btn-outline-secondary rounded-pill px-4">
+      <i class="bi bi-arrow-left me-2"></i>Fst &amp; Selective Sweeps
+    </a>
+    <a href="popgen-treemix-migration.html" class="btn btn-primary rounded-pill px-4">
+      TreeMix Migration Graph <i class="bi bi-arrow-right ms-2"></i>
+    </a>
+  </div>
+</section>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-lg-6"><h5 class="text-white fw-bold mb-3"><span style="color:#ff9933;">Indian</span><span style="color:var(--ieb-primary);">Elucid</span><span style="color:var(--ieb-accent);">Biology</span></h5><p class="small">Free, interactive bioinformatics tutorials. Open source and community-driven.</p></div>
+      <div class="col-lg-6 text-lg-end"><p class="small mb-1">Founded by <strong>Ankush Sharma</strong></p><div class="d-flex gap-3 justify-content-lg-end"><a href="https://github.com/ank-man" target="_blank" class="text-white fs-5"><i class="bi bi-github"></i></a><a href="https://www.linkedin.com/in/ankush-sharma-290307/" target="_blank" class="text-white fs-5"><i class="bi bi-linkedin"></i></a><a href="mailto:mr.ank2999@gmail.com" class="text-white fs-5"><i class="bi bi-envelope"></i></a></div></div>
+    </div>
+    <hr class="border-secondary mt-4 mb-3">
+    <p class="text-center small mb-0">&copy; 2025 IndianElucidBiology &mdash; Made with <span style="color:#e25555;">&#9829;</span> for the bioinformatics community.</p>
+  </div>
+</footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/main.js"></script>
+</body>
+</html>

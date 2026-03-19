@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChIP-seq Peak Calling &amp; Motif Analysis | IndianElucidBiology</title>
+  <meta name="description" content="Complete ChIP-seq pipeline: alignment with Bowtie2, peak calling with MACS2, IDR reproducibility, deepTools QC, motif discovery with HOMER/MEME-ChIP, and differential binding with DiffBind.">
+  <meta name="keywords" content="ChIP-seq, MACS2, peak calling, HOMER, motif analysis, deepTools, IDR, DiffBind, Bowtie2, transcription factor, histone modification, epigenomics">
+  <link rel="canonical" href="https://indianelucidbiology.github.io/tutorials/chipseq-macs2-motif-analysis.html">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="../css/style.css" rel="stylesheet">
+</head>
+<body>
+<div class="progress-tracker"></div>
+
+<nav class="navbar navbar-expand-lg fixed-top">
+  <div class="container">
+    <a class="navbar-brand" href="../index.html">
+      <span class="brand-indian">Indian</span><span class="brand-elucid">Elucid</span><span class="brand-biology">Biology</span>
+    </a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="mainNav">
+      <ul class="navbar-nav ms-auto me-3">
+        <li class="nav-item"><a class="nav-link" href="../index.html">Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="index.html">Tutorial Library</a></li>
+        <li class="nav-item"><a class="nav-link" href="deseq2-edger-differential-expression.html"><i class="bi bi-arrow-left me-1"></i>DESeq2/edgeR</a></li>
+        <li class="nav-item"><a class="nav-link" href="gwas-plink-gemma-association.html">GWAS<i class="bi bi-arrow-right ms-1"></i></a></li>
+      </ul>
+      <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode">&#9790;</button>
+    </div>
+  </div>
+</nav>
+
+<section class="tutorial-hero">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-lg-8">
+        <nav aria-label="breadcrumb">
+          <ol class="breadcrumb mb-3" style="--bs-breadcrumb-divider-color:rgba(255,255,255,0.5);">
+            <li class="breadcrumb-item"><a href="../index.html" class="text-white-50 text-decoration-none">Home</a></li>
+            <li class="breadcrumb-item"><a href="index.html" class="text-white-50 text-decoration-none">Tutorials</a></li>
+            <li class="breadcrumb-item active text-white">ChIP-seq Analysis</li>
+          </ol>
+        </nav>
+        <h1 class="display-5 fw-bold text-white mb-3">ChIP-seq: Peak Calling &amp; Motif Analysis</h1>
+        <p class="lead text-white-50 mb-4">
+          Bowtie2 alignment &middot; MACS2 peak calling &middot; IDR reproducibility &middot; deepTools QC &middot; HOMER motif discovery &middot; DiffBind differential binding &middot; annotation with ChIPseeker
+        </p>
+        <div class="d-flex gap-3 flex-wrap">
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-clock me-1"></i> ~150 min</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-bar-chart me-1"></i> Intermediate</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-terminal me-1"></i> Bash / R</span>
+        </div>
+      </div>
+      <div class="col-lg-4 text-center d-none d-lg-block">
+        <img src="../img/Byte3.png" alt="Byte" class="img-fluid" style="max-height:230px;filter:drop-shadow(0 10px 30px rgba(0,0,0,0.4));">
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="container py-5">
+  <div class="row">
+    <div class="col-lg-3 d-none d-lg-block">
+      <div class="toc-sidebar">
+        <h6 class="fw-bold text-muted text-uppercase small mb-3">On this page</h6>
+        <nav class="nav flex-column">
+          <a class="nav-link" href="#overview">Overview</a>
+          <a class="nav-link" href="#dataset">Dataset</a>
+          <a class="nav-link" href="#step1">1. Alignment &amp; Filtering</a>
+          <a class="nav-link" href="#step2">2. deepTools QC</a>
+          <a class="nav-link" href="#step3">3. MACS2 Peak Calling</a>
+          <a class="nav-link" href="#step4">4. IDR Reproducibility</a>
+          <a class="nav-link" href="#step5">5. HOMER Motif Analysis</a>
+          <a class="nav-link" href="#step6">6. Peak Annotation (ChIPseeker)</a>
+          <a class="nav-link" href="#step7">7. DiffBind Differential Binding</a>
+        </nav>
+      </div>
+    </div>
+
+    <div class="col-lg-9">
+      <div class="tutorial-content">
+
+<section id="overview" class="mb-5">
+  <h2 class="section-divider">Overview</h2>
+  <p>ChIP-seq (Chromatin Immunoprecipitation sequencing) maps where a protein of interest (transcription factor or histone mark) binds across the genome. Reads are enriched at binding sites, creating &ldquo;peaks&rdquo; of coverage. The key challenge is distinguishing true signal from background noise &mdash; which is why an input control (non-immunoprecipitated chromatin) is essential.</p>
+  <div class="byte-callout">
+    <img src="../img/Byte1.png" alt="Byte">
+    <div>
+      <strong>TF ChIP-seq vs Histone mark ChIP-seq — different peak shapes:</strong>
+      <ul class="mb-0 mt-1 small">
+        <li><strong>TF ChIP-seq:</strong> Narrow, sharp peaks (~200&ndash;500 bp). MACS2 default settings work well. Peaks mark direct binding sites.</li>
+        <li><strong>Active histone marks (H3K27ac, H3K4me3):</strong> Narrow to medium peaks (~500&ndash;1000 bp). Use MACS2 default.</li>
+        <li><strong>Repressive marks (H3K27me3, H3K9me3):</strong> Broad, diffuse peaks (1&ndash;100 kb). Use MACS2 <code>--broad</code> flag.</li>
+        <li><strong>ATAC-seq:</strong> Same pipeline as TF ChIP-seq; peaks = open chromatin, not protein binding.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="dataset" class="mb-5">
+  <h2 class="section-divider">Dataset</h2>
+  <p>We use the <strong>ENCODE CTCF ChIP-seq</strong> dataset in human K562 cells &mdash; CTCF is the best-validated ChIP-seq target with known binding motif (CCCTC-binding factor motif), making it the gold-standard for pipeline validation.</p>
+  <div class="param-table">
+    <table class="table table-striped mb-0">
+      <thead><tr><th>Property</th><th>Value</th></tr></thead>
+      <tbody>
+        <tr><td>Target protein</td><td>CTCF (CCCTC-binding factor) — insulator/architectural protein</td></tr>
+        <tr><td>Cell line</td><td>Human K562 (chronic myelogenous leukaemia)</td></tr>
+        <tr><td>Accession</td><td>ENCODE: <a href="https://www.encodeproject.org/experiments/ENCSR000EGM/" target="_blank">ENCSR000EGM</a> (2 biological replicates + input)</td></tr>
+        <tr><td>Reference</td><td>GRCh38 (hg38)</td></tr>
+        <tr><td>Expected peaks</td><td>~50,000&ndash;80,000 CTCF peaks genome-wide</td></tr>
+        <tr><td>Validation</td><td>CTCF motif (MA0139.1) should be top-enriched motif from HOMER</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="step1" class="mb-5">
+  <h2 class="section-divider">Step 1 — Alignment &amp; Post-alignment Filtering</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash — Bowtie2 alignment, deduplication, blacklist removal</span><button class="btn-copy">Copy</button></div>
+<pre id="s1-align">######################################################################
+## STEP 1: Align ChIP-seq reads to genome and filter
+## Critical filters for ChIP-seq (more aggressive than RNA-seq):
+##   1. Remove PCR duplicates (high duplication is a major ChIP QC issue)
+##   2. Keep only uniquely mapping reads (-q 10)
+##   3. Remove ENCODE blacklist regions (artifact-prone genomic regions)
+##   4. For paired-end: keep only properly paired reads (-f 2)
+######################################################################
+
+mkdir -p 0_raw 1_aligned 2_peaks 3_qc 4_motifs 5_annotation 6_diffbind
+module load bowtie2/2.5.1
+module load samtools/1.17
+module load picard/3.0.0
+
+REF_INDEX="/path/to/hg38/bowtie2_index/hg38"
+BLACKLIST="/path/to/hg38-blacklist.v2.bed"  # download from ENCODE
+
+## Download CTCF ChIP-seq data from ENCODE
+## Replicate 1 ChIP
+wget -O 0_raw/CTCF_rep1.fastq.gz \
+  https://www.encodeproject.org/files/ENCFF001VDE/@@download/ENCFF001VDE.fastq.gz
+## Replicate 2 ChIP
+wget -O 0_raw/CTCF_rep2.fastq.gz \
+  https://www.encodeproject.org/files/ENCFF001VDD/@@download/ENCFF001VDD.fastq.gz
+## Input control
+wget -O 0_raw/Input.fastq.gz \
+  https://www.encodeproject.org/files/ENCFF001VCT/@@download/ENCFF001VCT.fastq.gz
+
+for SAMPLE in CTCF_rep1 CTCF_rep2 Input; do
+
+    ## --- Step 1a: Align with Bowtie2 ---
+    ## -x     : path to Bowtie2 genome index (without .bt2 extension)
+    ## -U     : single-end reads (use -1/-2 for paired-end)
+    ## -p 16  : 16 parallel threads
+    ## --no-unal : suppress unaligned reads from output (saves disk space)
+    ## --very-sensitive : most accurate preset (slower but better for ChIP-seq)
+    ## 2>     : redirect alignment stats to a log file
+    ## | samtools sort : pipe directly to samtools to sort by coordinate
+    ## -O bam : output BAM format
+    ## -@ 8   : 8 threads for samtools sorting
+    bowtie2 \
+        -x ${REF_INDEX} \
+        -U 0_raw/${SAMPLE}.fastq.gz \
+        -p 16 \
+        --no-unal \
+        --very-sensitive \
+        2> 1_aligned/${SAMPLE}_bowtie2.log | \
+      samtools sort \
+        -O bam \
+        -@ 8 \
+        -o 1_aligned/${SAMPLE}_sorted.bam
+
+    samtools index 1_aligned/${SAMPLE}_sorted.bam
+
+    ## --- Step 1b: Mark and remove PCR duplicates with Picard ---
+    ## MarkDuplicates: identifies reads with identical start/end positions
+    ## These are PCR duplicates (amplification artifacts, not real library complexity)
+    ## REMOVE_DUPLICATES=true : discard duplicates (not just mark them)
+    ## METRICS_FILE : save duplication statistics for QC reporting
+    ## VALIDATION_STRINGENCY=LENIENT : tolerate minor BAM format issues
+    picard MarkDuplicates \
+        I=1_aligned/${SAMPLE}_sorted.bam \
+        O=1_aligned/${SAMPLE}_dedup.bam \
+        M=3_qc/${SAMPLE}_dup_metrics.txt \
+        REMOVE_DUPLICATES=true \
+        VALIDATION_STRINGENCY=LENIENT
+    samtools index 1_aligned/${SAMPLE}_dedup.bam
+
+    ## --- Step 1c: Keep only high-quality unique reads ---
+    ## -q 10  : minimum mapping quality 10 (= >90% confident mapping is correct)
+    ## -F 4   : exclude unmapped reads (flag 4)
+    ## -F 256 : exclude secondary alignments (flag 256)
+    ## -F 2048: exclude supplementary alignments (chimeric reads)
+    samtools view \
+        -q 10 -F 4 -F 256 -F 2048 \
+        -b 1_aligned/${SAMPLE}_dedup.bam | \
+      samtools sort -o 1_aligned/${SAMPLE}_filtered.bam
+    samtools index 1_aligned/${SAMPLE}_filtered.bam
+
+    ## --- Step 1d: Remove ENCODE blacklist regions ---
+    ## Blacklist regions: satellite repeats, centromeres, telomeres
+    ## These regions produce false peaks in ANY ChIP-seq/ATAC-seq experiment
+    ## bedtools intersect -v : keep reads NOT (-v) overlapping the blacklist
+    bedtools intersect \
+        -v \
+        -a 1_aligned/${SAMPLE}_filtered.bam \
+        -b ${BLACKLIST} > 1_aligned/${SAMPLE}_final.bam
+    samtools index 1_aligned/${SAMPLE}_final.bam
+
+    echo "Aligned and filtered: ${SAMPLE}"
+    samtools flagstat 1_aligned/${SAMPLE}_final.bam > 3_qc/${SAMPLE}_flagstat.txt
+done</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s1-align" data-filename="01_align_filter.sh"><i class="bi bi-download me-1"></i>01_align_filter.sh</button></div>
+  <div class="cmd-explain">
+    <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> Alignment filters decoded</div>
+    <table>
+      <tr><td><span class="cmd-emoji">&#128204;</span>MAPQ -q 10</td><td>MAPQ = mapping quality. MAPQ 10 means the aligner is &gt;90% confident the read maps to the correct location. Reads mapping to repetitive regions get MAPQ=0 because they align equally well to many places. Removing MAPQ&lt;10 eliminates multi-mapping reads that would create artifactual peaks at all repeated elements.</td></tr>
+      <tr><td><span class="cmd-emoji">&#9986;</span>PCR duplicate removal</td><td>ChIP-seq libraries often have high PCR duplication (30&ndash;80% in some experiments) because the immunoprecipitated DNA is limited and amplified aggressively. Duplicates are reads with identical start and end positions — statistically, real reads can share positions but duplicates dominate at binding sites, artificially inflating signal. Always remove duplicates before peak calling.</td></tr>
+      <tr><td><span class="cmd-emoji">&#11035;</span>ENCODE blacklist</td><td>Regions like ribosomal DNA, satellite repeats, and some centromeric regions produce uniformly high signal in ALL ChIP-seq experiments regardless of antibody. These &ldquo;blacklist&rdquo; regions are catalogued by ENCODE and must be excluded. Without blacklist removal, the top &ldquo;peaks&rdquo; in your experiment are often these artefacts.</td></tr>
+    </table>
+  </div>
+</section>
+
+<section id="step2" class="mb-5">
+  <h2 class="section-divider">Step 2 — deepTools QC</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash — deepTools bamCompare, plotFingerprint, bamCoverage</span><button class="btn-copy">Copy</button></div>
+<pre id="s2-deeptools">######################################################################
+## STEP 2: QC with deepTools
+## deepTools provides the best ChIP-seq QC suite:
+##   plotFingerprint : assesses signal enrichment vs background
+##   bamCorrelate    : checks replicate agreement
+##   bamCoverage     : creates bigWig tracks for IGV/UCSC viewing
+######################################################################
+
+module load deeptools/3.5.4
+
+## --- Step 2a: plotFingerprint — enrichment assessment ---
+## plotFingerprint plots a cumulative distribution curve of coverage
+## A flat diagonal line = no enrichment (uniform coverage = bad ChIP)
+## A steep J-curve = good ChIP enrichment (reads concentrated in few bins)
+## Compare ChIP (should be J-shaped) vs Input (should be flat diagonal)
+plotFingerprint \
+    --bamfiles \
+        1_aligned/CTCF_rep1_final.bam \
+        1_aligned/CTCF_rep2_final.bam \
+        1_aligned/Input_final.bam \
+    --labels CTCF_rep1 CTCF_rep2 Input \
+    --numberOfSamples 50000 \
+    --plotFile 3_qc/fingerprint_plot.png \
+    --outRawCounts 3_qc/fingerprint_counts.tab \
+    -p 8
+
+## --- Step 2b: bamCoverage — create bigWig tracks for visualisation ---
+## bamCoverage: convert BAM to bigWig (coverage track for IGV/UCSC)
+## --normalizeUsing RPKM : normalise by reads per kilobase per million
+##   (makes tracks comparable between experiments)
+## --binSize 10          : compute coverage in 10-bp bins (higher resolution)
+## --smoothLength 30     : smooth each bin using the surrounding 30 bp
+##   (reduces noise in the track for visual purposes)
+## --extendReads 200     : extend reads to estimated fragment size
+##   (for single-end ChIP-seq, reads are ~50 bp but fragments are ~200 bp)
+##   This is important: without extension, peaks look asymmetric
+for SAMPLE in CTCF_rep1 CTCF_rep2 Input; do
+    bamCoverage \
+        --bam 1_aligned/${SAMPLE}_final.bam \
+        --outFileName 3_qc/${SAMPLE}.bw \
+        --normalizeUsing RPKM \
+        --binSize 10 \
+        --smoothLength 30 \
+        --extendReads 200 \
+        -p 8
+    echo "bigWig created: ${SAMPLE}.bw"
+done
+
+## --- Step 2c: bamCompare — ChIP vs Input fold-enrichment track ---
+## bamCompare: ratio of ChIP signal to Input signal
+## --operation log2 : log2(ChIP/Input) ratio track
+## Positive values in the track = enriched in ChIP vs Input
+bamCompare \
+    -b1 1_aligned/CTCF_rep1_final.bam \
+    -b2 1_aligned/Input_final.bam \
+    --operation log2 \
+    --binSize 10 \
+    --extendReads 200 \
+    --pseudocount 1 \
+    -o 3_qc/CTCF_rep1_vs_Input_log2ratio.bw \
+    -p 8</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s2-deeptools" data-filename="02_deeptools_qc.sh"><i class="bi bi-download me-1"></i>02_deeptools_qc.sh</button></div>
+  <div class="fun-tip"><span class="fun-tip-icon">&#128203;</span><div><strong>How to read the fingerprint plot:</strong> A perfect ChIP experiment has its J-curve starting far to the right (most genomic bins have zero reads) and rising steeply at the right end (all reads are concentrated in a few binding sites). The Input line should be a near-perfect diagonal. If your ChIP line looks like the Input, the immunoprecipitation failed — likely antibody quality issue.</div></div>
+</section>
+
+<section id="step3" class="mb-5">
+  <h2 class="section-divider">Step 3 — MACS2 Peak Calling</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash — MACS2 callpeak with input control</span><button class="btn-copy">Copy</button></div>
+<pre id="s3-macs2">######################################################################
+## STEP 3: Call peaks using MACS2
+## MACS2 models the ChIP-seq fragment size, estimates background from
+## the input control, and calls enriched regions as peaks.
+## It outputs: narrowPeak file (peak coordinates + statistics)
+######################################################################
+
+module load macs2/2.2.9
+
+for REP in rep1 rep2; do
+
+    ## macs2 callpeak: identify enriched regions vs input control
+    ## -t     : treatment file (ChIP BAM)
+    ## -c     : control file (Input BAM) — CRITICAL for specificity
+    ##          Without input control, many artifact regions get called as peaks
+    ## -f BAM : input format is BAM
+    ## -g hs  : genome size parameter (hs = human, mm = mouse, ce = C. elegans)
+    ##          Used to estimate expected background read density
+    ## -n     : output file prefix
+    ## --outdir : output directory
+    ## -q 0.01 : q-value (FDR) cutoff for peak calling
+    ##          q < 0.01 = FDR-corrected Poisson p-value < 1%
+    ## --nomodel: skip MACS2 fragment size modeling
+    ##          Use --nomodel when: paired-end data, small datasets, or
+    ##          when MACS2 model fails (check stderr for "paired peaks")
+    ## --extsize 200 : extend reads by 200 bp (fragment size estimate)
+    ##          Only used with --nomodel; replace with --call-summits for
+    ##          TF ChIP-seq to call sub-peak summits within broad peaks
+    ## --call-summits : predict peak sub-summits within each peak
+    ##          Useful for TF ChIP-seq where one region may have multiple
+    ##          closely-spaced binding sites
+    macs2 callpeak \
+        -t 1_aligned/CTCF_${REP}_final.bam \
+        -c 1_aligned/Input_final.bam \
+        -f BAM \
+        -g hs \
+        -n CTCF_${REP} \
+        --outdir 2_peaks/ \
+        -q 0.01 \
+        --call-summits \
+        2> 2_peaks/CTCF_${REP}_macs2.log
+
+    echo "Peak calling done for: CTCF_${REP}"
+    echo "Peaks called: $(wc -l < 2_peaks/CTCF_${REP}_peaks.narrowPeak)"
+done
+
+## --- Inspect the narrowPeak output format ---
+## Columns: chr, start, end, name, score, strand, signalValue, -log10(pvalue), -log10(qvalue), summit
+head 2_peaks/CTCF_rep1_peaks.narrowPeak
+## Column 9 (-log10 q-value) > 2 = q < 0.01 (default threshold)
+## Column 10 (summit) = position relative to peak start of peak summit</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s3-macs2" data-filename="03_macs2_peaks.sh"><i class="bi bi-download me-1"></i>03_macs2_peaks.sh</button></div>
+  <div class="cmd-explain">
+    <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> MACS2 parameters decoded</div>
+    <table>
+      <tr><td><span class="cmd-emoji">&#127919;</span>-q 0.01 vs -p 1e-5</td><td>MACS2 can filter by q-value (FDR-corrected) or raw p-value. Always use q-value (<code>-q</code>) for final analyses — it controls the false discovery rate. The raw p-value (<code>-p</code>) does not account for the thousands of simultaneous tests across the genome and will produce many false positives.</td></tr>
+      <tr><td><span class="cmd-emoji">&#128204;</span>--call-summits</td><td>Within each broad peak region, MACS2 identifies local maxima (summits). For TF ChIP-seq, one peak region may contain multiple binding sites. Summits are used as the centre point for motif analysis (HOMER takes ±200 bp around summits). Always use <code>--call-summits</code> for TF ChIP-seq.</td></tr>
+    </table>
+  </div>
+</section>
+
+<section id="step4" class="mb-5">
+  <h2 class="section-divider">Step 4 — IDR Reproducibility Analysis</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash — IDR to assess and filter reproducible peaks between replicates</span><button class="btn-copy">Copy</button></div>
+<pre id="s4-idr">######################################################################
+## STEP 4: IDR (Irreproducibility Discovery Rate) analysis
+## IDR measures reproducibility between biological replicates.
+## It ranks peaks by signal strength in each replicate and checks whether
+## highly-ranked peaks in replicate 1 are also highly-ranked in replicate 2.
+## IDR < 0.05 = reproducible peak (appears consistently in both replicates)
+## This is the ENCODE standard for defining high-confidence peaks.
+######################################################################
+
+module load idr/2.0.4
+
+## Sort peaks by -log10(q-value) (column 9) in descending order
+## IDR requires peaks sorted by signal strength
+sort -k9 -rn 2_peaks/CTCF_rep1_peaks.narrowPeak > 2_peaks/CTCF_rep1_sorted.narrowPeak
+sort -k9 -rn 2_peaks/CTCF_rep2_peaks.narrowPeak > 2_peaks/CTCF_rep2_sorted.narrowPeak
+
+## --- Run IDR ---
+## --samples     : the two replicate peak files (sorted by score)
+## --input-file-type narrowPeak : input format
+## --rank        : which column to use for ranking (signal.value = column 7)
+##   signal.value (col 7) = fold enrichment, preferred for MACS2 narrowPeak
+## --output-file : IDR results file
+## --plot        : create IDR diagnostic plot
+## --idr-threshold 0.05 : keep only peaks with IDR < 5% (reproducible)
+idr \
+    --samples 2_peaks/CTCF_rep1_sorted.narrowPeak \
+              2_peaks/CTCF_rep2_sorted.narrowPeak \
+    --input-file-type narrowPeak \
+    --rank signal.value \
+    --output-file 2_peaks/CTCF_idr_peaks.txt \
+    --plot \
+    --idr-threshold 0.05
+
+## --- Extract reproducible peaks ---
+## IDR output column 5 = scaled IDR score
+## Peaks with IDR < 0.05 have score > -125*log2(0.05) = ~540 (IDR scaling)
+## Alternatively: filter directly on the IDR value in column 12
+awk 'NR>1 && $12 < 0.05 {print}' 2_peaks/CTCF_idr_peaks.txt | \
+    sort -k9 -rn > 2_peaks/CTCF_reproducible_peaks.narrowPeak
+
+echo "Total peaks (rep1): $(wc -l < 2_peaks/CTCF_rep1_peaks.narrowPeak)"
+echo "Total peaks (rep2): $(wc -l < 2_peaks/CTCF_rep2_peaks.narrowPeak)"
+echo "Reproducible IDR peaks: $(wc -l < 2_peaks/CTCF_reproducible_peaks.narrowPeak)"
+## Expected: ~50,000-70,000 reproducible CTCF peaks</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s4-idr" data-filename="04_idr_reproducibility.sh"><i class="bi bi-download me-1"></i>04_idr_reproducibility.sh</button></div>
+</section>
+
+<section id="step5" class="mb-5">
+  <h2 class="section-divider">Step 5 — HOMER Motif Discovery</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash — HOMER findMotifsGenome: de novo and known motif enrichment</span><button class="btn-copy">Copy</button></div>
+<pre id="s5-homer">######################################################################
+## STEP 5: Discover enriched DNA sequence motifs under ChIP-seq peaks
+## HOMER findMotifsGenome performs two analyses:
+##   1. De novo motif discovery: finds new over-represented k-mer patterns
+##   2. Known motif enrichment: tests if known TF motifs are enriched
+## For CTCF ChIP-seq: CTCF motif (CCGCGNGGNGGCAG) should be #1 enriched
+######################################################################
+
+module load homer/4.11
+
+## First, convert peaks to a BED-like format and extract summit regions
+## HOMER needs ±200 bp around peak summits for motif analysis
+## The narrowPeak summit column (col 10) = offset from peak start
+## Compute absolute summit position: start + col10
+awk 'OFS="\t" {print $1, $2+$10-200, $2+$10+200, $4, $5, "."}' \
+    2_peaks/CTCF_reproducible_peaks.narrowPeak > 2_peaks/CTCF_summits_400bp.bed
+
+## --- Run HOMER findMotifsGenome ---
+## findMotifsGenome.pl : the main HOMER motif analysis script
+## first arg  : peak BED file (the regions to search for motifs)
+## second arg : genome assembly (hg38 = human GRCh38; must be installed in HOMER)
+##              Install with: perl configureHomer.pl -install hg38
+## third arg  : output directory
+## -size given  : use exact peak coordinates from the BED file (no resizing)
+##   (alternative: -size 200 = resize all peaks to 200 bp centred on peak centre)
+## -mask        : mask repetitive sequences (prevents repeat elements dominating)
+## -p 8         : 8 parallel threads for faster analysis
+## -S 20        : search for up to 20 de novo motifs of different lengths
+findMotifsGenome.pl \
+    2_peaks/CTCF_summits_400bp.bed \
+    hg38 \
+    4_motifs/CTCF_homer_motifs/ \
+    -size given \
+    -mask \
+    -p 8 \
+    -S 20
+
+## Output directory contains:
+##   homerResults.html         : de novo motif results (open in browser)
+##   knownResults.html         : known motif enrichment results
+##   homerMotifs.motifs10      : discovered motifs in HOMER format
+##   knownResults/             : detailed results for each known TF motif
+
+echo "HOMER motif analysis complete."
+echo "Open 4_motifs/CTCF_homer_motifs/homerResults.html to view results."
+echo "CTCF motif should rank #1 in known results (JASPAR MA0139.1)"</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s5-homer" data-filename="05_homer_motifs.sh"><i class="bi bi-download me-1"></i>05_homer_motifs.sh</button></div>
+  <div class="fun-tip"><span class="fun-tip-icon">&#127919;</span><div><strong>Expected CTCF motif result:</strong> The canonical CTCF motif (JASPAR MA0139.1, a 19-bp GC-rich palindrome) should appear as the #1 enriched known motif with p-value &lt; 1&times;10&minus;500 and &gt;60% of peaks containing the motif. If another motif ranks higher, check whether your blacklist removal was applied and whether you used the summit ±200 bp for motif analysis.</div></div>
+</section>
+
+<section id="step6" class="mb-5">
+  <h2 class="section-divider">Step 6 — Peak Annotation with ChIPseeker</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>R — ChIPseeker: annotate peaks relative to genomic features</span><button class="btn-copy">Copy</button></div>
+<pre id="s6-chipseeker">######################################################################
+## STEP 6: Annotate ChIP-seq peaks using ChIPseeker
+## ChIPseeker assigns each peak to the nearest gene and genomic feature:
+##   Promoter, 5'UTR, 3'UTR, Exon, Intron, Distal Intergenic
+## This tells you: are these peaks near gene promoters? Enhancers?
+######################################################################
+
+library(ChIPseeker)      # peak annotation
+library(TxDb.Hsapiens.UCSC.hg38.knownGene)  # hg38 gene annotation
+library(org.Hs.eg.db)    # human gene ID database
+library(clusterProfiler) # GO enrichment for annotated genes
+library(tidyverse)
+
+## Load the transcript database for hg38
+txdb <- TxDb.Hsapiens.UCSC.hg38.knownGene
+
+## --- Read peaks ---
+peaks <- readPeakFile("2_peaks/CTCF_reproducible_peaks.narrowPeak",
+                      as = "GRanges")
+
+## --- Annotate peaks ---
+## annotatePeak: assigns each peak to nearest gene and genomic region
+## TxDb       : gene annotation database (defines promoter boundaries, etc.)
+## tssRegion  : define "promoter" as ±3 kb around TSS
+## annoDb     : gene annotation database for gene symbol lookup
+peakAnno <- annotatePeak(
+    peaks,
+    tssRegion = c(-3000, 3000),   # ±3 kb = promoter region
+    TxDb      = txdb,
+    annoDb    = "org.Hs.eg.db"    # adds gene symbols, Entrez IDs
+)
+
+## --- Pie chart: distribution of peaks across genomic features ---
+plotAnnoPie(peakAnno, main="CTCF peak distribution by genomic feature")
+
+## --- Distance to TSS plot ---
+plotDistToTSS(peakAnno, title="CTCF peak distance to nearest TSS")
+
+## --- Upset plot: overlap with multiple annotation categories ---
+upsetplot(peakAnno, vennpie=TRUE)
+
+## --- Extract gene list for GO enrichment ---
+## Get Entrez IDs of genes with CTCF peaks in their promoters
+anno_df <- as.data.frame(peakAnno)
+promoter_genes <- anno_df %>%
+    filter(grepl("Promoter", annotation)) %>%
+    pull(geneId) %>% unique() %>% na.omit()
+
+cat("Genes with CTCF peaks in promoters:", length(promoter_genes), "\n")
+
+## GO enrichment of promoter-associated genes
+ego <- enrichGO(
+    gene          = promoter_genes,
+    OrgDb         = org.Hs.eg.db,
+    keyType       = "ENTREZID",
+    ont           = "BP",          # Biological Process
+    pAdjustMethod = "BH",
+    pvalueCutoff  = 0.05
+)
+dotplot(ego, showCategory=15, title="GO: genes with CTCF promoter peaks")
+ggsave("5_annotation/GO_CTCF_promoter_genes.png", width=9, height=7)</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s6-chipseeker" data-filename="06_chipseeker_annotation.R"><i class="bi bi-download me-1"></i>06_chipseeker_annotation.R</button></div>
+</section>
+
+<section id="step7" class="mb-5">
+  <h2 class="section-divider">Step 7 — DiffBind: Differential Binding Analysis</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>R — DiffBind: find peaks that change between conditions</span><button class="btn-copy">Copy</button></div>
+<pre id="s7-diffbind">######################################################################
+## STEP 7: DiffBind — identify differentially bound regions between conditions
+## DiffBind counts reads in consensus peak regions across all samples,
+## then applies DESeq2 or edgeR statistics to find peaks with
+## significantly different binding between conditions.
+## Example: CTCF binding in untreated vs drug-treated K562 cells
+######################################################################
+
+library(DiffBind)
+
+## --- Create sample sheet ---
+## DiffBind needs a table describing each sample:
+## SampleID, Tissue, Factor, Condition, Treatment, Replicate, bamReads, Peaks
+## This is the sample metadata that drives the analysis
+sample_sheet <- data.frame(
+    SampleID  = c("CTCF_ctrl_rep1","CTCF_ctrl_rep2","CTCF_treat_rep1","CTCF_treat_rep2"),
+    Tissue    = "K562",
+    Factor    = "CTCF",
+    Condition = c("Control","Control","Treated","Treated"),
+    Replicate = c(1, 2, 1, 2),
+    bamReads  = c("1_aligned/CTCF_ctrl_rep1_final.bam",
+                  "1_aligned/CTCF_ctrl_rep2_final.bam",
+                  "1_aligned/CTCF_treat_rep1_final.bam",
+                  "1_aligned/CTCF_treat_rep2_final.bam"),
+    Peaks     = c("2_peaks/CTCF_ctrl_rep1_peaks.narrowPeak",
+                  "2_peaks/CTCF_ctrl_rep2_peaks.narrowPeak",
+                  "2_peaks/CTCF_treat_rep1_peaks.narrowPeak",
+                  "2_peaks/CTCF_treat_rep2_peaks.narrowPeak"),
+    PeakCaller = "macs"
+)
+
+## --- Build DiffBind object and count reads ---
+## dba()          : creates the DiffBind object from sample sheet
+## dba.count()    : counts reads in a consensus peak set (union of all peaks)
+##   summits=250  : resize all peaks to 500 bp centred on summits
+##                  (ensures peaks are comparable size across samples)
+##   minOverlap=2 : only include peaks called in at least 2 samples
+db <- dba(sampleSheet = sample_sheet)
+db <- dba.count(db, summits=250, minOverlap=2)
+
+## --- PCA of binding profiles ---
+## Should cluster by condition (Control vs Treated)
+dba.plotPCA(db, attributes=DBA_CONDITION, label=DBA_ID)
+
+## --- Contrast: Treated vs Control ---
+## dba.contrast: define which comparison to make
+## contrast = DBA_CONDITION : compare by the Condition column
+db <- dba.contrast(db, contrast=DBA_CONDITION,
+                   reorderMeta=list(Condition="Control"))
+
+## --- Differential binding analysis with DESeq2 ---
+## dba.analyze: runs DESeq2 (default) on the count matrix
+db <- dba.analyze(db, method=DBA_DESEQ2)
+
+## --- Extract results ---
+## dba.report: extract differentially bound sites
+## th = 0.05 : FDR threshold
+## fold = 1  : minimum log2FC (fold=1 means |log2FC| > 1 = 2-fold change)
+db_report <- dba.report(db, th=0.05, fold=1)
+cat("Differentially bound peaks:", length(db_report), "\n")
+
+## MA plot and volcano plot
+dba.plotMA(db, contrast=1, method=DBA_DESEQ2)
+dba.plotVolcano(db, contrast=1, method=DBA_DESEQ2)
+
+## Export BED file of differential peaks for IGV viewing
+export(db_report, "6_diffbind/CTCF_differential_peaks.bed", format="BED")</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s7-diffbind" data-filename="07_diffbind.R"><i class="bi bi-download me-1"></i>07_diffbind.R</button></div>
+</section>
+
+<section class="mb-5">
+  <div class="d-flex justify-content-between">
+    <a href="deseq2-edger-differential-expression.html" class="btn btn-outline-secondary rounded-pill px-4"><i class="bi bi-arrow-left me-2"></i>DESeq2/edgeR Deep Dive</a>
+    <a href="gwas-plink-gemma-association.html" class="btn btn-primary rounded-pill px-4">GWAS Analysis <i class="bi bi-arrow-right ms-2"></i></a>
+  </div>
+</section>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-lg-6"><h5 class="text-white fw-bold mb-3"><span style="color:#ff9933;">Indian</span><span style="color:var(--ieb-primary);">Elucid</span><span style="color:var(--ieb-accent);">Biology</span></h5><p class="small">Free, interactive bioinformatics tutorials. Open source and community-driven.</p></div>
+      <div class="col-lg-6 text-lg-end"><p class="small mb-1">Founded by <strong>Ankush Sharma</strong></p><div class="d-flex gap-3 justify-content-lg-end"><a href="https://github.com/ank-man" target="_blank" class="text-white fs-5"><i class="bi bi-github"></i></a><a href="https://www.linkedin.com/in/ankush-sharma-290307/" target="_blank" class="text-white fs-5"><i class="bi bi-linkedin"></i></a><a href="mailto:mr.ank2999@gmail.com" class="text-white fs-5"><i class="bi bi-envelope"></i></a></div></div>
+    </div>
+    <hr class="border-secondary mt-4 mb-3">
+    <p class="text-center small mb-0">&copy; 2025 IndianElucidBiology &mdash; Made with <span style="color:#e25555;">&#9829;</span> for the bioinformatics community.</p>
+  </div>
+</footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/main.js"></script>
+</body>
+</html>

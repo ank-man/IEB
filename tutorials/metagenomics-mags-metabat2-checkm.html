@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Metagenome-Assembled Genomes: MetaBat2 + CheckM | IndianElucidBiology</title>
+  <meta name="description" content="Shotgun metagenomics MAG binning pipeline: assembly with MEGAHIT, coverage calculation, binning with MetaBat2, quality assessment with CheckM, taxonomic classification with GTDB-Tk, and dereplication with dRep.">
+  <meta name="keywords" content="MAG, metagenome-assembled genome, MetaBat2, CheckM, GTDB-Tk, dRep, MEGAHIT, binning, shotgun metagenomics, microbiome, assembly, taxonomy">
+  <link rel="canonical" href="https://indianelucidbiology.github.io/tutorials/metagenomics-mags-metabat2-checkm.html">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="../css/style.css" rel="stylesheet">
+</head>
+<body>
+<div class="progress-tracker"></div>
+
+<nav class="navbar navbar-expand-lg fixed-top">
+  <div class="container">
+    <a class="navbar-brand" href="../index.html">
+      <span class="brand-indian">Indian</span><span class="brand-elucid">Elucid</span><span class="brand-biology">Biology</span>
+    </a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="mainNav">
+      <ul class="navbar-nav ms-auto me-3">
+        <li class="nav-item"><a class="nav-link" href="../index.html">Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="index.html">Tutorial Library</a></li>
+        <li class="nav-item"><a class="nav-link" href="scrna-scanpy-python.html"><i class="bi bi-arrow-left me-1"></i>scRNA Scanpy</a></li>
+        <li class="nav-item"><a class="nav-link" href="index.html">All Tutorials<i class="bi bi-grid ms-1"></i></a></li>
+      </ul>
+      <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode">&#9790;</button>
+    </div>
+  </div>
+</nav>
+
+<section class="tutorial-hero">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-lg-8">
+        <nav aria-label="breadcrumb">
+          <ol class="breadcrumb mb-3" style="--bs-breadcrumb-divider-color:rgba(255,255,255,0.5);">
+            <li class="breadcrumb-item"><a href="../index.html" class="text-white-50 text-decoration-none">Home</a></li>
+            <li class="breadcrumb-item"><a href="index.html" class="text-white-50 text-decoration-none">Tutorials</a></li>
+            <li class="breadcrumb-item active text-white">MAG Binning</li>
+          </ol>
+        </nav>
+        <h1 class="display-5 fw-bold text-white mb-3">Metagenome-Assembled Genomes: MetaBat2 + CheckM</h1>
+        <p class="lead text-white-50 mb-4">
+          MEGAHIT assembly &middot; Bowtie2 coverage &middot; MetaBat2 binning &middot; CheckM quality &middot; GTDB-Tk taxonomy &middot; dRep dereplication &middot; Prokka annotation
+        </p>
+        <div class="d-flex gap-3 flex-wrap">
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-clock me-1"></i> ~180 min</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-bar-chart me-1"></i> Advanced</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-terminal me-1"></i> Bash / Python</span>
+        </div>
+      </div>
+      <div class="col-lg-4 text-center d-none d-lg-block">
+        <img src="../img/Byte3.png" alt="Byte" class="img-fluid" style="max-height:230px;filter:drop-shadow(0 10px 30px rgba(0,0,0,0.4));">
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="container py-5">
+  <div class="row">
+    <div class="col-lg-3 d-none d-lg-block">
+      <div class="toc-sidebar">
+        <h6 class="fw-bold text-muted text-uppercase small mb-3">On this page</h6>
+        <nav class="nav flex-column">
+          <a class="nav-link" href="#overview">Overview</a>
+          <a class="nav-link" href="#dataset">Dataset</a>
+          <a class="nav-link" href="#dirstructure">Directory Structure</a>
+          <a class="nav-link" href="#step1">1. QC &amp; Assembly</a>
+          <a class="nav-link" href="#step2">2. Coverage Calculation</a>
+          <a class="nav-link" href="#step3">3. MetaBat2 Binning</a>
+          <a class="nav-link" href="#step4">4. CheckM Quality</a>
+          <a class="nav-link" href="#step5">5. GTDB-Tk Taxonomy</a>
+          <a class="nav-link" href="#step6">6. dRep Dereplication</a>
+          <a class="nav-link" href="#step7">7. Prokka Annotation</a>
+        </nav>
+      </div>
+    </div>
+
+    <div class="col-lg-9">
+      <div class="tutorial-content">
+
+<section id="overview" class="mb-5">
+  <h2 class="section-divider">Overview</h2>
+  <p>Metagenome-assembled genomes (MAGs) are draft genomes reconstructed from shotgun metagenomic sequencing without culturing individual organisms. The workflow assembles all community DNA together, then <strong>bins</strong> contigs into putative genomes based on coverage depth and tetranucleotide frequency signatures. MAGs allow you to study the genomic content and metabolic potential of uncultivable microorganisms.</p>
+  <div class="byte-callout">
+    <img src="../img/Byte1.png" alt="Byte">
+    <div>
+      <strong>MAG quality tiers (MIMAG standards):</strong>
+      <ul class="mb-0 mt-1 small">
+        <li><strong>High quality:</strong> Completeness &ge;90%, Contamination &le;5%, with 23S/16S/5S rRNAs and &ge;18 tRNAs</li>
+        <li><strong>Medium quality:</strong> Completeness &ge;50%, Contamination &le;10%</li>
+        <li><strong>Low quality:</strong> Completeness &lt;50% and/or Contamination &gt;10%</li>
+        <li>Only report High and Medium quality MAGs in publications. Low quality MAGs are often artifacts or chimeric.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="dataset" class="mb-5">
+  <h2 class="section-divider">Dataset</h2>
+  <p>We use the <strong>SRA PRJNA46333</strong> human gut microbiome dataset — a well-characterised shotgun metagenomics study of human gut microbial communities with known MAG composition from previous analyses.</p>
+  <div class="param-table">
+    <table class="table table-striped mb-0">
+      <thead><tr><th>Property</th><th>Value</th></tr></thead>
+      <tbody>
+        <tr><td>Sample type</td><td>Human gut microbiome (stool)</td></tr>
+        <tr><td>Accession</td><td><a href="https://www.ncbi.nlm.nih.gov/bioproject/PRJNA46333" target="_blank">PRJNA46333</a> — HMP Human Microbiome Project</td></tr>
+        <tr><td>Sequencing</td><td>Paired-end Illumina WGS (shotgun metagenomics)</td></tr>
+        <tr><td>Samples</td><td>3 gut metagenomes (for co-assembly binning)</td></tr>
+        <tr><td>Expected MAGs</td><td>10&ndash;30 medium-to-high quality MAGs per sample</td></tr>
+        <tr><td>Dominant phyla</td><td>Firmicutes, Bacteroidetes, Proteobacteria</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="dirstructure" class="mb-5">
+  <h2 class="section-divider">Directory Structure</h2>
+  <div class="dir-tree">
+    <div class="dir-tree-header"><i class="bi bi-folder2-open"></i> mag_pipeline/</div>
+<span class="tree-folder">mag_pipeline/</span>
+&#9500;&#9472;&#9472; <span class="tree-folder tree-active">0_raw/</span>              <span class="tree-note"># raw paired-end FASTQ files</span>
+&#9500;&#9472;&#9472; <span class="tree-folder">1_trimmed/</span>          <span class="tree-note"># QC-trimmed reads</span>
+&#9500;&#9472;&#9472; <span class="tree-folder">2_assembly/</span>         <span class="tree-note"># MEGAHIT co-assembly output</span>
+&#9474;   &#9492;&#9472;&#9472; <span class="tree-output">final.contigs.fa</span>    <span class="tree-note"># assembled contigs &gt;1 kb</span>
+&#9500;&#9472;&#9472; <span class="tree-folder">3_coverage/</span>         <span class="tree-note"># per-contig depth files (jgi_summarize)</span>
+&#9500;&#9472;&#9472; <span class="tree-folder">4_bins/</span>             <span class="tree-note"># MetaBat2 output bins (one FASTA per bin)</span>
+&#9500;&#9472;&#9472; <span class="tree-folder">5_checkm/</span>           <span class="tree-note"># CheckM completeness and contamination</span>
+&#9500;&#9472;&#9472; <span class="tree-folder">6_gtdbtk/</span>           <span class="tree-note"># GTDB-Tk taxonomic classification</span>
+&#9500;&#9472;&#9472; <span class="tree-folder">7_drep/</span>             <span class="tree-note"># dRep dereplicated MAG set</span>
+&#9492;&#9472;&#9472; <span class="tree-folder">8_annotation/</span>       <span class="tree-note"># Prokka gene annotations per MAG</span>
+  </div>
+</section>
+
+<section id="step1" class="mb-5">
+  <h2 class="section-divider">Step 1 — QC &amp; MEGAHIT Assembly</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash — Trim reads with fastp, co-assemble with MEGAHIT</span><button class="btn-copy">Copy</button></div>
+<pre id="s1-assembly">######################################################################
+## STEP 1: QC trimming and metagenome assembly
+## Co-assembly: assemble all samples together
+##   Advantage: deeper effective coverage for low-abundance organisms
+##   Each organism's reads from multiple samples combine into one assembly
+##   This gives better-resolved genomes for rare community members
+## MEGAHIT: memory-efficient de Bruijn graph assembler for metagenomes
+##   Better than SPAdes for large metagenomes (>50 GB RAM constraint)
+######################################################################
+
+mkdir -p 0_raw 1_trimmed 2_assembly 3_coverage 4_bins 5_checkm 6_gtdbtk 7_drep 8_annotation
+module load fastp/0.23.4
+module load megahit/1.2.9
+
+## Download HMP gut metagenome samples
+SAMPLES=(SRR059420 SRR059421 SRR059422)
+for SRR in "${SAMPLES[@]}"; do
+    fasterq-dump --split-files --outdir 0_raw/ --threads 8 ${SRR}
+    gzip 0_raw/${SRR}_1.fastq 0_raw/${SRR}_2.fastq
+done
+
+## --- Step 1a: QC trimming with fastp ---
+## fastp: faster alternative to Trimmomatic with better adapter detection
+## -i/-I         : input R1/R2 files
+## -o/-O         : output R1/R2 paired files
+## --detect_adapter_for_pe : auto-detect Illumina adapters for PE reads
+## --cut_right   : quality trim from 3' end using sliding window
+## --cut_right_window_size 5 --cut_right_mean_quality 20 :
+##   slide a 5-bp window, trim when average quality drops below Q20
+## --length_required 50 : minimum read length after trimming
+## --thread 8    : parallel threads
+## --json/--html : save QC reports
+for SRR in "${SAMPLES[@]}"; do
+    fastp \
+        -i 0_raw/${SRR}_1.fastq.gz \
+        -I 0_raw/${SRR}_2.fastq.gz \
+        -o 1_trimmed/${SRR}_R1.fq.gz \
+        -O 1_trimmed/${SRR}_R2.fq.gz \
+        --detect_adapter_for_pe \
+        --cut_right --cut_right_window_size 5 --cut_right_mean_quality 20 \
+        --length_required 50 \
+        --thread 8 \
+        --json 1_trimmed/${SRR}_fastp.json \
+        --html 1_trimmed/${SRR}_fastp.html
+    echo "Trimmed: ${SRR}"
+done
+
+## --- Step 1b: Co-assembly with MEGAHIT ---
+## Co-assembly: combine all samples' reads into one assembly
+## Build comma-separated lists of all R1 and R2 files
+R1_ALL=$(ls 1_trimmed/*_R1.fq.gz | tr '\n' ',' | sed 's/,$//')
+R2_ALL=$(ls 1_trimmed/*_R2.fq.gz | tr '\n' ',' | sed 's/,$//')
+
+## megahit: de Bruijn graph assembler optimised for metagenomes
+## -1/-2          : paired-end read files (comma-separated for multiple samples)
+## --min-contig-len 1000 : only output contigs >= 1 kb
+##   Short contigs (<1 kb) are rarely useful for binning and increase noise
+##   MetaBat2 requires contigs >= 1500 bp for reliable binning
+## --k-min 27 --k-max 127 --k-step 10 :
+##   Multi-k assembly: tries k-mers from 27 to 127 in steps of 10
+##   Large k: resolves repetitive regions better; small k: better coverage of low-complexity regions
+##   MEGAHIT automatically merges results from all k values
+## -t 32         : 32 threads
+## -m 0.9        : use up to 90% of available memory
+## --out-dir     : output directory
+megahit \
+    -1 ${R1_ALL} \
+    -2 ${R2_ALL} \
+    --min-contig-len 1000 \
+    --k-min 27 \
+    --k-max 127 \
+    --k-step 10 \
+    -t 32 \
+    -m 0.9 \
+    --out-dir 2_assembly/
+
+## Assembly statistics
+echo "Total contigs: $(grep -c '>' 2_assembly/final.contigs.fa)"
+echo "Total assembly size (bp):"
+grep -v '>' 2_assembly/final.contigs.fa | tr -d '\n' | wc -c</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s1-assembly" data-filename="01_qc_assembly.sh"><i class="bi bi-download me-1"></i>01_qc_assembly.sh</button></div>
+  <div class="cmd-explain">
+    <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> Assembly strategy decoded</div>
+    <table>
+      <tr><td><span class="cmd-emoji">&#128200;</span>Co-assembly vs per-sample</td><td>Co-assembly combines reads from all samples before assembly. This gives higher effective coverage for organisms present in multiple samples, producing longer contigs. The trade-off: co-assembly can mix up closely related strains across samples into chimeric contigs. For species-level MAGs: co-assemble. For strain-level resolution: per-sample assembly + cross-mapping coverage is sometimes better.</td></tr>
+      <tr><td><span class="cmd-emoji">&#127919;</span>--min-contig-len 1000</td><td>Very short contigs (&lt;1 kb) carry too little information for binning — they cannot be assigned to a genome based on tetranucleotide frequency or coverage alone. MetaBat2 specifically requires contigs &ge;1,500 bp (it internally filters shorter contigs anyway). Discarding short contigs also reduces output file size significantly without losing useful genome content.</td></tr>
+    </table>
+  </div>
+</section>
+
+<section id="step2" class="mb-5">
+  <h2 class="section-divider">Step 2 — Coverage Calculation</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash — Map reads back to assembly, calculate per-contig depth</span><button class="btn-copy">Copy</button></div>
+<pre id="s2-coverage">######################################################################
+## STEP 2: Calculate per-contig coverage depth
+## MetaBat2 uses BOTH tetranucleotide frequency AND coverage to bin contigs.
+## Coverage is the primary signal: contigs from the same organism have
+## similar coverage (because the same organism contributes reads in proportion
+## to its abundance in the community).
+## We map ALL samples back to the co-assembly, then use jgi_summarize_bam_contig_depths
+## to compute per-contig, per-sample coverage — this gives MetaBat2 multi-sample coverage,
+## which dramatically improves binning quality.
+######################################################################
+
+module load bowtie2/2.5.1
+module load samtools/1.17
+module load metabat2/2.15.0
+
+ASSEMBLY="2_assembly/final.contigs.fa"
+
+## --- Step 2a: Index the assembly for Bowtie2 ---
+bowtie2-build --threads 16 ${ASSEMBLY} 3_coverage/assembly_index
+
+## --- Step 2b: Map each sample back to the co-assembly ---
+## We map EACH sample separately to get per-sample coverage profiles
+## Contigs from the same organism should have correlated coverage across samples
+## (if organism X is abundant in sample 2, all its contigs have high coverage in sample 2)
+SAMPLES=(SRR059420 SRR059421 SRR059422)
+
+for SRR in "${SAMPLES[@]}"; do
+    ## Align reads to the co-assembly
+    ## --no-unal  : suppress unaligned reads (saves disk space)
+    ## -X 1000    : maximum insert size for valid pairs (1000 bp)
+    bowtie2 \
+        -x 3_coverage/assembly_index \
+        -1 1_trimmed/${SRR}_R1.fq.gz \
+        -2 1_trimmed/${SRR}_R2.fq.gz \
+        --no-unal \
+        -X 1000 \
+        -p 16 \
+        2> 3_coverage/${SRR}_bowtie2.log | \
+      samtools sort \
+        -@ 8 \
+        -O BAM \
+        -o 3_coverage/${SRR}_sorted.bam
+    samtools index 3_coverage/${SRR}_sorted.bam
+    echo "Mapped: ${SRR}"
+done
+
+## --- Step 2c: Summarize contig depths using MetaBat2's helper tool ---
+## jgi_summarize_bam_contig_depths: calculates mean and variance of coverage
+## for each contig in each BAM file.
+## This generates a depth file with one row per contig and one column per sample:
+##   contigName  contigLen  totalAvgDepth  sample1.bam  sample1.bam-var  sample2.bam ...
+## MetaBat2 uses this depth information directly for binning.
+jgi_summarize_bam_contig_depths \
+    --outputDepth 3_coverage/depth.txt \
+    3_coverage/*_sorted.bam
+
+echo "Depth file created: 3_coverage/depth.txt"
+echo "Contigs in depth file: $(tail -n+2 3_coverage/depth.txt | wc -l)"</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s2-coverage" data-filename="02_coverage_calculation.sh"><i class="bi bi-download me-1"></i>02_coverage_calculation.sh</button></div>
+  <div class="fun-tip"><span class="fun-tip-icon">&#127801;</span><div><strong>Multi-sample coverage is the key to good binning:</strong> When you have 3+ samples, MetaBat2 can identify contigs that co-vary in abundance. If Bifidobacterium longum is present in samples 1 and 3 but not 2, all its contigs will have high coverage in samples 1 and 3 and zero in sample 2. This co-variation pattern is a very strong binning signal — much better than coverage from a single sample.</div></div>
+</section>
+
+<section id="step3" class="mb-5">
+  <h2 class="section-divider">Step 3 — MetaBat2 Binning</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash — MetaBat2 automated binning using coverage + tetranucleotide frequency</span><button class="btn-copy">Copy</button></div>
+<pre id="s3-metabat2">######################################################################
+## STEP 3: Run MetaBat2 to bin contigs into putative MAGs
+## MetaBat2 clusters contigs based on:
+##   1. Tetranucleotide frequency (TNF): the 4-mer composition of the contig
+##      sequence. Each organism has a characteristic TNF signature based on
+##      its GC content and codon usage patterns.
+##   2. Coverage depth: contigs from the same organism have correlated
+##      coverage across samples (same organism = same abundance pattern)
+## MetaBat2 uses a Bayesian approach to probabilistically assign contigs to bins.
+######################################################################
+
+module load metabat2/2.15.0
+
+ASSEMBLY="2_assembly/final.contigs.fa"
+DEPTH="3_coverage/depth.txt"
+
+## --- Run MetaBat2 ---
+## -i    : input assembly FASTA file
+## -a    : abundance/depth file from jgi_summarize_bam_contig_depths
+## -o    : output directory + prefix for bin FASTA files
+##         Creates: 4_bins/bin.1.fa, 4_bins/bin.2.fa, etc.
+## --minContig 1500 : minimum contig length for binning
+##   MetaBat2 requires >= 1500 bp contigs to estimate TNF reliably
+##   Shorter contigs are not assigned to bins (go to an "unbinned" set)
+## --minClsSize 200000 : minimum bin size in bp (= 200 kb)
+##   Bins smaller than 200 kb are likely genome fragments, not complete genomes
+##   For fragmented assemblies, lower to 100000 (100 kb)
+## --numThreads 32 : parallel threads
+## --saveCls : save the bin membership table (which contig → which bin)
+## --seed 42 : random seed for reproducibility (MetaBat2 uses random elements)
+metabat2 \
+    -i ${ASSEMBLY} \
+    -a ${DEPTH} \
+    -o 4_bins/bin \
+    --minContig   1500 \
+    --minClsSize  200000 \
+    --numThreads  32 \
+    --saveCls \
+    --seed        42
+
+## --- Count output bins ---
+N_BINS=$(ls 4_bins/bin.*.fa 2>/dev/null | wc -l)
+echo "MetaBat2 created ${N_BINS} bins"
+echo ""
+echo "Bin sizes (number of contigs per bin):"
+for BIN in 4_bins/bin.*.fa; do
+    echo "  $(basename ${BIN}): $(grep -c '>' ${BIN}) contigs"
+done
+
+## --- Quick size summary for each bin ---
+for BIN in 4_bins/bin.*.fa; do
+    BINNAME=$(basename ${BIN} .fa)
+    SIZE=$(grep -v '>' ${BIN} | tr -d '\n' | wc -c)
+    CONTIGS=$(grep -c '>' ${BIN})
+    echo -e "${BINNAME}\t${CONTIGS} contigs\t${SIZE} bp"
+done | sort -k3 -rn</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s3-metabat2" data-filename="03_metabat2_binning.sh"><i class="bi bi-download me-1"></i>03_metabat2_binning.sh</button></div>
+</section>
+
+<section id="step4" class="mb-5">
+  <h2 class="section-divider">Step 4 — CheckM Quality Assessment</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash — CheckM lineage workflow to assess completeness and contamination</span><button class="btn-copy">Copy</button></div>
+<pre id="s4-checkm">######################################################################
+## STEP 4: Assess MAG quality with CheckM
+## CheckM uses a curated set of lineage-specific single-copy marker genes
+## to estimate:
+##   Completeness:  % of expected marker genes found in the bin
+##     (if 90% of Firmicutes marker genes are present = 90% complete)
+##   Contamination: % of marker genes found in multiple copies per bin
+##     (a single genome should have exactly one copy of each single-copy gene;
+##      if many are duplicated, the bin likely contains DNA from 2+ organisms)
+##   Strain heterogeneity: % of duplicated markers that are highly similar
+##     (similar duplicates = two strains; dissimilar = contamination from another species)
+######################################################################
+
+module load checkm/1.2.2
+
+## --- CheckM lineage workflow ---
+## checkm lineage_wf: the standard CheckM pipeline
+##   Step 1: tree placement — places each bin into the CheckM reference tree
+##   Step 2: lineage-specific markers — selects the appropriate marker gene set
+##            for each bin's placement in the tree
+##   Step 3: marker gene analysis — finds and quantifies marker genes in each bin
+##   Step 4: summary — reports completeness, contamination, strain heterogeneity
+##
+## positional arguments: input_dir  output_dir
+## -t 32   : 32 parallel threads
+## -x fa   : file extension for bins (default 'fa')
+## --tab_table : output results as a tab-separated table (easier to parse)
+## --file checkm_summary.tsv : save summary table to file
+checkm lineage_wf \
+    4_bins/ \
+    5_checkm/ \
+    -t 32 \
+    -x fa \
+    --tab_table \
+    --file 5_checkm/checkm_summary.tsv
+
+## --- View results ---
+echo "=== CheckM Quality Summary ==="
+cat 5_checkm/checkm_summary.tsv
+
+## --- Filter to medium and high quality MAGs ---
+## MIMAG standard:
+##   High quality: Completeness >= 90%, Contamination <= 5%
+##   Medium quality: Completeness >= 50%, Contamination <= 10%
+echo ""
+echo "=== High Quality MAGs (Completeness >= 90%, Contamination <= 5%) ==="
+awk -F'\t' 'NR>1 && $12 >= 90 && $13 <= 5 {print $1, "Completeness:"$12, "Contamination:"$13}' \
+    5_checkm/checkm_summary.tsv
+
+echo ""
+echo "=== Medium Quality MAGs (Completeness >= 50%, Contamination <= 10%) ==="
+awk -F'\t' 'NR>1 && $12 >= 50 && $12 < 90 && $13 <= 10 {print $1, "Completeness:"$12, "Contamination:"$13}' \
+    5_checkm/checkm_summary.tsv
+
+## Save lists of HQ and MQ MAG filenames for downstream steps
+awk -F'\t' 'NR>1 && $12 >= 90 && $13 <= 5 {print "4_bins/"$1".fa"}' \
+    5_checkm/checkm_summary.tsv > 5_checkm/hq_mags.txt
+
+awk -F'\t' 'NR>1 && $12 >= 50 && $13 <= 10 {print "4_bins/"$1".fa"}' \
+    5_checkm/checkm_summary.tsv > 5_checkm/hq_mq_mags.txt
+
+echo "HQ MAGs: $(wc -l < 5_checkm/hq_mags.txt)"
+echo "HQ+MQ MAGs: $(wc -l < 5_checkm/hq_mq_mags.txt)"</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s4-checkm" data-filename="04_checkm_quality.sh"><i class="bi bi-download me-1"></i>04_checkm_quality.sh</button></div>
+  <div class="cmd-explain">
+    <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> CheckM metrics decoded</div>
+    <table>
+      <tr><td><span class="cmd-emoji">&#127919;</span>Contamination vs completeness trade-off</td><td>A high-quality MAG requires BOTH high completeness AND low contamination. Completeness &ge;90% means you recovered most of the genome. Contamination &le;5% means very little foreign DNA is present. You can sometimes improve one metric by splitting a contaminated bin (see CheckM <code>checkm merge</code> command), but this risks creating two lower-completeness bins from one contaminated one.</td></tr>
+      <tr><td><span class="cmd-emoji">&#128204;</span>Strain heterogeneity</td><td>CheckM separates contamination into &ldquo;strain heterogeneity&rdquo; (duplicated markers &gt;90% amino acid identity — likely same species, different strain) and true contamination (duplicated markers with &lt;90% identity — different species). High strain heterogeneity can be acceptable for some analyses but reduces confidence in the MAG representing a single genome.</td></tr>
+    </table>
+  </div>
+</section>
+
+<section id="step5" class="mb-5">
+  <h2 class="section-divider">Step 5 — GTDB-Tk Taxonomic Classification</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash — GTDB-Tk classify workflow to assign taxonomy to MAGs</span><button class="btn-copy">Copy</button></div>
+<pre id="s5-gtdbtk">######################################################################
+## STEP 5: Taxonomic classification with GTDB-Tk
+## GTDB-Tk assigns taxonomy to MAGs using the Genome Taxonomy Database (GTDB)
+## GTDB re-classifies bacteria and archaea based on relative evolutionary
+## divergence (phylogenomics), making it more consistent than NCBI taxonomy.
+## GTDB-Tk pipeline:
+##   1. Identify marker genes (120 bacterial or 53 archaeal single-copy genes)
+##   2. Place MAG in the GTDB reference tree using pplacer
+##   3. Classify based on tree placement and ANI to reference genomes
+######################################################################
+
+module load gtdbtk/2.3.2
+
+## GTDB database must be downloaded separately (~85 GB):
+## wget https://data.gtdb.ecogenomics.org/releases/latest/auxillary_files/gtdbtk_data.tar.gz
+## tar -xzf gtdbtk_data.tar.gz
+## export GTDBTK_DATA_PATH=/path/to/gtdbtk_database/
+
+## --- Run GTDB-Tk classify workflow ---
+## gtdbtk classify_wf: full GTDB-Tk pipeline in one command
+## --genome_dir : directory containing MAG FASTA files
+## --extension fa : file extension for MAG files
+## --out_dir   : output directory
+## --cpus 32   : parallel threads (pplacer is memory-intensive)
+## --mash_db   : path to Mash sketch database (speeds up genome screening)
+##   (automatically created by GTDB-Tk if not pre-built)
+gtdbtk classify_wf \
+    --genome_dir 4_bins/ \
+    --extension fa \
+    --out_dir 6_gtdbtk/ \
+    --cpus 32 \
+    --mash_db 6_gtdbtk/mash_db/
+
+## --- View taxonomy results ---
+echo "=== GTDB-Tk Bacterial Taxonomy ==="
+cat 6_gtdbtk/classify/gtdbtk.bac120.summary.tsv | \
+    cut -f1,2,18 | head -30
+## Column 1: user_genome (your bin name)
+## Column 2: classification (full GTDB taxonomy string)
+## Column 18: ANI to closest reference genome
+
+## --- Join CheckM quality + GTDB taxonomy for the final MAG table ---
+python3 << 'PYEOF'
+import pandas as pd
+
+checkm = pd.read_csv("5_checkm/checkm_summary.tsv", sep="\t")
+gtdbtk = pd.read_csv("6_gtdbtk/classify/gtdbtk.bac120.summary.tsv", sep="\t",
+                     usecols=["user_genome","classification","closest_genome_reference_radius"])
+
+## Merge on bin name
+checkm["bin"] = checkm["Bin Id"]
+gtdbtk["bin"] = gtdbtk["user_genome"]
+merged = checkm.merge(gtdbtk, on="bin", how="left")
+
+## Extract simplified taxonomy (genus + species from GTDB string)
+def parse_gtdb(s):
+    if pd.isna(s): return "Unknown"
+    parts = {x.split("__")[0]: x.split("__")[1] for x in s.split(";") if "__" in x}
+    genus = parts.get("g", "")
+    spec  = parts.get("s", "")
+    return f"{genus} / {spec}" if spec else genus
+
+merged["taxonomy"] = merged["classification"].apply(parse_gtdb)
+
+## Quality-filtered summary table
+summary = merged[["bin","Completeness","Contamination","taxonomy"]].rename(columns={
+    "Completeness":"completeness",
+    "Contamination":"contamination"
+})
+summary = summary.sort_values("completeness", ascending=False)
+print(summary.to_string(index=False))
+summary.to_csv("mag_quality_taxonomy_summary.tsv", sep="\t", index=False)
+PYEOF</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s5-gtdbtk" data-filename="05_gtdbtk_taxonomy.sh"><i class="bi bi-download me-1"></i>05_gtdbtk_taxonomy.sh</button></div>
+</section>
+
+<section id="step6" class="mb-5">
+  <h2 class="section-divider">Step 6 — dRep Dereplication</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash — dRep: remove redundant MAGs, keep best representative per species</span><button class="btn-copy">Copy</button></div>
+<pre id="s6-drep">######################################################################
+## STEP 6: Dereplicate MAGs with dRep
+## When binning multiple samples or using multiple binners, you often
+## recover the same organism multiple times (redundant MAGs).
+## dRep clusters MAGs by Average Nucleotide Identity (ANI):
+##   Primary cluster: ANI >= 90% (same genus/family level)
+##   Secondary cluster: ANI >= 95% (same species level — GTDB species boundary)
+## Within each species cluster, dRep selects the BEST MAG
+## (highest completeness, lowest contamination).
+######################################################################
+
+## Install: conda install -c bioconda drep
+module load drep/3.4.0
+
+## Use only high + medium quality MAGs (from CheckM filter in Step 4)
+## Low quality MAGs should not be dereplicated — too many artifacts
+
+## --- Run dRep dereplicate ---
+## -p 32    : 32 parallel threads
+## -comp 50 : minimum completeness for inclusion (matches MIMAG medium quality)
+## -con 10  : maximum contamination for inclusion
+## -sa 0.95 : secondary cluster ANI threshold (species-level: 95% ANI)
+##   This is the GTDB species boundary — genomes within 95% ANI = same species
+## --clusterAlg average : linkage algorithm for hierarchical clustering
+## -pa 0.9  : primary cluster ANI threshold (genus/family: 90% ANI)
+dRep dereplicate \
+    7_drep/ \
+    -g $(cat 5_checkm/hq_mq_mags.txt | tr '\n' ' ') \
+    -p 32 \
+    -comp 50 \
+    -con 10 \
+    -sa 0.95 \
+    -pa 0.90 \
+    --clusterAlg average
+
+## Output:
+##   7_drep/dereplicated_genomes/   ← the best representative MAG per species
+##   7_drep/figures/                ← visualisation of clustering
+##   7_drep/data_tables/Wdb.csv     ← winner table (which MAG was selected per cluster)
+##   7_drep/data_tables/Cdb.csv     ← cluster membership table
+
+echo "=== dRep Summary ==="
+echo "Input MAGs: $(cat 5_checkm/hq_mq_mags.txt | wc -l)"
+echo "Dereplicated MAGs (unique species): $(ls 7_drep/dereplicated_genomes/*.fa | wc -l)"</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s6-drep" data-filename="06_drep_dereplication.sh"><i class="bi bi-download me-1"></i>06_drep_dereplication.sh</button></div>
+  <div class="fun-tip"><span class="fun-tip-icon">&#129516;</span><div><strong>95% ANI = species boundary:</strong> The conventional prokaryotic species threshold is 95&ndash;96% Average Nucleotide Identity &mdash; genomes above this threshold are considered the same species. GTDB uses 95% ANI as its species-level clustering boundary. When dereplicated, your final MAG set represents each microbial species in your samples exactly once with the best-quality genome.</div></div>
+</section>
+
+<section id="step7" class="mb-5">
+  <h2 class="section-divider">Step 7 — Prokka Gene Annotation</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash — Prokka gene prediction and functional annotation per MAG</span><button class="btn-copy">Copy</button></div>
+<pre id="s7-prokka">######################################################################
+## STEP 7: Annotate dereplicated MAGs with Prokka
+## Prokka: rapid prokaryotic genome annotator
+##   1. Prodigal: predict protein-coding genes (ORF prediction)
+##   2. BLAST/HMMER: annotate predicted proteins against:
+##      - UniProt bacterial reference proteomes
+##      - Pfam, Tigrfam protein family databases
+##      - rRNA prediction (RNAmmer/Barrnap)
+##      - tRNA prediction (Aragorn)
+## Output: GFF3, GenBank, protein FASTA, nucleotide FASTA per MAG
+######################################################################
+
+module load prokka/1.14.6
+
+## Annotate each dereplicated MAG
+for MAG in 7_drep/dereplicated_genomes/*.fa; do
+
+    MAGNAME=$(basename ${MAG} .fa)
+
+    ## Get taxonomy for this MAG from the summary table (for better annotation)
+    ## Extract genus from GTDB-Tk classification if available
+    GENUS=$(grep ${MAGNAME} mag_quality_taxonomy_summary.tsv | \
+            awk -F'\t' '{split($4, a, " / "); print a[1]}')
+
+    ## prokka: annotate prokaryotic genome
+    ## --outdir  : output directory for this MAG
+    ## --prefix  : output file prefix (used for all output file names)
+    ## --genus   : genus name (optional; improves annotation by selecting related DB proteins)
+    ## --kingdom : Bacteria or Archaea (affects gene prediction parameters)
+    ## --metagenome : use relaxed gene calling for fragmentary metagenomic contigs
+    ##   (allows shorter ORFs; important because MAGs may be fragmented)
+    ## --cpus 8  : threads for BLAST searches
+    ## --norrna  : skip rRNA prediction (faster; rRNA genes are often absent/fragmented in MAGs)
+    ## --notrna  : skip tRNA prediction (optional)
+    prokka \
+        --outdir 8_annotation/${MAGNAME}/ \
+        --prefix ${MAGNAME} \
+        --kingdom Bacteria \
+        --genus "${GENUS:-Bacteria}" \
+        --metagenome \
+        --cpus 8 \
+        --compliant \
+        ${MAG} \
+        2> 8_annotation/${MAGNAME}_prokka.log
+
+    echo "Annotated: ${MAGNAME}"
+    ## Check annotation summary
+    grep "CDS" 8_annotation/${MAGNAME}/${MAGNAME}.txt | head -1
+done
+
+## --- Summarise annotation across all MAGs ---
+echo ""
+echo "=== Annotation Summary ==="
+for MAGNAME in $(ls 8_annotation/ -d */); do
+    MAGNAME=${MAGNAME%/}
+    if [ -f 8_annotation/${MAGNAME}/${MAGNAME}.txt ]; then
+        CDS=$(grep "^CDS:" 8_annotation/${MAGNAME}/${MAGNAME}.txt | awk '{print $2}')
+        HYPO=$(grep "^hypothetical" 8_annotation/${MAGNAME}/${MAGNAME}.txt | awk '{print $2}')
+        echo "${MAGNAME}: ${CDS} CDS (${HYPO} hypothetical)"
+    fi
+done</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s7-prokka" data-filename="07_prokka_annotation.sh"><i class="bi bi-download me-1"></i>07_prokka_annotation.sh</button></div>
+  <div class="cmd-explain">
+    <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> Prokka output files decoded</div>
+    <table>
+      <tr><td><span class="cmd-emoji">&#128203;</span>.gff</td><td>GFF3 format: gene coordinates, product names, and attributes. The most useful output for downstream analyses — use it with featureCounts to quantify gene expression if you later map metatranscriptomic RNA-seq reads to this MAG.</td></tr>
+      <tr><td><span class="cmd-emoji">&#128200;</span>.faa</td><td>Protein FASTA: the predicted protein sequences for all annotated genes. Use this for functional annotation with eggNOG-mapper (COG/KEGG/GO) or for building custom protein databases for metaproteomics.</td></tr>
+      <tr><td><span class="cmd-emoji">&#127919;</span>Hypothetical proteins %</td><td>A well-annotated MAG should have 30&ndash;50% of CDS annotated as hypothetical proteins (no known function). If &gt;80% are hypothetical, the bin may represent a very understudied phylum (e.g. CPR/Patescibacteria) or may have assembly errors creating spurious ORFs. Use eggNOG-mapper to get COG functional categories for all genes, including hypothetical proteins.</td></tr>
+    </table>
+  </div>
+</section>
+
+<section class="mb-5">
+  <div class="d-flex justify-content-between">
+    <a href="scrna-scanpy-python.html" class="btn btn-outline-secondary rounded-pill px-4"><i class="bi bi-arrow-left me-2"></i>scRNA-seq Scanpy</a>
+    <a href="index.html" class="btn btn-primary rounded-pill px-4"><i class="bi bi-grid-3x3-gap me-2"></i>All Tutorials</a>
+  </div>
+</section>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-lg-6"><h5 class="text-white fw-bold mb-3"><span style="color:#ff9933;">Indian</span><span style="color:var(--ieb-primary);">Elucid</span><span style="color:var(--ieb-accent);">Biology</span></h5><p class="small">Free, interactive bioinformatics tutorials. Open source and community-driven.</p></div>
+      <div class="col-lg-6 text-lg-end"><p class="small mb-1">Founded by <strong>Ankush Sharma</strong></p><div class="d-flex gap-3 justify-content-lg-end"><a href="https://github.com/ank-man" target="_blank" class="text-white fs-5"><i class="bi bi-github"></i></a><a href="https://www.linkedin.com/in/ankush-sharma-290307/" target="_blank" class="text-white fs-5"><i class="bi bi-linkedin"></i></a><a href="mailto:mr.ank2999@gmail.com" class="text-white fs-5"><i class="bi bi-envelope"></i></a></div></div>
+    </div>
+    <hr class="border-secondary mt-4 mb-3">
+    <p class="text-center small mb-0">&copy; 2025 IndianElucidBiology &mdash; Made with <span style="color:#e25555;">&#9829;</span> for the bioinformatics community.</p>
+  </div>
+</footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/main.js"></script>
+</body>
+</html>

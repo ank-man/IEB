@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Somatic Variant Calling: Mutect2 Tumor-Normal | IndianElucidBiology</title>
+  <meta name="description" content="Complete somatic variant calling pipeline: GATK Mutect2 tumor-normal analysis, Panel of Normals, contamination estimation, orientation bias filtering, COSMIC annotation, and mutational signature analysis.">
+  <meta name="keywords" content="Mutect2, somatic variants, tumor-normal, GATK, cancer genomics, SNV, COSMIC, mutational signatures, SigProfiler, contamination, Panel of Normals, FilterMutectCalls">
+  <link rel="canonical" href="https://indianelucidbiology.github.io/tutorials/somatic-variant-calling-mutect2.html">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="../css/style.css" rel="stylesheet">
+</head>
+<body>
+<div class="progress-tracker"></div>
+
+<nav class="navbar navbar-expand-lg fixed-top">
+  <div class="container">
+    <a class="navbar-brand" href="../index.html">
+      <span class="brand-indian">Indian</span><span class="brand-elucid">Elucid</span><span class="brand-biology">Biology</span>
+    </a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="mainNav">
+      <ul class="navbar-nav ms-auto me-3">
+        <li class="nav-item"><a class="nav-link" href="../index.html">Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="index.html">Tutorial Library</a></li>
+        <li class="nav-item"><a class="nav-link" href="gwas-plink-gemma-association.html"><i class="bi bi-arrow-left me-1"></i>GWAS</a></li>
+        <li class="nav-item"><a class="nav-link" href="proteomics-maxquant-perseus.html">Proteomics<i class="bi bi-arrow-right ms-1"></i></a></li>
+      </ul>
+      <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode">&#9790;</button>
+    </div>
+  </div>
+</nav>
+
+<section class="tutorial-hero">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-lg-8">
+        <nav aria-label="breadcrumb">
+          <ol class="breadcrumb mb-3" style="--bs-breadcrumb-divider-color:rgba(255,255,255,0.5);">
+            <li class="breadcrumb-item"><a href="../index.html" class="text-white-50 text-decoration-none">Home</a></li>
+            <li class="breadcrumb-item"><a href="index.html" class="text-white-50 text-decoration-none">Tutorials</a></li>
+            <li class="breadcrumb-item active text-white">Somatic Variant Calling</li>
+          </ol>
+        </nav>
+        <h1 class="display-5 fw-bold text-white mb-3">Somatic Variant Calling: Mutect2 Tumor-Normal</h1>
+        <p class="lead text-white-50 mb-4">
+          BWA-MEM alignment &middot; BQSR &middot; Mutect2 tumor-normal &middot; Panel of Normals &middot; contamination estimation &middot; FilterMutectCalls &middot; COSMIC annotation &middot; mutational signatures
+        </p>
+        <div class="d-flex gap-3 flex-wrap">
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-clock me-1"></i> ~180 min</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-bar-chart me-1"></i> Advanced</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-terminal me-1"></i> Bash / Python / R</span>
+        </div>
+      </div>
+      <div class="col-lg-4 text-center d-none d-lg-block">
+        <img src="../img/Byte3.png" alt="Byte" class="img-fluid" style="max-height:230px;filter:drop-shadow(0 10px 30px rgba(0,0,0,0.4));">
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="container py-5">
+  <div class="row">
+    <div class="col-lg-3 d-none d-lg-block">
+      <div class="toc-sidebar">
+        <h6 class="fw-bold text-muted text-uppercase small mb-3">On this page</h6>
+        <nav class="nav flex-column">
+          <a class="nav-link" href="#overview">Overview</a>
+          <a class="nav-link" href="#dataset">Dataset</a>
+          <a class="nav-link" href="#step1">1. Alignment &amp; BQSR</a>
+          <a class="nav-link" href="#step2">2. Panel of Normals</a>
+          <a class="nav-link" href="#step3">3. Mutect2 Calling</a>
+          <a class="nav-link" href="#step4">4. Contamination &amp; Filtering</a>
+          <a class="nav-link" href="#step5">5. Annotation with ANNOVAR/VEP</a>
+          <a class="nav-link" href="#step6">6. Mutational Signatures</a>
+        </nav>
+      </div>
+    </div>
+
+    <div class="col-lg-9">
+      <div class="tutorial-content">
+
+<section id="overview" class="mb-5">
+  <h2 class="section-divider">Overview</h2>
+  <p>Somatic variant calling identifies mutations that arose in a tumor but are absent from the patient&rsquo;s normal tissue &mdash; these are the driver and passenger mutations of cancer. Unlike germline calling (where allele frequency is ~50% or ~100%), somatic mutations have variable allele frequency (often 5&ndash;40%) because tumors are mixtures of normal cells, tumor clones, and sub-clones. Mutect2 is the GATK gold-standard for this task.</p>
+  <div class="byte-callout">
+    <img src="../img/Byte1.png" alt="Byte">
+    <div>
+      <strong>Somatic vs germline calling — key differences:</strong>
+      <ul class="mb-0 mt-1 small">
+        <li><strong>Allele frequency:</strong> Germline het = ~50% AF; Somatic can be 3&ndash;50% (depends on tumor purity and clonality)</li>
+        <li><strong>Matched normal:</strong> Required to subtract germline variants and sequencing artifacts</li>
+        <li><strong>Panel of Normals (PoN):</strong> Collection of normal samples used to filter recurrent technical artifacts</li>
+        <li><strong>Orientation bias:</strong> FFPE-preserved tumor DNA has characteristic OxoG and FFPE artifacts that must be corrected</li>
+        <li><strong>Tumor purity:</strong> Must estimate what fraction of sequenced cells are tumor vs contaminating normal</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="dataset" class="mb-5">
+  <h2 class="section-divider">Dataset</h2>
+  <p>We use the <strong>TCGA-A8-A08B breast cancer</strong> tumor-normal pair from TCGA &mdash; one of the most widely used somatic variant calling benchmark datasets, with validated mutations from multiple orthogonal platforms.</p>
+  <div class="param-table">
+    <table class="table table-striped mb-0">
+      <thead><tr><th>Property</th><th>Value</th></tr></thead>
+      <tbody>
+        <tr><td>Cancer type</td><td>Breast invasive carcinoma (BRCA)</td></tr>
+        <tr><td>Sample</td><td>TCGA-A8-A08B (tumor + matched blood normal)</td></tr>
+        <tr><td>Accession</td><td><a href="https://portal.gdc.cancer.gov/cases/TCGA-A8-A08B" target="_blank">GDC Data Portal: TCGA-A8-A08B</a></td></tr>
+        <tr><td>Sequencing</td><td>WES (whole exome sequencing), ~100&times; tumor, ~50&times; normal</td></tr>
+        <tr><td>Reference</td><td>GRCh38 / hg38</td></tr>
+        <tr><td>Expected mutations</td><td>~200&ndash;500 somatic SNVs (typical breast cancer WES)</td></tr>
+        <tr><td>Dominant signature</td><td>COSMIC SBS1 (deamination of 5-methylcytosine) + SBS3 (BRCA1/2 HR deficiency)</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="step1" class="mb-5">
+  <h2 class="section-divider">Step 1 — Alignment &amp; Base Quality Score Recalibration</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash — BWA-MEM alignment, duplicate marking, BQSR</span><button class="btn-copy">Copy</button></div>
+<pre id="s1-align">######################################################################
+## STEP 1: Align reads and prepare analysis-ready BAM files
+## The GATK best practices pre-processing pipeline applies to BOTH
+## the tumor and the matched normal sample identically.
+## Key steps: align → sort → mark duplicates → BQSR → index
+######################################################################
+
+module load bwa/0.7.17
+module load gatk/4.4.0
+module load samtools/1.17
+module load picard/3.0.0
+
+REF="/path/to/hg38/Homo_sapiens_assembly38.fasta"
+DBSNP="/path/to/hg38/dbsnp_146.hg38.vcf.gz"
+MILLS="/path/to/hg38/Mills_and_1000G_gold_standard.indels.hg38.vcf.gz"
+
+## Process both TUMOR and NORMAL samples with the same pipeline
+for SAMPLE in TUMOR NORMAL; do
+
+    R1="0_raw/${SAMPLE}_R1.fastq.gz"
+    R2="0_raw/${SAMPLE}_R2.fastq.gz"
+    SM="${SAMPLE}"   # sample name for read group tags
+
+    ## --- Step 1a: BWA-MEM alignment with read group tags ---
+    ## Read groups (RG) are MANDATORY for GATK tools
+    ## @RG tags: ID=run identifier, SM=sample name, PL=platform, PU=platform unit
+    ## -R : read group string in SAM/BAM format
+    ## -t 16 : 16 threads
+    bwa mem \
+        -t 16 \
+        -R "@RG\tID:${SM}\tSM:${SM}\tPL:ILLUMINA\tPU:${SM}.1" \
+        ${REF} ${R1} ${R2} | \
+      samtools sort \
+        -@ 8 \
+        -O BAM \
+        -o 1_aligned/${SM}_sorted.bam
+    samtools index 1_aligned/${SM}_sorted.bam
+
+    ## --- Step 1b: Mark duplicates with Picard MarkDuplicates ---
+    ## For somatic calling: DO NOT remove duplicates (just mark them)
+    ## Mutect2 is aware of duplicates and uses them to detect strand artifacts
+    ## REMOVE_DUPLICATES=false : only mark, not remove
+    ## CREATE_INDEX=true : automatically create BAM index
+    picard MarkDuplicates \
+        I=1_aligned/${SM}_sorted.bam \
+        O=1_aligned/${SM}_markdup.bam \
+        M=1_aligned/${SM}_markdup_metrics.txt \
+        REMOVE_DUPLICATES=false \
+        CREATE_INDEX=true \
+        VALIDATION_STRINGENCY=LENIENT
+
+    ## --- Step 1c: Base Quality Score Recalibration (BQSR) ---
+    ## BQSR corrects systematic errors in the base quality scores from the sequencer
+    ## Step 1: BaseRecalibrator builds a recalibration table
+    ##   --known-sites : known variant sites (used as true positives to exclude from error model)
+    ##   These known SNPs/indels should NOT be flagged as sequencing errors
+    gatk BaseRecalibrator \
+        -I 1_aligned/${SM}_markdup.bam \
+        -R ${REF} \
+        --known-sites ${DBSNP} \
+        --known-sites ${MILLS} \
+        -O 1_aligned/${SM}_recal.table
+
+    ## Step 2: ApplyBQSR applies the recalibration table to the BAM
+    ## --bqsr-recal-file : the recalibration table from step above
+    gatk ApplyBQSR \
+        -I 1_aligned/${SM}_markdup.bam \
+        -R ${REF} \
+        --bqsr-recal-file 1_aligned/${SM}_recal.table \
+        -O 1_aligned/${SM}_final.bam
+
+    echo "Pre-processing complete: ${SM}"
+    samtools flagstat 1_aligned/${SM}_final.bam
+done</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s1-align" data-filename="01_align_bqsr.sh"><i class="bi bi-download me-1"></i>01_align_bqsr.sh</button></div>
+</section>
+
+<section id="step2" class="mb-5">
+  <h2 class="section-divider">Step 2 — Panel of Normals (PoN)</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash — Build a Panel of Normals to filter technical artifacts</span><button class="btn-copy">Copy</button></div>
+<pre id="s2-pon">######################################################################
+## STEP 2: Create a Panel of Normals (PoN)
+## A PoN is a VCF containing variant sites that appear in multiple
+## normal (non-tumor) samples. These are either:
+##   1. Germline variants that are common in the population
+##   2. Recurrent sequencing/alignment artifacts at specific sites
+## Variants in the PoN are filtered OUT of somatic calls.
+## The GATK recommends building a PoN from ≥40 normal samples;
+## here we use the GATK public hg38 PoN as an alternative.
+######################################################################
+
+## --- Option A: Use GATK public PoN (recommended for most users) ---
+## Download the GATK4 Mutect2 PoN for hg38 from GATK resource bundle
+gsutil cp \
+  gs://gatk-best-practices/somatic-hg38/1000g_pon.hg38.vcf.gz \
+  0_raw/1000g_pon.hg38.vcf.gz
+gsutil cp \
+  gs://gatk-best-practices/somatic-hg38/1000g_pon.hg38.vcf.gz.tbi \
+  0_raw/1000g_pon.hg38.vcf.gz.tbi
+
+PON="0_raw/1000g_pon.hg38.vcf.gz"
+
+## --- Option B: Build your own PoN from normal samples ---
+## If you have multiple normal samples from the same sequencing protocol,
+## building a custom PoN captures protocol-specific artifacts better.
+## Step 1: Run Mutect2 in tumor-only mode on each normal sample
+for NORMAL_SAMPLE in normal1 normal2 normal3; do  # replace with your normals
+    gatk Mutect2 \
+        -I 1_aligned/${NORMAL_SAMPLE}_final.bam \
+        -R ${REF} \
+        --max-mnp-distance 0 \     # important: disable MNP merging for PoN creation
+        -O 2_pon/${NORMAL_SAMPLE}_for_pon.vcf.gz
+done
+
+## Step 2: Combine all normal VCFs into a GenomicsDB workspace
+gatk GenomicsDBImport \
+    -R ${REF} \
+    -L 0_raw/exome_capture_targets.interval_list \
+    --genomicsdb-workspace-path 2_pon/pon_db \
+    $(for N in normal1 normal2 normal3; do echo "-V 2_pon/${N}_for_pon.vcf.gz"; done)
+
+## Step 3: Create the PoN VCF from the GenomicsDB
+gatk CreateSomaticPanelOfNormals \
+    -R ${REF} \
+    -V gendb://2_pon/pon_db \
+    -O 2_pon/custom_pon.vcf.gz
+
+echo "Panel of Normals ready: ${PON}"</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s2-pon" data-filename="02_panel_of_normals.sh"><i class="bi bi-download me-1"></i>02_panel_of_normals.sh</button></div>
+  <div class="cmd-explain">
+    <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> Panel of Normals decoded</div>
+    <table>
+      <tr><td><span class="cmd-emoji">&#128204;</span>Why use a PoN?</td><td>Even with a matched normal, some recurrent technical artifacts appear in both tumor and normal at low allele frequency. These could be mapping artifacts at highly repetitive regions, systematic oxidative damage from FFPE preservation, or sequencer-specific noise. The PoN captures these recurrent artifacts from many normal samples and flags them for removal from somatic calls.</td></tr>
+      <tr><td><span class="cmd-emoji">&#127919;</span>PoN size matters</td><td>GATK recommends ≥40 normal samples for a PoN, sequenced with the same protocol (same exome capture kit, same sequencer). Fewer normals = lower sensitivity for artifact detection. Using a PoN from a different protocol can introduce false negatives (filtering real mutations that happen to overlap artifact sites in your PoN).</td></tr>
+    </table>
+  </div>
+</section>
+
+<section id="step3" class="mb-5">
+  <h2 class="section-divider">Step 3 — Mutect2 Tumor-Normal Calling</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash — Mutect2 somatic variant calling with matched normal</span><button class="btn-copy">Copy</button></div>
+<pre id="s3-mutect2">######################################################################
+## STEP 3: Run Mutect2 in tumor-normal mode
+## Mutect2 uses a Bayesian model to call variants that are present
+## in the tumor but absent (or at very low frequency) in the normal.
+## It simultaneously filters germline variants using the matched normal
+## and artifact sites using the Panel of Normals.
+######################################################################
+
+REF="/path/to/hg38/Homo_sapiens_assembly38.fasta"
+GNOMAD="/path/to/hg38/af-only-gnomad.hg38.vcf.gz"  # germline variant allele frequencies
+PON="0_raw/1000g_pon.hg38.vcf.gz"
+
+## --- Run Mutect2 ---
+## -I TUMOR_BAM  + --tumor-sample   : tumor BAM and sample name
+## -I NORMAL_BAM + --normal-sample  : matched normal BAM and sample name
+##   Sample names must match the SM tag in the BAM @RG header
+## --germline-resource : gnomAD allele frequency database
+##   Used to calculate prior probability that a variant is germline
+##   Sites with high gnomAD AF are more likely germline → assigned lower somatic score
+## --panel-of-normals : PoN VCF; variants appearing in PoN are flagged
+## --af-of-alleles-not-in-resource : prior AF for sites NOT in gnomAD
+##   0.0000025 ≈ 1/(2 × 200,000 diploid genomes) — default for gnomAD v3
+## -L : limit to exome capture regions (much faster; avoids off-target noise)
+## --f1r2-tar-gz : output file for orientation bias model (needed for Step 4)
+## --tmp-dir : temp directory (use a fast local disk)
+gatk Mutect2 \
+    -I 1_aligned/TUMOR_final.bam \
+    --tumor-sample TUMOR \
+    -I 1_aligned/NORMAL_final.bam \
+    --normal-sample NORMAL \
+    -R ${REF} \
+    --germline-resource ${GNOMAD} \
+    --panel-of-normals ${PON} \
+    --af-of-alleles-not-in-resource 0.0000025 \
+    -L 0_raw/exome_capture_targets.interval_list \
+    -O 3_calls/tumor_normal_raw.vcf.gz \
+    --f1r2-tar-gz 3_calls/f1r2.tar.gz \
+    --tmp-dir /tmp/ \
+    -nct 16
+
+echo "Raw somatic calls: $(bcftools view -H 3_calls/tumor_normal_raw.vcf.gz | wc -l)"
+
+## --- Get pileup summaries for contamination estimation ---
+## GetPileupSummaries: counts alleles at known variant sites for each sample
+## Used by CalculateContamination (Step 4)
+for SAMPLE in TUMOR NORMAL; do
+    gatk GetPileupSummaries \
+        -I 1_aligned/${SAMPLE}_final.bam \
+        -V ${GNOMAD} \
+        -L ${GNOMAD} \
+        -O 3_calls/${SAMPLE}_pileup.table
+done</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s3-mutect2" data-filename="03_mutect2_calling.sh"><i class="bi bi-download me-1"></i>03_mutect2_calling.sh</button></div>
+</section>
+
+<section id="step4" class="mb-5">
+  <h2 class="section-divider">Step 4 — Contamination Estimation &amp; FilterMutectCalls</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash — LearnReadOrientationModel, CalculateContamination, FilterMutectCalls</span><button class="btn-copy">Copy</button></div>
+<pre id="s4-filter">######################################################################
+## STEP 4: Estimate contamination and orientation bias, then filter
+## This is the GATK best practice filtering pipeline for somatic calls.
+## Three filtering steps:
+##   1. LearnReadOrientationModel : learn FFPE/OxoG artifact model
+##   2. CalculateContamination    : estimate cross-sample contamination
+##   3. FilterMutectCalls         : apply all filters and tag PASS/FAIL
+######################################################################
+
+## --- Step 4a: Learn read orientation (OxoG / FFPE artifact) model ---
+## LearnReadOrientationModel: uses the f1r2 counts from Mutect2
+## to build a model of orientation bias artifacts.
+## OxoG artifact: G→T (or C→A) mutations only on the read strand facing
+## the oxidized guanine — distinguishable from true mutations
+## FFPE artifact: C→T mutations from cytosine deamination during fixation
+gatk LearnReadOrientationModel \
+    -I 3_calls/f1r2.tar.gz \
+    -O 3_calls/read_orientation_model.tar.gz
+
+## --- Step 4b: Calculate cross-sample contamination ---
+## CalculateContamination: estimates what fraction of the tumor sample
+## is contaminated with DNA from another individual
+## Cross-contamination creates false positives (the contaminant's germline
+## variants appear as low-AF "somatic" mutations)
+## -matched-normal : use matched normal to improve contamination estimate
+gatk CalculateContamination \
+    -I 3_calls/TUMOR_pileup.table \
+    -matched-normal 3_calls/NORMAL_pileup.table \
+    -O 3_calls/contamination.table \
+    --tumor-segmentation 3_calls/segments.table
+
+cat 3_calls/contamination.table
+## contamination column: should be < 0.05 (< 5%) for clean samples
+
+## --- Step 4c: FilterMutectCalls ---
+## Applies all filters to the raw Mutect2 calls:
+##   1. Orientation bias filter (using the read orientation model)
+##   2. Contamination filter (removes variants explained by contamination)
+##   3. Panel of Normals filter
+##   4. Read support filters (min reads, strand bias, etc.)
+## PASS variants = somatic SNV/indel candidates passing all filters
+gatk FilterMutectCalls \
+    -R ${REF} \
+    -V 3_calls/tumor_normal_raw.vcf.gz \
+    --contamination-table 3_calls/contamination.table \
+    --tumor-segmentation 3_calls/segments.table \
+    --ob-priors 3_calls/read_orientation_model.tar.gz \
+    -O 3_calls/tumor_normal_filtered.vcf.gz
+
+## Count PASS variants
+echo "PASS somatic variants:"
+bcftools view -f PASS 3_calls/tumor_normal_filtered.vcf.gz | bcftools stats | grep "^SN"
+
+## Extract PASS variants to a clean VCF
+bcftools view -f PASS 3_calls/tumor_normal_filtered.vcf.gz \
+    -O z -o 3_calls/tumor_normal_PASS.vcf.gz
+bcftools index --tbi 3_calls/tumor_normal_PASS.vcf.gz</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s4-filter" data-filename="04_filter_mutect2.sh"><i class="bi bi-download me-1"></i>04_filter_mutect2.sh</button></div>
+  <div class="fun-tip"><span class="fun-tip-icon">&#127919;</span><div><strong>Typical PASS rate:</strong> Mutect2 typically calls 20,000&ndash;100,000 raw variants before filtering. After FilterMutectCalls, a typical WES tumor should yield 200&ndash;2,000 PASS somatic variants (depending on tumor mutation burden). If you get &lt;100 PASS variants, check contamination estimate and PoN; if &gt;10,000 PASS variants, check for FFPE artifacts and ensure matched normal was used.</div></div>
+</section>
+
+<section id="step5" class="mb-5">
+  <h2 class="section-divider">Step 5 — Variant Annotation with Ensembl VEP</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash — Annotate somatic variants with VEP + COSMIC</span><button class="btn-copy">Copy</button></div>
+<pre id="s5-vep">######################################################################
+## STEP 5: Annotate somatic variants with Ensembl VEP
+## VEP assigns each variant:
+##   - Gene name and Ensembl gene/transcript ID
+##   - Consequence (missense, nonsense, splice site, frameshift, etc.)
+##   - Protein change (e.g. p.Val600Glu for BRAF V600E)
+##   - Population frequency in gnomAD
+##   - COSMIC cancer mutation database annotation
+##   - ClinVar pathogenicity annotation
+##   - SIFT/PolyPhen functional prediction scores
+######################################################################
+
+module load vep/108
+
+## --- Run VEP annotation ---
+## --input_file   : input VCF (filtered PASS variants)
+## --output_file  : annotated VCF output
+## --vcf          : output in VCF format (adds INFO fields)
+## --everything   : enable all annotation features
+##   (same as combining: --sift b --polyphen b --ccds --hgvs --symbol etc.)
+## --offline      : use local VEP cache (much faster than online API)
+## --cache_version 108 : VEP database version
+## --assembly GRCh38 : genome assembly version
+## --fork 8       : run 8 parallel threads
+## --pick          : pick one canonical transcript consequence per variant
+##   (reduces output size; use --per_gene for all transcripts)
+## --custom COSMIC.vcf.gz,COSMIC,vcf,exact,0 :
+##   add COSMIC annotations from a local VCF file
+##   "exact" = require exact position + allele match
+vep \
+    --input_file 3_calls/tumor_normal_PASS.vcf.gz \
+    --output_file 4_annotated/tumor_normal_vep.vcf.gz \
+    --vcf \
+    --compress_output bgzip \
+    --everything \
+    --offline \
+    --cache_version 108 \
+    --assembly GRCh38 \
+    --fork 8 \
+    --pick \
+    --custom /path/to/CosmicCodingMuts.vcf.gz,COSMIC,vcf,exact,0 \
+    --stats_file 4_annotated/vep_stats.html
+
+## --- Parse annotation to a table ---
+bcftools +split-vep \
+    4_annotated/tumor_normal_vep.vcf.gz \
+    -f '%CHROM\t%POS\t%REF\t%ALT\t%SYMBOL\t%Consequence\t%HGVSp\t%SIFT\t%PolyPhen\t%gnomADe_AF\t%COSMIC\n' \
+    -d > 4_annotated/somatic_mutations_annotated.tsv
+
+echo "Annotated variants: $(wc -l < 4_annotated/somatic_mutations_annotated.tsv)"
+echo "Check vep_stats.html for annotation summary"</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s5-vep" data-filename="05_vep_annotation.sh"><i class="bi bi-download me-1"></i>05_vep_annotation.sh</button></div>
+</section>
+
+<section id="step6" class="mb-5">
+  <h2 class="section-divider">Step 6 — Mutational Signature Analysis</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Python — SigProfilerExtractor mutational signatures</span><button class="btn-copy">Copy</button></div>
+<pre id="s6-signatures">######################################################################
+## STEP 6: Decompose somatic mutations into COSMIC mutational signatures
+## Mutational signatures = patterns of base substitutions that reflect
+## the biological processes that generated those mutations.
+## Examples:
+##   SBS1  = clock-like deamination (age)
+##   SBS4  = tobacco/smoking (C>A at GpCpX)
+##   SBS7a/b = UV exposure (CC>TT dipyrimidines)
+##   SBS3  = HR deficiency (BRCA1/2 mutations) — enriched in breast cancer
+######################################################################
+
+## Install: pip install SigProfilerExtractor
+## Also install reference genome: python -c "from SigProfilerMatrixGenerator import install; install.install('GRCh38')"
+
+from SigProfilerExtractor import sigpro as sig
+from SigProfilerMatrixGenerator.scripts import SigProfilerMatrixGeneratorFunc as matGen
+import pandas as pd
+import matplotlib.pyplot as plt
+
+## --- Step 6a: Generate the SBS96 mutation count matrix ---
+## SBS96 = 96 trinucleotide context categories for single-base substitutions
+## Each mutation is described by: REF base (with 5' and 3' context) + ALT base
+## e.g. A[C>T]G = a C→T substitution where the 5' base is A and 3' base is G
+path_to_vcf = "3_calls/"   # directory containing the PASS VCF file
+
+## SigProfilerMatrixGenerator reads all VCFs in the directory
+matGen.SigProfilerMatrixGeneratorFunc(
+    "TCGA_BRCA",       # project name
+    "GRCh38",          # genome assembly
+    path_to_vcf,       # directory with VCF files
+    plot=True,         # create spectrum plots
+    exome=True         # restrict to exome (our data is WES)
+)
+## Output: SBS96 matrix in path_to_vcf/output/SBS/
+
+## --- Step 6b: Extract de novo signatures ---
+## SigProfilerExtractor decomposes the SBS96 matrix into N signatures
+## by NMF (non-negative matrix factorization)
+## Then compares to COSMIC reference signatures
+sig.sigProfilerExtractor(
+    input_type    = "matrix",       # input is an SBS96 matrix file
+    output        = "5_signatures/",
+    input_data    = "3_calls/output/SBS/TCGA_BRCA.SBS96.all",
+    reference_genome = "GRCh38",
+    minimum_signatures = 1,
+    maximum_signatures = 5,        # test 1 to 5 de novo signatures
+    nmf_replicates    = 100,       # 100 NMF runs for stability assessment
+    cpu               = 4
+)
+
+## --- Step 6c: Read and plot signature contributions ---
+## Load the decomposed signature proportions
+sig_activities = pd.read_csv("5_signatures/SBS96/Suggested_Solution/COSMIC_SBS96_Activities/Activities_refit.txt",
+                              sep="\t", index_col=0)
+
+## Plot signature contributions as a stacked bar chart
+ax = sig_activities.T.plot(kind="bar", stacked=True, figsize=(10, 5),
+                            colormap="Set2")
+ax.set_xlabel("Sample")
+ax.set_ylabel("Number of mutations attributed to signature")
+ax.set_title("Mutational signature decomposition (COSMIC SBS)")
+ax.legend(bbox_to_anchor=(1.01, 1), loc="upper left", fontsize=8)
+plt.tight_layout()
+plt.savefig("5_signatures/signature_contributions.png", dpi=150)
+print(sig_activities)</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s6-signatures" data-filename="06_mutational_signatures.py"><i class="bi bi-download me-1"></i>06_mutational_signatures.py</button></div>
+  <div class="fun-tip"><span class="fun-tip-icon">&#127754;</span><div><strong>Expected BRCA result:</strong> The TCGA-A8-A08B breast tumor should show a mixture of SBS1 (age-related clock-like deamination — almost every tumor has this), SBS3 (BRCA1/2 homologous recombination deficiency), and possibly SBS5 (another clock-like signature). Detecting SBS3 suggests this tumour has impaired DNA repair, which predicts sensitivity to PARP inhibitors — a clinically actionable finding.</div></div>
+</section>
+
+<section class="mb-5">
+  <div class="d-flex justify-content-between">
+    <a href="gwas-plink-gemma-association.html" class="btn btn-outline-secondary rounded-pill px-4"><i class="bi bi-arrow-left me-2"></i>GWAS</a>
+    <a href="proteomics-maxquant-perseus.html" class="btn btn-primary rounded-pill px-4">Proteomics (MaxQuant) <i class="bi bi-arrow-right ms-2"></i></a>
+  </div>
+</section>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-lg-6"><h5 class="text-white fw-bold mb-3"><span style="color:#ff9933;">Indian</span><span style="color:var(--ieb-primary);">Elucid</span><span style="color:var(--ieb-accent);">Biology</span></h5><p class="small">Free, interactive bioinformatics tutorials. Open source and community-driven.</p></div>
+      <div class="col-lg-6 text-lg-end"><p class="small mb-1">Founded by <strong>Ankush Sharma</strong></p><div class="d-flex gap-3 justify-content-lg-end"><a href="https://github.com/ank-man" target="_blank" class="text-white fs-5"><i class="bi bi-github"></i></a><a href="https://www.linkedin.com/in/ankush-sharma-290307/" target="_blank" class="text-white fs-5"><i class="bi bi-linkedin"></i></a><a href="mailto:mr.ank2999@gmail.com" class="text-white fs-5"><i class="bi bi-envelope"></i></a></div></div>
+    </div>
+    <hr class="border-secondary mt-4 mb-3">
+    <p class="text-center small mb-0">&copy; 2025 IndianElucidBiology &mdash; Made with <span style="color:#e25555;">&#9829;</span> for the bioinformatics community.</p>
+  </div>
+</footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/main.js"></script>
+</body>
+</html>

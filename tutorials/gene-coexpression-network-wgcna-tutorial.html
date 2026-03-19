@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gene Co-Expression Network Analysis with WGCNA — Complete Tutorial | IndianElucidBiology</title>
+  <meta name="description" content="Build weighted gene correlation networks with WGCNA in R. Learn soft-thresholding power selection, module detection, eigengene analysis, hub gene identification, and Cytoscape export. Every parameter explained.">
+  <meta name="keywords" content="WGCNA tutorial, gene co-expression network, soft threshold power, module eigengene, hub genes, scale-free topology, Cytoscape network, IndianElucidBiology">
+  <meta name="author" content="IndianElucidBiology">
+  <link rel="canonical" href="https://indianelucidbiology.github.io/tutorials/gene-coexpression-network-wgcna-tutorial.html">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="../css/style.css" rel="stylesheet">
+</head>
+<body>
+
+<div class="progress-tracker"></div>
+
+<nav class="navbar navbar-expand-lg fixed-top bg-body-tertiary">
+  <div class="container">
+    <a class="navbar-brand" href="../index.html"><span class="brand-indian">Indian</span><span class="brand-elucid">Elucid</span><span class="brand-biology">Biology</span></a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav"><span class="navbar-toggler-icon"></span></button>
+    <div class="collapse navbar-collapse" id="mainNav">
+      <ul class="navbar-nav ms-auto me-3">
+        <li class="nav-item"><a class="nav-link" href="../index.html">Home</a></li>
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle active" href="#" role="button" data-bs-toggle="dropdown">Tutorials</a>
+          <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="rnaseq-differential-expression-deseq2-guide.html">RNA-Seq &amp; DESeq2</a></li>
+            <li><a class="dropdown-item active" href="gene-coexpression-network-wgcna-tutorial.html">WGCNA Networks</a></li>
+            <li><a class="dropdown-item" href="bioinformatics-data-visualization-ggplot2-R.html">Data Visualization</a></li>
+            <li><a class="dropdown-item" href="single-cell-rna-seq-seurat-analysis-tutorial.html">Single-Cell RNA-Seq</a></li>
+            <li><a class="dropdown-item" href="variant-calling-gatk-bcftools-pipeline.html">Variant Calling</a></li>
+            <li><a class="dropdown-item" href="metagenomics-microbiome-analysis-qiime2.html">Metagenomics</a></li>
+          </ul>
+        </li>
+      </ul>
+      <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode">&#9790;</button>
+    </div>
+  </div>
+</nav>
+
+<section class="tutorial-hero">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-lg-8">
+        <nav aria-label="breadcrumb"><ol class="breadcrumb mb-3" style="--bs-breadcrumb-divider-color:rgba(255,255,255,0.5);">
+          <li class="breadcrumb-item"><a href="../index.html" class="text-white-50 text-decoration-none">Home</a></li>
+          <li class="breadcrumb-item active text-white">WGCNA Networks</li>
+        </ol></nav>
+        <h1 class="display-5 fw-bold text-white mb-3">Gene Co-Expression Network Analysis with WGCNA</h1>
+        <p class="lead text-white-50 mb-4">Discover modules of co-expressed genes, relate them to traits, identify hub genes, and export publication-ready networks — with every decision point explained.</p>
+        <div class="d-flex gap-3 flex-wrap">
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-clock me-1"></i> ~60 min</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-bar-chart me-1"></i> Advanced</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-filetype-r me-1"></i> R / RStudio</span>
+        </div>
+      </div>
+      <div class="col-lg-4 text-center d-none d-lg-block">
+        <img src="../img/Byte4.png" alt="Byte with gene networks" class="img-fluid" style="max-height:250px;filter:drop-shadow(0 10px 30px rgba(0,0,0,0.4));">
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="container py-5">
+  <div class="row">
+    <div class="col-lg-3 d-none d-lg-block">
+      <div class="toc-sidebar">
+        <h6 class="fw-bold text-muted text-uppercase small mb-3">On this page</h6>
+        <nav class="nav flex-column">
+          <a class="nav-link" href="#overview">Overview</a>
+          <a class="nav-link" href="#prerequisites">Prerequisites</a>
+          <a class="nav-link" href="#step1">1. Prepare Input Data</a>
+          <a class="nav-link" href="#step2">2. Pick Soft Threshold</a>
+          <a class="nav-link" href="#step3">3. Build the Network</a>
+          <a class="nav-link" href="#step4">4. Explore Modules</a>
+          <a class="nav-link" href="#step5">5. Module-Trait Relationships</a>
+          <a class="nav-link" href="#step6">6. Hub Gene Identification</a>
+          <a class="nav-link" href="#step7">7. Export for Cytoscape</a>
+          <a class="nav-link" href="#parameters">Parameter Deep-Dive</a>
+          <a class="nav-link" href="#summary">Summary</a>
+        </nav>
+      </div>
+    </div>
+
+    <div class="col-lg-9">
+      <div class="tutorial-content">
+
+        <section id="overview" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">?</span> What Is WGCNA?</h2>
+          <p><strong>Weighted Gene Correlation Network Analysis</strong> clusters genes into modules based on their co-expression patterns across samples. Instead of asking "which genes change between two groups?" (that's DE analysis), WGCNA asks: "which groups of genes behave similarly across all conditions, and do those groups relate to specific traits?"</p>
+
+          <h5 class="fw-bold mt-4">Core Concepts</h5>
+          <ul>
+            <li><strong>Adjacency matrix</strong> — pairwise correlations raised to a "soft power" to emphasize strong connections and suppress weak/noisy ones</li>
+            <li><strong>Topological Overlap Matrix (TOM)</strong> — measures shared network neighbors, making the network more robust than raw correlations</li>
+            <li><strong>Module</strong> — a cluster of tightly co-expressed genes (identified via hierarchical clustering of the TOM)</li>
+            <li><strong>Module Eigengene (ME)</strong> — the first principal component of a module's expression; a single summary "super-gene" representing the module</li>
+            <li><strong>Hub gene</strong> — the most connected gene within a module; often the best candidate for functional follow-up</li>
+          </ul>
+
+          <div class="byte-callout byte-info">
+            <img src="../img/Byte3.png" alt="Byte key point">
+            <div>
+              <strong>Scale-Free Assumption:</strong> WGCNA assumes the gene network follows a <em>scale-free topology</em> — most genes have few connections, but a few "hub" genes have many. This mirrors real biological networks. The soft-threshold power selection step ensures your network approximates this property.
+            </div>
+          </div>
+        </section>
+
+        <section id="prerequisites" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">0</span> Prerequisites &amp; Installation</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre>install.packages(c("WGCNA", "tidyverse", "magrittr"))
+
+# For normalization
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+BiocManager::install(c("DESeq2", "genefilter"))
+
+library(WGCNA)
+library(tidyverse)
+library(DESeq2)</pre>
+          </div>
+
+          <div class="byte-callout byte-tip">
+            <img src="../img/Byte1.png" alt="Byte tip">
+            <div>
+              <strong>Sample Requirements:</strong> WGCNA needs at minimum <strong>15 samples</strong> to produce reliable results. With fewer than 15, correlations are noisy and modules become unreliable. For best results, aim for 20+ samples spanning multiple conditions or time points.
+            </div>
+          </div>
+        </section>
+
+        <section id="step1" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">1</span> Prepare &amp; Normalize Input Data</h2>
+          <p>WGCNA expects a <strong>samples × genes</strong> matrix of normalized expression values (not raw counts). We use DESeq2's variance-stabilizing transformation (VST) to normalize, then subset to the most variable genes for computational efficiency.</p>
+
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre># Load your raw count data (genes x samples)
+raw_counts &lt;- read.delim("counts.txt", row.names = 1)
+
+# Build a minimal DESeq2 object for normalization
+sample_meta &lt;- data.frame(
+  row.names = colnames(raw_counts),
+  group = factor(gsub("[_.-].*", "", colnames(raw_counts)))
+)
+
+dds &lt;- DESeqDataSetFromMatrix(
+  countData = round(as.matrix(raw_counts)),
+  colData   = sample_meta,
+  design    = ~ group
+)
+dds &lt;- DESeq(dds)
+
+# Variance-Stabilizing Transformation
+vsd &lt;- getVarianceStabilizedData(dds)
+
+# Subset to top variable genes
+rv &lt;- matrixStats::rowVars(vsd)
+q_threshold &lt;- quantile(rv, 0.75)  # Keep top 25% most variable genes
+expr_mat &lt;- vsd[rv > q_threshold, ]
+cat("Genes for WGCNA:", nrow(expr_mat), "\n")
+
+# CRITICAL: Transpose so rows = samples, columns = genes
+input_mat &lt;- t(expr_mat)
+dim(input_mat)</pre>
+          </div>
+
+          <div class="decision-box">
+            <h5><i class="bi bi-signpost-split me-2"></i>How Many Genes to Include?</h5>
+            <ul>
+              <li><strong>Top 25% by variance</strong> — good default; balances computation with gene coverage (~5,000–10,000 genes typically)</li>
+              <li><strong>Top 5% by variance</strong> — faster; focuses only on the most dynamic genes; may miss subtle modules</li>
+              <li><strong>All expressed genes</strong> — thorough but slow; only feasible with <code>maxBlockSize</code> tuning and sufficient RAM</li>
+              <li><strong>Only DE genes</strong> — controversial; may break the scale-free assumption since you're removing the "many weakly-connected" genes; use with caution</li>
+            </ul>
+          </div>
+
+          <h5 class="fw-bold mt-4">Check for Outlier Samples</h5>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre># Hierarchical clustering to detect outlier samples
+sample_tree &lt;- hclust(dist(input_mat), method = "average")
+plot(sample_tree, main = "Sample Clustering to Detect Outliers",
+     sub = "", xlab = "", cex.lab = 1.5, cex.axis = 1.5, cex.main = 2)
+
+# Draw a cut line — samples above this may be outliers
+abline(h = 150, col = "red")  # Adjust height based on your data</pre>
+          </div>
+
+          <div class="byte-callout byte-warn">
+            <img src="../img/Byte5.png" alt="Byte warning">
+            <div>
+              <strong>Outlier Removal:</strong> If a sample is clearly separated in the dendrogram (long branch to reach the rest), remove it. Even one outlier can distort module detection because WGCNA uses correlations, which are highly sensitive to outliers. Use <code>goodSamplesGenes()</code> as an automated check.
+            </div>
+          </div>
+        </section>
+
+        <section id="step2" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">2</span> Choose the Soft-Thresholding Power</h2>
+          <p>This is the most critical decision in WGCNA. The soft power β determines how aggressively weak correlations are suppressed. A higher β creates a sparser, more modular network.</p>
+
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre>allowWGCNAThreads()
+
+powers &lt;- c(1:20)
+sft &lt;- pickSoftThreshold(input_mat, powerVector = powers, verbose = 5)
+
+# Two-panel diagnostic plot
+par(mfrow = c(1, 2))
+
+# Panel 1: Scale-free topology fit index vs power
+plot(sft$fitIndices[, 1],
+     -sign(sft$fitIndices[, 3]) * sft$fitIndices[, 2],
+     xlab = "Soft Threshold (power)",
+     ylab = "Scale Free Topology Model Fit (signed R²)",
+     main = "Scale Independence",
+     type = "n")
+text(sft$fitIndices[, 1],
+     -sign(sft$fitIndices[, 3]) * sft$fitIndices[, 2],
+     labels = powers, col = "red")
+abline(h = 0.85, col = "blue", lty = 2)
+
+# Panel 2: Mean connectivity vs power
+plot(sft$fitIndices[, 1], sft$fitIndices[, 5],
+     xlab = "Soft Threshold (power)",
+     ylab = "Mean Connectivity",
+     main = "Mean Connectivity",
+     type = "n")
+text(sft$fitIndices[, 1], sft$fitIndices[, 5],
+     labels = powers, col = "red")</pre>
+          </div>
+
+          <div class="decision-box">
+            <h5><i class="bi bi-signpost-split me-2"></i>How to Pick the Right Power</h5>
+            <div class="row g-3 mt-2">
+              <div class="col-md-6">
+                <h6 class="fw-bold">Rules</h6>
+                <ol>
+                  <li>Pick the <strong>lowest power</strong> where the scale-free fit R² <strong>first exceeds 0.85</strong> (the blue dashed line)</li>
+                  <li>The signed R² should be <strong>negative slope</strong> — if it's positive, the network is not scale-free at that power</li>
+                  <li>Check that mean connectivity is not too low (below ~50) at your chosen power — some connectivity is needed for meaningful modules</li>
+                </ol>
+              </div>
+              <div class="col-md-6">
+                <h6 class="fw-bold">Typical Values</h6>
+                <ul>
+                  <li><strong>Signed network:</strong> power 6–12 (commonly 8–10)</li>
+                  <li><strong>Unsigned network:</strong> power 4–8 (commonly 6)</li>
+                  <li>If R² never reaches 0.85 even at power 20, your data may have strong batch effects or too few samples</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div class="byte-callout byte-key">
+            <img src="../img/Byte3.png" alt="Byte key point">
+            <div>
+              <strong>Signed vs. Unsigned Networks:</strong>
+              <ul class="mb-0 mt-1">
+                <li><strong>Signed</strong> (recommended): genes that are positively correlated cluster together; negatively correlated genes go to different modules. Better biological interpretability.</li>
+                <li><strong>Unsigned</strong>: treats positive and negative correlations equally. Use only if you specifically want anti-correlated genes in the same module.</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <section id="step3" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">3</span> Build the Network &amp; Detect Modules</h2>
+
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre>picked_power &lt;- 9  # Replace with your chosen value
+
+# Fix namespace conflict between stats::cor and WGCNA::cor
+temp_cor &lt;- cor
+cor &lt;- WGCNA::cor
+
+netwk &lt;- blockwiseModules(
+  input_mat,
+  power                = picked_power,
+  networkType          = "signed",
+
+  # --- Tree &amp; clustering ---
+  deepSplit            = 2,          # 0-4; higher = more smaller modules
+  minModuleSize        = 30,         # minimum genes per module
+  maxBlockSize         = 20000,      # genes per computational block
+
+  # --- Module merging ---
+  mergeCutHeight       = 0.25,       # modules with correlation > 0.75 are merged
+
+  # --- Reassignment ---
+  pamRespectsDendro    = FALSE,
+  reassignThreshold    = 0,
+
+  # --- Save TOM for later reuse ---
+  saveTOMs             = TRUE,
+  saveTOMFileBase      = "TOM",
+
+  numericLabels        = TRUE,
+  verbose              = 3
+)
+
+cor &lt;- temp_cor  # Restore default cor function
+
+table(netwk$colors)  # Number of genes per module</pre>
+          </div>
+
+          <div class="byte-callout byte-wait">
+            <img src="../img/Byte2.png" alt="Byte waiting">
+            <div>
+              <strong>This will take a while!</strong> For ~5,000 genes, expect 5–15 minutes. For 15,000+ genes, it can take an hour or more. The TOM calculation is the bottleneck. If <code>maxBlockSize</code> is smaller than your gene count, WGCNA splits genes into blocks and merges modules afterwards — this is faster but slightly less accurate.
+            </div>
+          </div>
+
+          <div class="param-table">
+            <table class="table table-striped mb-0">
+              <thead><tr><th>Parameter</th><th>What It Controls</th><th>How to Tune</th></tr></thead>
+              <tbody>
+                <tr><td><code>power</code></td><td>Soft-thresholding exponent</td><td>Use value from Step 2 diagnostic plot</td></tr>
+                <tr><td><code>networkType</code></td><td>Signed, unsigned, or signed hybrid</td><td><code>"signed"</code> for most biological applications</td></tr>
+                <tr><td><code>deepSplit</code></td><td>Sensitivity of module splitting (0–4)</td><td>2 = default. Increase to 3 or 4 for finer-grained modules. Decrease to 1 for fewer, larger modules.</td></tr>
+                <tr><td><code>minModuleSize</code></td><td>Smallest allowed module</td><td>30 is standard. Increase to 50–100 for cleaner modules; decrease to 15–20 if you expect small regulatory modules.</td></tr>
+                <tr><td><code>mergeCutHeight</code></td><td>Dissimilarity threshold for merging similar modules</td><td>0.25 = merge modules with eigengene correlation > 0.75. Lower value = more merging.</td></tr>
+                <tr><td><code>maxBlockSize</code></td><td>Genes per computation block</td><td>Set to total gene count if RAM allows (16GB+ for ~15k genes). Otherwise, use 5000–10000.</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h5 class="fw-bold mt-4">Module Dendrogram</h5>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre>module_colors &lt;- labels2colors(netwk$colors)
+
+plotDendroAndColors(
+  netwk$dendrograms[[1]],
+  module_colors[netwk$blockGenes[[1]]],
+  "Module Colors",
+  dendroLabels = FALSE,
+  hang = 0.03,
+  addGuide = TRUE,
+  guideHang = 0.05,
+  main = "Gene Dendrogram with Module Colors"
+)</pre>
+          </div>
+        </section>
+
+        <section id="step4" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">4</span> Explore Module Composition</h2>
+
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre># Create a gene → module mapping
+module_df &lt;- data.frame(
+  gene_id = names(netwk$colors),
+  module  = labels2colors(netwk$colors),
+  stringsAsFactors = FALSE
+)
+
+# Count genes per module
+module_df %>% count(module, sort = TRUE)
+
+# Save for later use
+write.table(module_df, "gene_module_assignments.tsv",
+            sep = "\t", row.names = FALSE, quote = FALSE)</pre>
+          </div>
+        </section>
+
+        <section id="step5" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">5</span> Module–Trait Relationships</h2>
+          <p>The key biological question: <em>which modules associate with which experimental conditions or phenotypes?</em> WGCNA computes a module eigengene for each module and correlates it against your trait data.</p>
+
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre># Calculate module eigengenes
+MEs0 &lt;- moduleEigengenes(input_mat, module_colors)$eigengenes
+MEs  &lt;- orderMEs(MEs0)
+
+# Create a numeric trait matrix (encode conditions as 0/1)
+# Adapt this to your actual experimental groups
+traits &lt;- sample_meta
+traits$group &lt;- as.numeric(factor(traits$group)) - 1
+
+# Correlate eigengenes with traits
+module_trait_cor  &lt;- cor(MEs, traits, use = "p")
+module_trait_pval &lt;- corPvalueStudent(module_trait_cor, nrow(input_mat))
+
+# Heatmap of module-trait relationships
+textMatrix &lt;- paste0(signif(module_trait_cor, 2),
+                      "\n(", signif(module_trait_pval, 1), ")")
+dim(textMatrix) &lt;- dim(module_trait_cor)
+
+labeledHeatmap(
+  Matrix       = module_trait_cor,
+  xLabels      = colnames(traits),
+  yLabels      = names(MEs),
+  ySymbols     = names(MEs),
+  colorLabels  = FALSE,
+  colors       = blueWhiteRed(50),
+  textMatrix   = textMatrix,
+  setStdMargins = FALSE,
+  cex.text     = 0.6,
+  zlim         = c(-1, 1),
+  main         = "Module-Trait Relationships"
+)</pre>
+          </div>
+
+          <div class="byte-callout byte-info">
+            <img src="../img/Byte3.png" alt="Byte explains">
+            <div>
+              <strong>Reading the Heatmap:</strong> Each cell shows the correlation and its p-value. Strong red = module expression is high when trait value is high. Strong blue = inverse relationship. Focus on modules with <strong>|correlation| > 0.5</strong> and <strong>p-value &lt; 0.05</strong> for follow-up.
+            </div>
+          </div>
+
+          <h5 class="fw-bold mt-4">Expression Profiles of Key Modules</h5>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre>modules_of_interest &lt;- c("turquoise", "blue", "green")
+
+sub_genes &lt;- module_df %>% filter(module %in% modules_of_interest)
+sub_expr  &lt;- expr_mat[sub_genes$gene_id, ]
+
+# Tidy for ggplot
+plot_df &lt;- as.data.frame(sub_expr) %>%
+  mutate(gene_id = rownames(.)) %>%
+  pivot_longer(-gene_id, names_to = "sample", values_to = "expr") %>%
+  left_join(module_df, by = "gene_id")
+
+ggplot(plot_df, aes(x = sample, y = expr, group = gene_id)) +
+  geom_line(aes(color = module), alpha = 0.15, linewidth = 0.3) +
+  facet_grid(rows = vars(module)) +
+  theme_minimal(base_size = 12) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, size = 7)) +
+  labs(title = "Expression Profiles by Module",
+       x = "Sample", y = "Normalized Expression") +
+  scale_color_identity()</pre>
+          </div>
+        </section>
+
+        <section id="step6" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">6</span> Hub Gene Identification</h2>
+          <p>Hub genes are the most highly connected genes within a module. They often play central regulatory roles and are prime candidates for experimental validation.</p>
+
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre># Module membership (kME) = correlation of each gene with its module eigengene
+kME &lt;- signedKME(input_mat, MEs)
+
+# For a specific module (e.g., turquoise):
+target_module &lt;- "turquoise"
+target_genes  &lt;- module_df %>% filter(module == target_module) %>% pull(gene_id)
+kme_col       &lt;- paste0("kME", target_module)
+
+hub_df &lt;- data.frame(
+  gene_id = target_genes,
+  kME     = kME[target_genes, kme_col]
+) %>%
+  arrange(desc(kME))
+
+# Top 10 hub genes
+head(hub_df, 10)</pre>
+          </div>
+
+          <div class="decision-box">
+            <h5><i class="bi bi-signpost-split me-2"></i>What Makes a Good Hub Gene?</h5>
+            <ul>
+              <li><strong>High module membership (kME > 0.8)</strong> — strongly correlated with the module eigengene</li>
+              <li><strong>High gene significance</strong> — also correlated with your trait of interest</li>
+              <li><strong>Known biological function</strong> — bonus if the gene has a plausible role in the phenotype</li>
+              <li>The intersection of high kME and high gene significance gives you the strongest candidates</li>
+            </ul>
+          </div>
+        </section>
+
+        <section id="step7" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">7</span> Export Network for Cytoscape</h2>
+          <p>For interactive network visualization, export the module network to Cytoscape or igraph.</p>
+
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre># Recalculate TOM for modules of interest
+target_genes &lt;- module_df %>%
+  filter(module %in% modules_of_interest) %>%
+  pull(gene_id)
+
+target_expr &lt;- expr_mat[target_genes, ]
+
+TOM &lt;- TOMsimilarityFromExpr(t(target_expr), power = picked_power)
+rownames(TOM) &lt;- rownames(target_expr)
+colnames(TOM) &lt;- rownames(target_expr)
+
+# Build edge list
+edge_list &lt;- as.data.frame(TOM) %>%
+  mutate(gene1 = rownames(.)) %>%
+  pivot_longer(-gene1, names_to = "gene2", values_to = "weight") %>%
+  filter(gene1 != gene2, weight > 0.02) %>%  # filter weak edges
+  left_join(module_df, by = c("gene1" = "gene_id")) %>%
+  rename(module1 = module) %>%
+  left_join(module_df, by = c("gene2" = "gene_id")) %>%
+  rename(module2 = module)
+
+# Save for Cytoscape import
+write.table(edge_list, "network_edge_list.tsv",
+            sep = "\t", row.names = FALSE, quote = FALSE)
+cat("Edges exported:", nrow(edge_list), "\n")</pre>
+          </div>
+
+          <div class="byte-callout byte-tip">
+            <img src="../img/Byte1.png" alt="Byte tip">
+            <div>
+              <strong>Cytoscape Import:</strong> In Cytoscape, use <em>File → Import → Network from File</em>. Set gene1 as Source, gene2 as Target, and weight as Edge Attribute. Then apply a force-directed layout. Color nodes by module and size by kME for a publication-ready figure.
+            </div>
+          </div>
+        </section>
+
+        <section id="parameters" class="mb-5">
+          <h2 class="fw-bold"><i class="bi bi-sliders me-2"></i> Parameter Deep-Dive: Tuning Your Network</h2>
+          <p>WGCNA has many parameters that affect module detection. Here's a systematic approach to tuning:</p>
+
+          <div class="param-table">
+            <table class="table table-striped mb-0">
+              <thead><tr><th>If You Want...</th><th>Adjust This</th><th>Direction</th></tr></thead>
+              <tbody>
+                <tr><td>More modules (finer resolution)</td><td><code>deepSplit</code></td><td>Increase to 3 or 4</td></tr>
+                <tr><td>Fewer modules (broader grouping)</td><td><code>mergeCutHeight</code></td><td>Increase (e.g., 0.4 merges more aggressively)</td></tr>
+                <tr><td>Remove tiny modules</td><td><code>minModuleSize</code></td><td>Increase to 50 or 100</td></tr>
+                <tr><td>Tighter, more connected modules</td><td><code>power</code></td><td>Increase slightly (more stringent adjacency)</td></tr>
+                <tr><td>Faster computation</td><td><code>maxBlockSize</code></td><td>Decrease (genes split into smaller blocks, but slight accuracy trade-off)</td></tr>
+                <tr><td>Better biological interpretability</td><td><code>networkType</code></td><td>Use <code>"signed"</code></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="summary" class="mb-5">
+          <h2 class="fw-bold"><i class="bi bi-check-circle me-2"></i> Summary</h2>
+          <div class="byte-callout byte-tip">
+            <img src="../img/Byte0.png" alt="Byte">
+            <div>
+              <strong>What You Learned:</strong>
+              <ol class="mb-0 mt-1">
+                <li>Prepare and normalize expression data for WGCNA input</li>
+                <li>Choose the soft-thresholding power using the scale-free fit diagnostic</li>
+                <li>Build the co-expression network and detect modules with <code>blockwiseModules</code></li>
+                <li>Relate modules to experimental traits via eigengene correlation</li>
+                <li>Identify hub genes using module membership (kME)</li>
+                <li>Export networks for Cytoscape visualization</li>
+                <li>Tune every major parameter for your specific dataset</li>
+              </ol>
+            </div>
+          </div>
+
+          <div class="d-flex justify-content-between mt-5">
+            <a href="rnaseq-differential-expression-deseq2-guide.html" class="btn btn-outline-secondary rounded-pill px-4"><i class="bi bi-arrow-left me-2"></i>Prev: DESeq2</a>
+            <a href="bioinformatics-data-visualization-ggplot2-R.html" class="btn btn-primary rounded-pill px-4">Next: Data Visualization <i class="bi bi-arrow-right ms-2"></i></a>
+          </div>
+        </section>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-lg-6"><h5 class="text-white fw-bold mb-3"><span style="color:#ff9933;">Indian</span><span style="color:var(--ieb-primary);">Elucid</span><span style="color:var(--ieb-accent);">Biology</span></h5><p class="small">Free, interactive bioinformatics tutorials. Open source and community-driven.</p></div>
+      <div class="col-lg-6 text-lg-end"><p class="small mb-1">Founded by <strong>Ankush Sharma</strong></p><div class="d-flex gap-3 justify-content-lg-end"><a href="https://github.com/ank-man" target="_blank" class="text-white fs-5"><i class="bi bi-github"></i></a><a href="https://www.linkedin.com/in/ankush-sharma-290307/" target="_blank" class="text-white fs-5"><i class="bi bi-linkedin"></i></a><a href="mailto:mr.ank2999@gmail.com" class="text-white fs-5"><i class="bi bi-envelope"></i></a></div></div>
+    </div>
+    <hr class="border-secondary mt-4 mb-3">
+    <p class="text-center small mb-0">&copy; 2025 IndianElucidBiology — Founded by <a href="https://www.linkedin.com/in/ankush-sharma-290307/" class="text-white-50" target="_blank">Ankush Sharma</a>. Made with <span style="color:#e25555;">&#9829;</span> for the bioinformatics community.</p>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/main.js"></script>
+</body>
+</html>

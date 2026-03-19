@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Genome Assembly: GenomeScope + SPAdes/Canu | IndianElucidBiology</title>
+  <meta name="description" content="Genome assembly tutorial covering k-mer analysis with Jellyfish and GenomeScope to estimate genome size, heterozygosity and repeat content, then de novo assembly with SPAdes (prokaryotes) and Canu (eukaryotes).">
+  <link rel="canonical" href="https://indianelucidbiology.github.io/tutorials/genome-assembly-genomescope-spades.html">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="../css/style.css" rel="stylesheet">
+</head>
+<body>
+<div class="progress-tracker"></div>
+<nav class="navbar navbar-expand-lg fixed-top">
+  <div class="container">
+    <a class="navbar-brand" href="../index.html"><span class="brand-indian">Indian</span><span class="brand-elucid">Elucid</span><span class="brand-biology">Biology</span></a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav"><span class="navbar-toggler-icon"></span></button>
+    <div class="collapse navbar-collapse" id="mainNav">
+      <ul class="navbar-nav ms-auto me-3">
+        <li class="nav-item"><a class="nav-link" href="../index.html">Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="index.html">Tutorial Library</a></li>
+      </ul>
+      <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode">&#9790;</button>
+    </div>
+  </div>
+</nav>
+
+<section class="tutorial-hero">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-lg-8">
+        <nav aria-label="breadcrumb"><ol class="breadcrumb mb-3" style="--bs-breadcrumb-divider-color:rgba(255,255,255,0.5);"><li class="breadcrumb-item"><a href="../index.html" class="text-white-50 text-decoration-none">Home</a></li><li class="breadcrumb-item"><a href="index.html" class="text-white-50 text-decoration-none">Tutorials</a></li><li class="breadcrumb-item active text-white">Genome Assembly</li></ol></nav>
+        <h1 class="display-5 fw-bold text-white mb-3">Genome Assembly: k-mer Analysis, GenomeScope &amp; De Novo Assembly</h1>
+        <p class="lead text-white-50 mb-4">Estimate genome properties before assembly using k-mer frequency profiles, then perform de novo assembly with SPAdes (bacteria/small genomes) or Canu (large eukaryotic genomes).</p>
+        <div class="d-flex gap-3 flex-wrap">
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-clock me-1"></i>~120 min</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-bar-chart me-1"></i>Intermediate</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-terminal me-1"></i>Bash</span>
+        </div>
+      </div>
+      <div class="col-lg-4 text-center d-none d-lg-block">
+        <img src="../img/Byte4.png" alt="Byte" class="img-fluid" style="max-height:220px;filter:drop-shadow(0 10px 30px rgba(0,0,0,0.4));">
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="container py-5">
+  <div class="row">
+    <div class="col-lg-3 d-none d-lg-block">
+      <div class="toc-sidebar">
+        <h6 class="fw-bold text-muted text-uppercase small mb-3">On this page</h6>
+        <nav class="nav flex-column">
+          <a class="nav-link" href="#overview">Overview</a>
+          <a class="nav-link" href="#kmer-theory">K-mer Theory</a>
+          <a class="nav-link" href="#step1">1. Jellyfish k-mer Counting</a>
+          <a class="nav-link" href="#step2">2. GenomeScope Estimation</a>
+          <a class="nav-link" href="#step3">3. Choosing an Assembler</a>
+          <a class="nav-link" href="#step4">4. SPAdes Assembly</a>
+          <a class="nav-link" href="#step5">5. Canu Assembly</a>
+          <a class="nav-link" href="#step6">6. Assembly QC (QUAST + BUSCO)</a>
+          <a class="nav-link" href="#errors">Troubleshooting</a>
+        </nav>
+      </div>
+    </div>
+    <div class="col-lg-9">
+      <div class="tutorial-content">
+
+        <section id="overview" class="mb-5">
+          <h2 class="section-divider">Overview</h2>
+          <p>Before spending days running a genome assembler, always perform k-mer analysis to understand your genome's properties: estimated size, ploidy level, heterozygosity rate, and repeat content. This informs which assembler and parameters to use.</p>
+          <div class="decision-box">
+            <h5><i class="bi bi-signpost-split me-2"></i>Which Assembler Should I Use?</h5>
+            <ul class="mb-0">
+              <li><strong>Prokaryote (small, low complexity):</strong> SPAdes — fast, accurate, handles variable coverage</li>
+              <li><strong>Eukaryote, short reads only:</strong> MaSuRCA — good for complex genomes</li>
+              <li><strong>Eukaryote, long reads only:</strong> Canu or Flye — designed for PacBio/Nanopore</li>
+              <li><strong>Eukaryote, both short + long reads:</strong> MaSuRCA hybrid mode</li>
+              <li><strong>Highly heterozygous diploid:</strong> Platanus or hifiasm (for HiFi reads)</li>
+            </ul>
+          </div>
+        </section>
+
+        <section id="dirstructure" class="mb-5">
+          <h2 class="section-divider">Ideal Directory Structure</h2>
+          <p>Genome assembly projects accumulate large files quickly. Keep each step isolated so you can re-run or compare assembler outputs independently.</p>
+          <div class="dir-tree">
+            <div class="dir-tree-header"><i class="bi bi-folder2-open"></i> genome_assembly_project/</div>
+<span class="tree-folder">genome_assembly_project/</span>
+├── <span class="tree-folder tree-active">0_raw_reads/</span>      <span class="tree-note"># raw FASTQ reads (read-only!)</span>
+│   ├── <span class="tree-file">reads_R1.fastq.gz</span>
+│   └── <span class="tree-file">reads_R2.fastq.gz</span>
+├── <span class="tree-folder">1_kmer/</span>           <span class="tree-note"># Jellyfish output + histogram</span>
+│   ├── <span class="tree-output">reads.jf</span>          <span class="tree-note"># binary k-mer hash (large!)</span>
+│   └── <span class="tree-output">reads.histo</span>       <span class="tree-note"># frequency histogram (text, small)</span>
+├── <span class="tree-folder">2_genomescope/</span>    <span class="tree-note"># GenomeScope model plots + estimates</span>
+│   ├── <span class="tree-output">summary.txt</span>       <span class="tree-note"># genome size, heterozygosity estimates</span>
+│   └── <span class="tree-output">plot.png</span>
+├── <span class="tree-folder">3_spades/</span>         <span class="tree-note"># SPAdes assembly (prokaryote/small eukaryote)</span>
+│   ├── <span class="tree-output">scaffolds.fasta</span>   <span class="tree-note"># final assembly — use this</span>
+│   └── <span class="tree-output">contigs.fasta</span>
+├── <span class="tree-folder">4_canu/</span>           <span class="tree-note"># Canu assembly (long reads)</span>
+│   └── <span class="tree-output">assembly.contigs.fasta</span>
+├── <span class="tree-folder">5_quast/</span>          <span class="tree-note"># QUAST assembly QC stats</span>
+└── <span class="tree-folder">6_busco/</span>          <span class="tree-note"># BUSCO completeness assessment</span>
+    └── <span class="tree-output">short_summary.txt</span> <span class="tree-note"># % complete single-copy orthologs</span>
+          </div>
+          <div class="fun-tip"><span class="fun-tip-icon">💾</span><div><strong>Storage warning:</strong> The Jellyfish hash file <code>reads.jf</code> can be 20–60 GB for large genomes — as large as the raw reads themselves! Store it on scratch space and delete it once you have the <code>reads.histo</code> file. The histogram is all GenomeScope needs and is only ~10 KB.</div></div>
+        </section>
+
+        <section id="kmer-theory" class="mb-5">
+          <h2 class="section-divider">K-mer Theory</h2>
+          <p>A <strong>k-mer</strong> is a substring of length <em>k</em> in a DNA sequence. For a 21-mer of sequence <code>AATTGGCCGTA...</code>, we slide a window of 21 bases across the entire read dataset and count how many times each unique 21-mer appears.</p>
+          <div class="param-table">
+            <table class="table table-striped mb-0">
+              <thead><tr><th>k-mer size</th><th>Possible k-mers (4 bases)</th><th>Notes</th></tr></thead>
+              <tbody>
+                <tr><td>k=17</td><td>17 billion</td><td>Too small — many false matches</td></tr>
+                <tr><td>k=21</td><td>4.4 trillion</td><td>Standard for genome size estimation</td></tr>
+                <tr><td>k=31</td><td>4.6 × 10<sup>18</sup></td><td>Used for high-coverage assemblies</td></tr>
+                <tr><td>k=51</td><td>~4.5 × 10<sup>30</sup></td><td>Long reads only</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="mt-3">The key insight: in a diploid genome sequenced at 30× coverage, each unique genomic position appears ~30 times in the reads. A k-mer frequency histogram shows a prominent peak at ~30×. The genome size = (total k-mers) / (peak coverage).</p>
+          <div class="byte-callout">
+            <img src="../img/Byte1.png" alt="Byte">
+            <div><strong>Interpreting the k-mer histogram:</strong>
+              <ul class="mb-0 mt-1">
+                <li>Peak at low coverage (1–5×): sequencing errors — ignore this</li>
+                <li>First true peak (haploid coverage): heterozygous sites in a diploid</li>
+                <li>Second peak (2× first peak): homozygous sites — the main genome peak</li>
+                <li>Higher peaks (3×, 4×): repetitive elements</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <section id="step1" class="mb-5">
+          <h2 class="section-divider">Step 1 — Jellyfish k-mer Counting</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash — Jellyfish count + histogram</span><button class="btn-copy">Copy</button></div>
+<pre id="s1-jelly">#!/bin/bash
+#SBATCH -N 1
+#SBATCH --ntasks-per-node=24
+#SBATCH --time=12:00:00
+#SBATCH --job-name=jellyfish
+#SBATCH --mem=64G
+
+module load jellyfish/2.3.0
+
+# Input: raw genomic reads (can be paired-end or single-end)
+# Example: 30x coverage of a ~500 Mb genome
+R1="reads_R1.fastq.gz"
+R2="reads_R2.fastq.gz"
+
+# Step 1: Count k-mers (k=21)
+# -C = canonical k-mers (count both strands together)
+# -m = k-mer size
+# -s = initial hash size (set to ~genome size; can over-estimate)
+# -t = threads
+# -o = output file
+jellyfish count \
+    -C -m 21 \
+    -s 1000000000 \
+    -t 24 \
+    -o reads.jf \
+    <(zcat ${R1}) <(zcat ${R2})
+
+# Step 2: Generate frequency histogram
+jellyfish histo \
+    -t 24 \
+    reads.jf \
+    > reads.histo
+
+echo "Histogram generated: reads.histo"
+echo "First 20 lines of histogram (coverage: count):"
+head -20 reads.histo
+
+# reads.histo format:
+# 1   12405832    <- 1x coverage: mostly errors
+# 2   8234521
+# ...
+# 30  4981234     <- main genome peak near the sequencing depth
+# ...</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s1-jelly" data-filename="01_jellyfish_kmer.sh"><i class="bi bi-download me-1"></i>01_jellyfish_kmer.sh</button></div>
+          <div class="cmd-explain">
+            <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> Jellyfish flags decoded</div>
+            <table>
+              <tr><td><span class="cmd-emoji">🔄</span>-C (canonical)</td><td>Count <strong>C</strong>anonical k-mers — treat a k-mer and its reverse complement as the same thing. Since DNA is double-stranded, <code>AATTGG</code> and <code>CCAATT</code> are the same sequence. Without -C, you'd count every k-mer twice.</td></tr>
+              <tr><td><span class="cmd-emoji">🔢</span>-m 21</td><td>K-mer size = 21. Longer k-mers are more specific but require more memory. k=21 is the standard for genome size estimation. k=31 is used for assemblies.</td></tr>
+              <tr><td><span class="cmd-emoji">💾</span>-s 1000000000</td><td>Initial hash <strong>s</strong>ize in bytes (1 GB here). Set this to roughly your expected genome size. If it's too small, Jellyfish does multiple passes (slower). It's safe to overestimate.</td></tr>
+              <tr><td><span class="cmd-emoji">⚡</span>-t 24</td><td>Use 24 CPU <strong>t</strong>hreads. Jellyfish is one of the most efficiently parallelized tools in bioinformatics — 24 threads is ~20× faster than single-threaded.</td></tr>
+              <tr><td><span class="cmd-emoji">🔐</span>&lt;(zcat R1) &lt;(zcat R2)</td><td>Process substitution — decompress the gzipped FASTQs on-the-fly and feed them to Jellyfish without writing uncompressed files to disk. Saves ~50 GB of disk space.</td></tr>
+              <tr><td><span class="cmd-emoji">📊</span>jellyfish histo</td><td>Converts the binary k-mer hash (<code>.jf</code>) into a two-column text histogram: (coverage, count). This is the tiny file that GenomeScope reads. Once you have it, you can delete the large <code>.jf</code> file.</td></tr>
+            </table>
+          </div>
+        </section>
+
+        <section id="step2" class="mb-5">
+          <h2 class="section-divider">Step 2 — GenomeScope: Genome Property Estimation</h2>
+          <p>GenomeScope fits a mathematical model to the k-mer histogram to estimate: genome size (haploid), heterozygosity rate, repeat fraction, and sequencing error rate.</p>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash — GenomeScope (command line)</span><button class="btn-copy">Copy</button></div>
+<pre id="s2-gs">module load R   # GenomeScope is an R script
+
+# Download GenomeScope if not installed
+# wget https://raw.githubusercontent.com/schatzlab/genomescope/master/genomescope.R
+
+Rscript genomescope.R \
+    reads.histo \
+    21 \
+    150 \
+    genomescope_output \
+    1000
+
+# Arguments:
+# reads.histo     = k-mer histogram from jellyfish histo
+# 21              = k-mer size used (must match jellyfish -m)
+# 150             = read length (check your FASTQ)
+# genomescope_output = output directory
+# 1000            = max k-mer coverage to model (exclude high repeats)
+
+# GenomeScope also available as web app: http://genomescope.org
+# Upload reads.histo directly for instant results
+
+ls genomescope_output/</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s2-gs" data-filename="02_genomescope.sh"><i class="bi bi-download me-1"></i>02_genomescope.sh</button></div>
+          <div class="cmd-explain">
+            <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> GenomeScope arguments decoded</div>
+            <table>
+              <tr><td><span class="cmd-emoji">📊</span>reads.histo</td><td>The k-mer frequency histogram from Jellyfish. Two columns: frequency (how many times a k-mer appears) and count (how many k-mers appear that many times).</td></tr>
+              <tr><td><span class="cmd-emoji">🔢</span>21 (k-mer size)</td><td>Must match the <code>-m</code> value used in Jellyfish. GenomeScope uses this in its mathematical model to correct for overlapping k-mers at read boundaries.</td></tr>
+              <tr><td><span class="cmd-emoji">📏</span>150 (read length)</td><td>Your sequencing read length. Check with <code>head -8 reads.fastq.gz | zcat | awk 'NR==2{print length($0)}'</code>. Used to estimate the number of k-mers per read.</td></tr>
+              <tr><td><span class="cmd-emoji">📁</span>genomescope_output</td><td>Output directory name. GenomeScope creates: <code>summary.txt</code> (genome estimates), <code>plot.png</code> (k-mer histogram + fitted model), and <code>model.txt</code> (model parameters).</td></tr>
+              <tr><td><span class="cmd-emoji">✂️</span>1000 (max coverage)</td><td>Truncate the histogram at 1000× coverage. Highly repetitive k-mers (transposons, rDNA) form a long tail that confuses the model fitter. Truncating focuses the model on the main genome peak.</td></tr>
+            </table>
+          </div>
+          <div class="fun-tip"><span class="fun-tip-icon">🌐</span><div><strong>Use the GenomeScope web app!</strong> Upload your <code>reads.histo</code> to <a href="http://genomescope.org" target="_blank">genomescope.org</a> for an interactive visualization with sliders to adjust the model. Much easier for exploring the parameters before committing to command-line runs.</div></div>
+
+          <p class="mt-3">GenomeScope output files:</p>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>GenomeScope Output (example)</span></div>
+<pre>GenomeScope version 1.0
+k = 21
+
+property                      min               max
+Heterozygosity                0.502%            0.519%
+Genome Haploid Length         246,401,629 bp    246,580,171 bp
+Genome Repeat Length          55,423,551 bp     55,463,789 bp
+Genome Unique Length          190,978,078 bp    191,116,382 bp
+Model Fit                     97.3%
+Read Error Rate               0.233%            0.233%
+
+# Output plots:
+# genomescope_output/plot.png  -- k-mer histogram fit
+# genomescope_output/model.txt -- numerical results</pre>
+          </div>
+          <div class="thumb-rule mt-3"><strong>Use GenomeScope results to set assembly parameters.</strong> Heterozygosity &gt;1% = use a diploid-aware assembler or set heterozygosity parameter in Canu. Repeat fraction &gt;50% = expect fragmented assembly; long reads mandatory. Genome size estimate sets expected coverage in Canu (<code>genomeSize=</code>).</div>
+        </section>
+
+        <section id="step3" class="mb-5">
+          <h2 class="section-divider">Step 3 — Choosing an Assembler</h2>
+          <div class="param-table">
+            <table class="table table-striped mb-0">
+              <thead><tr><th>Assembler</th><th>Input</th><th>Best for</th><th>Key limitation</th></tr></thead>
+              <tbody>
+                <tr><td><strong>SPAdes</strong></td><td>Short reads (Illumina)</td><td>Bacteria, fungi, small eukaryotes</td><td>Not recommended for large genomes (&gt;300 Mb)</td></tr>
+                <tr><td><strong>Canu</strong></td><td>Long reads (PacBio/ONT)</td><td>Large complex eukaryotes</td><td>Slow; needs high coverage (&gt;30×)</td></tr>
+                <tr><td><strong>Flye</strong></td><td>Long reads</td><td>All sizes; faster than Canu</td><td>May need polishing with short reads</td></tr>
+                <tr><td><strong>MaSuRCA</strong></td><td>Short + optional long reads</td><td>Eukaryotes, hybrid</td><td>Complex parameter setup</td></tr>
+                <tr><td><strong>hifiasm</strong></td><td>PacBio HiFi (CCS)</td><td>High-quality diploid assemblies</td><td>Requires HiFi reads specifically</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="step4" class="mb-5">
+          <h2 class="section-divider">Step 4 — SPAdes Assembly (Prokaryotes)</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash — SPAdes de novo assembly</span><button class="btn-copy">Copy</button></div>
+<pre id="s4-spades">#!/bin/bash
+#SBATCH -N 1
+#SBATCH --ntasks-per-node=16
+#SBATCH --time=24:00:00
+#SBATCH --job-name=spades
+#SBATCH --mem=128G
+
+module load spades/3.15.4
+
+# Standard paired-end assembly
+spades.py \
+    -1 reads_R1.fastq.gz \
+    -2 reads_R2.fastq.gz \
+    -o spades_output/ \
+    --threads 16 \
+    --memory 128 \
+    -k 21,33,55,77,99   # multiple k-mers (SPAdes iterates automatically)
+
+# For highly heterozygous diploid (add --careful only for small genomes):
+# spades.py -1 R1.fastq.gz -2 R2.fastq.gz -o spades_out/ --careful
+
+# Outputs:
+# spades_output/scaffolds.fasta  -- final scaffolded assembly
+# spades_output/contigs.fasta    -- contigs before scaffolding
+# spades_output/spades.log       -- full log
+
+echo "Assembly complete:"
+grep -c ">" spades_output/scaffolds.fasta
+grep "^>" spades_output/scaffolds.fasta | awk -F'_' '{print $4}' \
+    | sort -rn | head -20</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s4-spades" data-filename="04_spades_assembly.sh"><i class="bi bi-download me-1"></i>04_spades_assembly.sh</button></div>
+        </section>
+
+        <section id="step5" class="mb-5">
+          <h2 class="section-divider">Step 5 — Canu Assembly (Eukaryotes / Long Reads)</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash — Canu long-read assembly</span><button class="btn-copy">Copy</button></div>
+<pre id="s5-canu">#!/bin/bash
+#SBATCH -N 1
+#SBATCH --ntasks-per-node=32
+#SBATCH --time=120:00:00
+#SBATCH --job-name=canu
+#SBATCH --mem=256G
+
+module load canu/2.2
+
+# genomeSize: use GenomeScope estimate (e.g., 246m = 246 Mb)
+# -nanopore or -pacbio: specify read type
+
+canu \
+    -p genome_assembly \
+    -d canu_output/ \
+    genomeSize=246m \
+    -nanopore raw_nanopore_reads.fastq.gz \
+    maxThreads=32 \
+    maxMemory=256
+
+# For PacBio CLR reads:
+# canu -p asm -d canu_out/ genomeSize=246m -pacbio reads.fastq.gz
+
+# For PacBio HiFi (CCS) reads — use hifiasm instead:
+# hifiasm -o asm.asm -t 32 hifi_reads.fastq.gz
+# awk '/^S/{print ">"$2; print $3}' asm.asm.bp.p_ctg.gfa > asm.p_ctg.fa
+
+# Canu key output:
+ls canu_output/
+# genome_assembly.contigs.fasta       -- primary contigs
+# genome_assembly.unassembled.fasta   -- reads that didn't assemble
+# genome_assembly.report              -- assembly statistics</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s5-canu" data-filename="05_canu_assembly.sh"><i class="bi bi-download me-1"></i>05_canu_assembly.sh</button></div>
+        </section>
+
+        <section id="step6" class="mb-5">
+          <h2 class="section-divider">Step 6 — Assembly Quality Assessment</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash — QUAST (contiguity) + BUSCO (completeness)</span><button class="btn-copy">Copy</button></div>
+<pre id="s6-qc">module load quast
+module load busco/5.4.3
+
+ASSEMBLY="spades_output/scaffolds.fasta"
+# or: ASSEMBLY="canu_output/genome_assembly.contigs.fasta"
+
+# QUAST: assembly contiguity statistics
+quast.py ${ASSEMBLY} \
+    -o quast_output/ \
+    --threads 8
+
+# Key QUAST metrics:
+# N50: half the genome is in contigs >= this length
+# L50: number of contigs needed to cover 50% of genome
+# Largest contig, total length, number of contigs
+
+echo "=== QUAST Summary ==="
+cat quast_output/report.txt
+
+# BUSCO: gene content completeness
+# -l: lineage dataset (check busco --list-datasets)
+# Use a lineage appropriate to your organism:
+# bacteria_odb10, fungi_odb10, embryophyta_odb10, metazoa_odb10, etc.
+busco \
+    -i ${ASSEMBLY} \
+    -o busco_output \
+    -m genome \
+    -l embryophyta_odb10 \
+    -c 16
+
+echo "=== BUSCO Summary ==="
+cat busco_output/short_summary*.txt</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s6-qc" data-filename="06_assembly_qc.sh"><i class="bi bi-download me-1"></i>06_assembly_qc.sh</button></div>
+
+          <div class="param-table mt-3">
+            <table class="table table-striped mb-0">
+              <thead><tr><th>Metric</th><th>Good assembly</th><th>Poor assembly</th></tr></thead>
+              <tbody>
+                <tr><td>BUSCO Complete</td><td>&gt;90%</td><td>&lt;70%</td></tr>
+                <tr><td>BUSCO Duplicated</td><td>&lt;5%</td><td>&gt;20% (suggests collapse or false duplication)</td></tr>
+                <tr><td>N50</td><td>Close to expected chromosome size</td><td>Much shorter than expected</td></tr>
+                <tr><td>Total length</td><td>Within 10% of GenomeScope estimate</td><td>Very different suggests contamination or collapse</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="errors" class="mb-5">
+          <h2 class="fw-bold"><i class="bi bi-exclamation-triangle me-2 text-warning"></i>Troubleshooting</h2>
+          <div class="error-box">
+            <h6>GenomeScope: poor model fit (&lt;80%) or no clear peak</h6>
+            <p>Try a different k-mer size (k=17 or k=31). Check that you used canonical k-mers (<code>-C</code> flag in jellyfish). Very low coverage (&lt;15×) will produce a flat histogram with no clear peak — more data is needed. Contamination also flattens the histogram.</p>
+          </div>
+          <div class="error-box">
+            <h6>SPAdes: out of memory on a large genome</h6>
+            <p>SPAdes is not designed for large genomes. Switch to MaSuRCA or use a HPC node with &gt;256 GB RAM. For very large genomes (&gt;1 Gb), long reads are essentially mandatory for a useful assembly.</p>
+          </div>
+          <div class="error-box">
+            <h6>BUSCO: &lt;50% complete genes</h6>
+            <p>Check: (1) Did you use the correct lineage database? (2) Is total assembly length close to GenomeScope estimate? Low BUSCO often means the assembly is highly fragmented — improve with long reads, scaffolding (Hi-C or optical mapping), or polishing with Pilon.</p>
+          </div>
+        </section>
+
+        <div class="d-flex justify-content-between mt-4">
+          <a href="gatk-snp-calling-best-practices.html" class="btn btn-outline-secondary rounded-pill px-4"><i class="bi bi-arrow-left me-2"></i>GATK Variant Calling</a>
+          <a href="genome-annotation-maker2.html" class="btn btn-primary rounded-pill px-4">Next: Genome Annotation <i class="bi bi-arrow-right ms-2"></i></a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-lg-6"><h5 class="text-white fw-bold mb-3"><span style="color:#ff9933;">Indian</span><span style="color:var(--ieb-primary);">Elucid</span><span style="color:var(--ieb-accent);">Biology</span></h5><p class="small">Tutorial adapted from the Bioinformatics Workbook (Iowa State University GIF). Original author: Andrew Severin.</p></div>
+      <div class="col-lg-6 text-lg-end"><p class="small mb-1">Founded by <strong>Ankush Sharma</strong></p><div class="d-flex gap-3 justify-content-lg-end"><a href="https://github.com/ank-man" target="_blank" class="text-white fs-5"><i class="bi bi-github"></i></a><a href="https://www.linkedin.com/in/ankush-sharma-290307/" target="_blank" class="text-white fs-5"><i class="bi bi-linkedin"></i></a></div></div>
+    </div>
+    <hr class="border-secondary mt-4 mb-3">
+    <p class="text-center small mb-0">&copy; 2025 IndianElucidBiology. Based on <a href="https://bioinformaticsworkbook.org" class="text-white-50" target="_blank">bioinformaticsworkbook.org</a>.</p>
+  </div>
+</footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/main.js"></script>
+</body>
+</html>

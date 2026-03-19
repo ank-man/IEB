@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Positive Selection with PAML/CodeML | IndianElucidBiology</title>
+  <meta name="description" content="Detect positive selection across E. coli and Shigella genomes: OrthoFinder orthogroups to codon alignments with pal2nal, PAML CodeML site models M7/M8, likelihood ratio tests, and branch-site tests.">
+  <link rel="canonical" href="https://indianelucidbiology.github.io/tutorials/positive-selection-paml-codeml.html">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="../css/style.css" rel="stylesheet">
+</head>
+<body>
+<div class="progress-tracker"></div>
+<nav class="navbar navbar-expand-lg fixed-top">
+  <div class="container">
+    <a class="navbar-brand" href="../index.html"><span class="brand-indian">Indian</span><span class="brand-elucid">Elucid</span><span class="brand-biology">Biology</span></a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav"><span class="navbar-toggler-icon"></span></button>
+    <div class="collapse navbar-collapse" id="mainNav">
+      <ul class="navbar-nav ms-auto me-3">
+        <li class="nav-item"><a class="nav-link" href="../index.html">Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="index.html">Tutorial Library</a></li>
+      </ul>
+      <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode">&#9790;</button>
+    </div>
+  </div>
+</nav>
+
+<section class="tutorial-hero">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-lg-8">
+        <nav aria-label="breadcrumb"><ol class="breadcrumb mb-3" style="--bs-breadcrumb-divider-color:rgba(255,255,255,0.5);"><li class="breadcrumb-item"><a href="../index.html" class="text-white-50 text-decoration-none">Home</a></li><li class="breadcrumb-item"><a href="index.html" class="text-white-50 text-decoration-none">Tutorials</a></li><li class="breadcrumb-item active text-white">Positive Selection</li></ol></nav>
+        <h1 class="display-5 fw-bold text-white mb-3">Detecting Positive Selection with PAML / CodeML</h1>
+        <p class="lead text-white-50 mb-4">Identify genes under positive (diversifying) selection across <em>E. coli</em> and <em>Shigella</em> genomes — from OrthoFinder orthogroups to codon alignments, CodeML site model tests, and likelihood ratio statistics.</p>
+        <div class="d-flex gap-3 flex-wrap">
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-clock me-1"></i>~150 min</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-bar-chart me-1"></i>Advanced</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-terminal me-1"></i>Bash + R</span>
+        </div>
+      </div>
+      <div class="col-lg-4 text-center d-none d-lg-block">
+        <img src="../img/Byte4.png" alt="Byte" class="img-fluid" style="max-height:220px;filter:drop-shadow(0 10px 30px rgba(0,0,0,0.4));">
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="container py-5">
+  <div class="row">
+    <div class="col-lg-3 d-none d-lg-block">
+      <div class="toc-sidebar">
+        <h6 class="fw-bold text-muted text-uppercase small mb-3">On this page</h6>
+        <nav class="nav flex-column">
+          <a class="nav-link" href="#overview">Overview &amp; Theory</a>
+          <a class="nav-link" href="#dataset">Dataset</a>
+          <a class="nav-link" href="#step1">1. Download Genomes</a>
+          <a class="nav-link" href="#step2">2. Extract Proteins &amp; CDS</a>
+          <a class="nav-link" href="#step3">3. OrthoFinder</a>
+          <a class="nav-link" href="#step4">4. Codon Alignments</a>
+          <a class="nav-link" href="#step5">5. Gene Trees</a>
+          <a class="nav-link" href="#step6">6. CodeML Site Models</a>
+          <a class="nav-link" href="#step7">7. Parse Results &amp; LRT</a>
+          <a class="nav-link" href="#errors">Troubleshooting</a>
+        </nav>
+      </div>
+    </div>
+    <div class="col-lg-9">
+      <div class="tutorial-content">
+
+        <section id="overview" class="mb-5">
+          <h2 class="section-divider">Overview &amp; Theory</h2>
+          <p>The ratio of nonsynonymous (dN) to synonymous (dS) substitutions — the <strong>&omega; (omega) ratio</strong> — is the gold standard for measuring selection at the molecular level:</p>
+          <div class="param-table">
+            <table class="table table-striped mb-0">
+              <thead><tr><th>&omega; (dN/dS)</th><th>Interpretation</th><th>Biological meaning</th></tr></thead>
+              <tbody>
+                <tr><td><strong>&omega; &lt; 1</strong></td><td>Purifying (negative) selection</td><td>Amino acid changes are harmful; protein function conserved</td></tr>
+                <tr><td><strong>&omega; = 1</strong></td><td>Neutral evolution</td><td>Amino acid changes have no fitness effect</td></tr>
+                <tr><td><strong>&omega; &gt; 1</strong></td><td>Positive (diversifying) selection</td><td>Amino acid changes are beneficial; protein adapting</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="byte-callout mt-3">
+            <img src="../img/Byte1.png" alt="Byte">
+            <div><strong>Why CodeML site models?</strong> Even a positively selected gene will have most codons under purifying selection. A gene-wide &omega; &gt; 1 is rare. CodeML's site models (M7 vs M8) test whether a <em>subset of codons</em> across the gene has &omega; &gt; 1, which is far more sensitive. This tutorial is modelled after the analysis in <a href="https://genome.cshlp.org/content/17/9/1336" target="_blank">Petersen &amp; Bhatt (2007)</a> identifying positively selected E. coli genes.</div>
+          </div>
+        </section>
+
+        <section id="dirstructure" class="mb-5">
+          <h2 class="section-divider">Ideal Directory Structure</h2>
+          <p>The PAML/CodeML workflow requires running one analysis per orthogroup. Keep alignments, trees, and results in parallel numbered directories for easy batch processing and comparison.</p>
+          <div class="dir-tree">
+            <div class="dir-tree-header"><i class="bi bi-folder2-open"></i> positive_selection_ecoli/</div>
+<span class="tree-folder">positive_selection_ecoli/</span>
+├── <span class="tree-folder tree-active">20_TestDataset/</span>     <span class="tree-note"># raw genome FASTA + GFF files</span>
+├── <span class="tree-folder">proteins/</span>           <span class="tree-note"># extracted protein FASTA per species</span>
+├── <span class="tree-folder">cds/</span>                <span class="tree-note"># CDS nucleotide FASTA per species</span>
+├── <span class="tree-folder">1_orthofinder/</span>      <span class="tree-note"># OrthoFinder single-copy orthologs</span>
+│   └── <span class="tree-output">SingleCopyOrthogroups/</span>
+├── <span class="tree-folder">2_codon_alignments/</span> <span class="tree-note"># pal2nal codon-aware alignments</span>
+│   ├── <span class="tree-output">OG0000001.codon.phy</span>  <span class="tree-note"># PHYLIP format for CodeML</span>
+│   └── <span class="tree-note">... (one per orthogroup)</span>
+├── <span class="tree-folder">3_species_tree/</span>     <span class="tree-note"># newick species tree for CodeML</span>
+│   └── <span class="tree-file">species.nwk</span>
+├── <span class="tree-folder">4_codeml/</span>           <span class="tree-note"># CodeML runs (one folder per orthogroup)</span>
+│   ├── <span class="tree-folder">OG0000001/</span>
+│   │   ├── <span class="tree-file">M7.ctl</span>           <span class="tree-note"># null model control file</span>
+│   │   ├── <span class="tree-file">M8.ctl</span>           <span class="tree-note"># alternative model control file</span>
+│   │   └── <span class="tree-output">mlc</span>              <span class="tree-note"># CodeML likelihood output</span>
+│   └── <span class="tree-note">... (one per orthogroup)</span>
+└── <span class="tree-output">lrt_results.tsv</span>     <span class="tree-note"># likelihood ratio test results for all genes</span>
+          </div>
+          <div class="fun-tip"><span class="fun-tip-icon">⏱️</span><div><strong>Scale warning:</strong> For genome-wide analysis (3,000+ orthogroups), run CodeML as an array job — one job per orthogroup. Each CodeML run takes 30 seconds to 10 minutes depending on orthogroup size. Use <code>parallel</code> locally or SLURM array jobs on an HPC cluster.</div></div>
+        </section>
+
+        <section id="dataset" class="mb-5">
+          <h2 class="section-divider">Dataset</h2>
+          <p>Five enterobacterial genomes spanning <em>E. coli</em> diversity plus the closely related <em>Shigella flexneri</em> as an outgroup:</p>
+          <div class="param-table">
+            <table class="table table-striped mb-0">
+              <thead><tr><th>Species / Strain</th><th>NCBI Accession</th><th>Source</th></tr></thead>
+              <tbody>
+                <tr><td><em>Shigella flexneri</em> 2a 301</td><td>GCF_000007405.1</td><td>NCBI RefSeq</td></tr>
+                <tr><td><em>E. coli</em> FORC_036 (food pathogen)</td><td>GCF_001721125.1</td><td>NCBI RefSeq</td></tr>
+                <tr><td><em>E. coli</em> UMEA 3173-1</td><td>GCF_003697165.2</td><td>NCBI RefSeq</td></tr>
+                <tr><td><em>E. coli</em> ATCC 35401</td><td>GCF_013357365.1</td><td>NCBI RefSeq</td></tr>
+                <tr><td><em>E. coli</em> K12 MG1655</td><td>GCF_000005845.2</td><td>NCBI RefSeq</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="step1" class="mb-5">
+          <h2 class="section-divider">Step 1 — Download Genomes and Annotations</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash — Download 5 genomes from NCBI</span><button class="btn-copy">Copy</button></div>
+<pre id="s1-paml-dl">mkdir -p 20_TestDataset && cd 20_TestDataset
+
+# Shigella flexneri
+wget https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/007/405/GCF_000007405.1_ASM740v1/GCF_000007405.1_ASM740v1_genomic.fna.gz
+wget https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/007/405/GCF_000007405.1_ASM740v1/GCF_000007405.1_ASM740v1_genomic.gff.gz
+
+# E. coli FORC_036
+wget https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/001/721/125/GCF_001721125.1_ASM172112v1/GCF_001721125.1_ASM172112v1_genomic.fna.gz
+wget https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/001/721/125/GCF_001721125.1_ASM172112v1/GCF_001721125.1_ASM172112v1_genomic.gff.gz
+
+# E. coli UMEA 3173-1
+wget https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/003/697/165/GCF_003697165.2_ASM369716v2/GCF_003697165.2_ASM369716v2_genomic.fna.gz
+wget https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/003/697/165/GCF_003697165.2_ASM369716v2/GCF_003697165.2_ASM369716v2_genomic.gff.gz
+
+# E. coli ATCC 35401
+wget https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/013/357/365/GCF_013357365.1_ASM1335736v1/GCF_013357365.1_ASM1335736v1_genomic.fna.gz
+wget https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/013/357/365/GCF_013357365.1_ASM1335736v1/GCF_013357365.1_ASM1335736v1_genomic.gff.gz
+
+# E. coli K12 MG1655
+wget https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/005/845/GCF_000005845.2_ASM584v2/GCF_000005845.2_ASM584v2_genomic.fna.gz
+wget https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/005/845/GCF_000005845.2_ASM584v2/GCF_000005845.2_ASM584v2_genomic.gff.gz
+
+gzip -d *.gz
+echo "Genomes ready:"
+ls *.fna | wc -l</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s1-paml-dl" data-filename="01_download_genomes.sh"><i class="bi bi-download me-1"></i>01_download_genomes.sh</button></div>
+          <div class="cmd-explain">
+            <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> Download and prep commands decoded</div>
+            <table>
+              <tr><td><span class="cmd-emoji">🌍</span>wget NCBI FTP URL</td><td>NCBI FTP paths follow a predictable pattern: <code>/genomes/all/GCF/[3-digit split]/[accession]/[version]/</code>. Download both the <code>_genomic.fna.gz</code> (genome) and <code>_genomic.gff.gz</code> (annotation) — you need both for CDS extraction with gffread.</td></tr>
+              <tr><td><span class="cmd-emoji">🛄</span>gzip -d *.gz</td><td>Decompress all downloaded files at once. For CodeML analysis, you need uncompressed FASTA and GFF files. gzip preserves the original file date (useful for tracking downloads).</td></tr>
+              <tr><td><span class="cmd-emoji">🧠</span>5 species selection</td><td>The species set is chosen to have enough phylogenetic diversity to detect positive selection (multiple synonymous substitutions per codon) but not so diverged that codon alignments break down. <em>Shigella</em> serves as the outgroup.</td></tr>
+            </table>
+          </div>
+        </section>
+
+        <section id="step2" class="mb-5">
+          <h2 class="section-divider">Step 2 — Extract CDS Nucleotide and Protein Sequences</h2>
+          <p>Always extract your own proteins and CDS from GFF — this guarantees consistent IDs between nucleotide and protein sequences, which is critical for codon alignments:</p>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash — Extract proteins and CDS with gffread</span><button class="btn-copy">Copy</button></div>
+<pre id="s2-extract">module load cufflinks/2.2.1   # provides gffread
+# or: conda install -c bioconda gffread
+
+mkdir -p proteins cds
+
+for GFF in 20_TestDataset/*.gff; do
+    BASE=$(basename ${GFF} _genomic.gff)
+    FNA="${GFF//_genomic.gff/_genomic.fna}"
+
+    echo "Extracting: ${BASE}"
+
+    # Extract protein sequences
+    gffread ${GFF} -g ${FNA} \
+        -y proteins/${BASE}.prot.fa
+
+    # Extract CDS nucleotide sequences
+    gffread ${GFF} -g ${FNA} \
+        -x cds/${BASE}.cds.fa
+
+    echo "  Proteins: $(grep -c '>' proteins/${BASE}.prot.fa)"
+    echo "  CDS: $(grep -c '>' cds/${BASE}.cds.fa)"
+done</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s2-extract" data-filename="02_extract_cds_proteins.sh"><i class="bi bi-download me-1"></i>02_extract_cds_proteins.sh</button></div>
+          <div class="cmd-explain">
+            <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> gffread extraction decoded</div>
+            <table>
+              <tr><td><span class="cmd-emoji">&#128196;</span>gffread GFF -g FNA -y proteins.fa</td><td>Extracts protein sequences using the GFF annotation and genome FASTA. <code>-y</code> outputs translated protein sequences. gffread uses the CDS features in the GFF to find each gene's exons, join them, and translate.</td></tr>
+              <tr><td><span class="cmd-emoji">&#128202;</span>gffread GFF -g FNA -x cds.fa</td><td><code>-x</code> outputs the spliced CDS nucleotide sequences. These are the raw codons before translation. Critical for pal2nal — you need both the protein alignment AND its matching nucleotide sequences.</td></tr>
+              <tr><td><span class="cmd-emoji">&#9888;</span>Consistent IDs matter</td><td>By extracting both proteins and CDS from the same GFF with the same tool, every protein ID has an exact matching CDS ID. This 1:1 correspondence is required by pal2nal. Mixing databases (e.g. NCBI protein + Ensembl CDS) often breaks at this step due to ID mismatches.</td></tr>
+            </table>
+          </div>
+        </section>
+
+        <section id="step3" class="mb-5">
+          <h2 class="section-divider">Step 3 — OrthoFinder Single-Copy Orthogroups</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash — OrthoFinder + extract single-copy orthologs</span><button class="btn-copy">Copy</button></div>
+<pre id="s3-paml-of">module load orthofinder/2.5.2
+module load diamond/2.0.4
+
+# Run OrthoFinder on all 5 protein sets
+orthofinder \
+    -f proteins/ \
+    -t 16 \
+    -S diamond \
+    -o orthofinder_results/
+
+# Get the list of orthogroups with exactly 1 gene per species
+# (single-copy orthologs — cleanest signal for selection analysis)
+SC_FILE="orthofinder_results/Results_*/Orthogroups/Orthogroups_SingleCopyOrthologues.txt"
+echo "Single-copy orthogroups: $(cat ${SC_FILE} | wc -l)"
+
+# For each single-copy orthogroup, extract:
+# 1. The protein sequences (for alignment)
+# 2. The CDS sequences (for codon alignment with pal2nal)
+mkdir -p sc_orthologs/{proteins,cds}
+
+OG_DIR="orthofinder_results/Results_*/Orthogroup_Sequences/"
+while read OG; do
+    # Copy orthogroup protein FASTA
+    cp ${OG_DIR}/${OG}.fa sc_orthologs/proteins/${OG}.fa
+
+    # Build matching CDS FASTA (same IDs, nucleotide sequences)
+    python3 << PYEOF
+import re
+from Bio import SeqIO
+
+og = "${OG}"
+cds_seqs = {}
+for cds_file in ["cds/GCF_000007405.1.cds.fa",
+                  "cds/GCF_001721125.1.cds.fa",
+                  "cds/GCF_003697165.2.cds.fa",
+                  "cds/GCF_013357365.1.cds.fa",
+                  "cds/GCF_000005845.2.cds.fa"]:
+    for rec in SeqIO.parse(cds_file, "fasta"):
+        cds_seqs[rec.id] = str(rec.seq)
+
+with open(f"sc_orthologs/cds/{og}.cds.fa", "w") as out:
+    for rec in SeqIO.parse(f"sc_orthologs/proteins/{og}.fa", "fasta"):
+        if rec.id in cds_seqs:
+            out.write(f">{rec.id}\n{cds_seqs[rec.id]}\n")
+PYEOF
+done < ${SC_FILE}</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s3-paml-of" data-filename="03_orthofinder_singlecopy.sh"><i class="bi bi-download me-1"></i>03_orthofinder_singlecopy.sh</button></div>
+        </section>
+
+        <section id="step4" class="mb-5">
+          <h2 class="section-divider">Step 4 — Codon-Aware Alignments with clustalo + pal2nal</h2>
+          <p>CodeML requires codon alignments — nucleotide alignments guided by protein alignments to preserve reading frames:</p>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash — Protein alignment then pal2nal codon alignment</span><button class="btn-copy">Copy</button></div>
+<pre id="s4-pal2nal">module load clustalo/1.2.4
+module load pal2nal.v14
+
+mkdir -p alignments/{protein_aln,codon_aln}
+
+for PROT in sc_orthologs/proteins/OG*.fa; do
+    OG=$(basename ${PROT} .fa)
+    CDS="sc_orthologs/cds/${OG}.cds.fa"
+
+    # Step 1: Align proteins with clustalo
+    clustalo \
+        -i ${PROT} \
+        -o alignments/protein_aln/${OG}.aln.fa \
+        --outfmt=fa \
+        --threads=4
+
+    # Step 2: Map protein alignment onto CDS to get codon alignment
+    # pal2nal ensures no partial codons and removes stop codons
+    pal2nal.pl \
+        alignments/protein_aln/${OG}.aln.fa \
+        ${CDS} \
+        -output paml \
+        > alignments/codon_aln/${OG}.codon.phy
+
+    # -output paml  : PHYLIP format required by CodeML
+    # Removes stop codons and mismatches automatically
+
+    if [ $? -eq 0 ]; then
+        echo "OK: ${OG}"
+    else
+        echo "FAILED: ${OG}" >&2
+    fi
+done
+
+echo "Codon alignments created: $(ls alignments/codon_aln/*.phy | wc -l)"</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s4-pal2nal" data-filename="04_codon_alignment.sh"><i class="bi bi-download me-1"></i>04_codon_alignment.sh</button></div>
+          <div class="cmd-explain">
+            <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> clustalo + pal2nal pipeline decoded</div>
+            <table>
+              <tr><td><span class="cmd-emoji">&#128202;</span>clustalo -i proteins -o aln.fa</td><td>Clustal Omega aligns protein sequences using a guide tree and HMM profiles. Protein alignment is more reliable than nucleotide alignment because amino acid substitution matrices (BLOSUM62) capture evolutionary signal better than nucleotide models.</td></tr>
+              <tr><td><span class="cmd-emoji">&#128279;</span>pal2nal.pl aln.fa cds.fa -output paml</td><td>pal2nal maps a protein alignment back onto nucleotide CDS sequences codon-by-codon. Each aligned amino acid becomes a 3-nucleotide codon block. This preserves the reading frame that CodeML needs. <code>-output paml</code> writes PHYLIP format required by CodeML.</td></tr>
+              <tr><td><span class="cmd-emoji">&#10060;</span>stop codon removal</td><td>pal2nal automatically removes stop codons (TGA, TAA, TAG) from the alignment. CodeML cannot handle stop codons in the alignment and will crash or give nonsense results if they are present.</td></tr>
+            </table>
+          </div>
+          <div class="fun-tip"><span class="fun-tip-icon">&#129516;</span><div><strong>Why codon alignment?</strong> A simple nucleotide alignment loses the reading frame at every indel. pal2nal ensures that gaps in the protein alignment become 3-nucleotide gaps in the codon alignment, keeping codons intact. CodeML models substitutions codon-by-codon — so a broken reading frame = meaningless dN/dS.</div></div>
+        </section>
+
+        <section id="step5" class="mb-5">
+          <h2 class="section-divider">Step 5 — Gene Trees</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash — IQ-TREE gene trees for CodeML</span><button class="btn-copy">Copy</button></div>
+<pre id="s5-trees">module load iqtree/2.2.0
+
+mkdir -p trees
+
+for ALN in alignments/protein_aln/OG*.aln.fa; do
+    OG=$(basename ${ALN} .aln.fa)
+
+    iqtree2 \
+        -s ${ALN} \
+        -m LG+G4 \
+        -T 4 \
+        -pre trees/${OG} \
+        --quiet
+
+    # Rename tree file to match OG name
+    # IQ-TREE produces ${OG}.treefile
+done
+
+echo "Trees built: $(ls trees/*.treefile | wc -l)"
+
+# Verify tree format (CodeML needs Newick with no branch lengths for site models)
+head -1 trees/OG0000001.treefile</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s5-trees" data-filename="05_gene_trees.sh"><i class="bi bi-download me-1"></i>05_gene_trees.sh</button></div>
+          <div class="cmd-explain">
+            <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> IQ-TREE gene tree flags decoded</div>
+            <table>
+              <tr><td><span class="cmd-emoji">&#128202;</span>-m LG+G4</td><td>Use the LG amino acid substitution model with a Gamma rate distribution (4 categories). LG is a modern, empirical protein substitution matrix. <code>+G4</code> accounts for rate variation across sites. Use <code>-m TEST</code> to let IQ-TREE select the best model automatically (slower but more rigorous).</td></tr>
+              <tr><td><span class="cmd-emoji">&#129520;</span>-T 4</td><td>Use 4 threads per tree. For genome-wide analysis with thousands of small orthogroups, it is faster to run many trees at 1 thread each (array jobs) rather than few trees at many threads.</td></tr>
+              <tr><td><span class="cmd-emoji">&#128196;</span>-pre trees/OG</td><td>Prefix for all output files. IQ-TREE creates <code>OG.treefile</code> (best tree), <code>OG.iqtree</code> (full log), and <code>OG.log</code>. Only <code>.treefile</code> is needed by CodeML.</td></tr>
+            </table>
+          </div>
+          <div class="fun-tip"><span class="fun-tip-icon">&#127795;</span><div><strong>Gene tree vs species tree:</strong> CodeML site models use per-gene trees, not the species tree. Gene trees can differ from the species tree due to incomplete lineage sorting, horizontal gene transfer, or duplication. For small datasets (5 species) the difference is usually minor, but for large multi-species analyses always use gene-specific trees.</div></div>
+        </section>
+
+        <section id="step6" class="mb-5">
+          <h2 class="section-divider">Step 6 — CodeML Site Models (M7 vs M8)</h2>
+          <p>The likelihood ratio test (LRT) between Model 7 (beta distribution, &omega; ≤ 1) and Model 8 (beta + extra class allowing &omega; &gt; 1) is the standard test for positive selection:</p>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash + Python — CodeML batch run M7/M8</span><button class="btn-copy">Copy</button></div>
+<pre id="s6-codeml">module load paml/4.9h
+
+mkdir -p codeml_results/{M7,M8}
+
+# Generate CodeML control files and run both models per orthogroup
+for ALN in alignments/codon_aln/OG*.codon.phy; do
+    OG=$(basename ${ALN} .codon.phy)
+    TREE="trees/${OG}.treefile"
+    [ ! -f "${TREE}" ] && continue
+
+    # Model 7: beta distribution (null model, no positive selection)
+    mkdir -p codeml_results/M7/${OG}
+    cat > codeml_results/M7/${OG}/codeml.ctl << EOF
+      seqfile = ../../../${ALN}
+      treefile = ../../../${TREE}
+      outfile = out_M7.txt
+      noisy = 0
+      verbose = 0
+      runmode = 0
+      seqtype = 1
+      CodonFreq = 2
+      ndata = 1
+      clock = 0
+      model = 0
+      NSsites = 7
+      icode = 0
+      fix_kappa = 0
+      kappa = 2
+      fix_omega = 0
+      omega = 0.4
+      ncatG = 10
+      getSE = 0
+      RateAncestor = 0
+      Small_Diff = 5e-7
+      cleandata = 1
+EOF
+
+    cd codeml_results/M7/${OG}
+    codeml codeml.ctl > run.log 2>&1
+    cd ../../..
+
+    # Model 8: beta + omega class (alternative model, positive selection allowed)
+    mkdir -p codeml_results/M8/${OG}
+    cp codeml_results/M7/${OG}/codeml.ctl codeml_results/M8/${OG}/codeml.ctl
+    sed -i 's/NSsites = 7/NSsites = 8/' codeml_results/M8/${OG}/codeml.ctl
+    sed -i 's/outfile = out_M7.txt/outfile = out_M8.txt/' codeml_results/M8/${OG}/codeml.ctl
+
+    cd codeml_results/M8/${OG}
+    codeml codeml.ctl > run.log 2>&1
+    cd ../../..
+
+    echo "Done: ${OG}"
+done</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s6-codeml" data-filename="06_codeml_M7_M8.sh"><i class="bi bi-download me-1"></i>06_codeml_M7_M8.sh</button></div>
+          <div class="cmd-explain">
+            <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> CodeML control file parameters decoded</div>
+            <table>
+              <tr><td><span class="cmd-emoji">&#9881;</span>seqtype = 1</td><td>Tells CodeML the input is codon data (1=codons, 2=amino acids). Must be 1 for dN/dS analysis. With amino acid data you cannot compute dN/dS.</td></tr>
+              <tr><td><span class="cmd-emoji">&#129516;</span>CodonFreq = 2</td><td>Codon frequency model. 0=equal, 1=F1x4, 2=F3x4, 3=codon table. F3x4 estimates nucleotide frequencies at each codon position independently — a good balance of accuracy and parameter count.</td></tr>
+              <tr><td><span class="cmd-emoji">&#127919;</span>NSsites = 7 / 8</td><td>The site model to run. <strong>M7</strong> (NSsites=7): beta distribution of omega values, all &le;1 (null — no positive selection). <strong>M8</strong> (NSsites=8): beta distribution PLUS an extra class with omega &gt;1 (alternative — positive selection allowed). The LRT compares their log-likelihoods.</td></tr>
+              <tr><td><span class="cmd-emoji">&#9989;</span>cleandata = 1</td><td>Removes sites with gaps or ambiguous nucleotides before analysis. Safer for automated pipelines where some alignments may have problem columns.</td></tr>
+              <tr><td><span class="cmd-emoji">&#128260;</span>sed -i NSsites = 7 to 8</td><td>Reuses the M7 control file for M8 by swapping just the model number. This ensures both models use identical data, tree, and settings — essential for a valid likelihood ratio test.</td></tr>
+            </table>
+          </div>
+          <div class="fun-tip"><span class="fun-tip-icon">&#9878;</span><div><strong>Why M7 vs M8?</strong> The LRT statistic = 2 * (lnL_M8 - lnL_M7). Under the null hypothesis (no positive selection), this follows a chi-squared distribution with 2 degrees of freedom. If p &lt; 0.05, we reject the null and conclude some sites are under positive selection. M8 also reports which specific codons are under selection via Bayes Empirical Bayes (BEB) analysis.</div></div>
+        </section>
+
+        <section id="step7" class="mb-5">
+          <h2 class="section-divider">Step 7 — Parse Results &amp; Likelihood Ratio Test</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Python — Parse CodeML output and compute LRT p-values</span><button class="btn-copy">Copy</button></div>
+<pre id="s7-parse">#!/usr/bin/env python3
+"""Parse CodeML M7/M8 results and perform likelihood ratio test."""
+
+import re, os
+from scipy import stats
+import pandas as pd
+
+def parse_lnL(codeml_outfile):
+    """Extract log-likelihood from CodeML output file."""
+    with open(codeml_outfile) as f:
+        content = f.read()
+    match = re.search(r"lnL\(ntime:.*\):\s+([-\d.]+)", content)
+    if match:
+        return float(match.group(1))
+    return None
+
+def parse_omega_M8(codeml_outfile):
+    """Extract omega estimate for the positive selection class from M8."""
+    with open(codeml_outfile) as f:
+        content = f.read()
+    match = re.search(r"p=\s+[\d.]+\s+q=\s+[\d.]+\n.+w=\s+([\d.]+)", content)
+    if match:
+        return float(match.group(1))
+    return None
+
+results = []
+base = "codeml_results"
+
+for og in os.listdir(f"{base}/M7"):
+    m7_out = f"{base}/M7/{og}/out_M7.txt"
+    m8_out = f"{base}/M8/{og}/out_M8.txt"
+
+    if not (os.path.exists(m7_out) and os.path.exists(m8_out)):
+        continue
+
+    lnL_M7 = parse_lnL(m7_out)
+    lnL_M8 = parse_lnL(m8_out)
+    omega_M8 = parse_omega_M8(m8_out)
+
+    if lnL_M7 is None or lnL_M8 is None:
+        continue
+
+    # Likelihood ratio statistic: 2*(lnL_M8 - lnL_M7)
+    # Degrees of freedom = 2 (M8 has 2 extra params: p and omega)
+    LRT = 2 * (lnL_M8 - lnL_M7)
+    pval = stats.chi2.sf(LRT, df=2)
+
+    results.append({
+        "OG": og,
+        "lnL_M7": lnL_M7,
+        "lnL_M8": lnL_M8,
+        "LRT": LRT,
+        "pvalue": pval,
+        "omega_positive_class": omega_M8
+    })
+
+df = pd.DataFrame(results)
+
+# Multiple testing correction (Bonferroni or BH-FDR)
+from statsmodels.stats.multitest import multipletests
+_, fdr, _, _ = multipletests(df["pvalue"], method="fdr_bh")
+df["FDR"] = fdr
+
+# Sort by FDR
+df = df.sort_values("FDR")
+
+print(f"Orthogroups tested: {len(df)}")
+print(f"Under positive selection (FDR < 0.05): {(df.FDR < 0.05).sum()}")
+print(f"\nTop positively selected genes:")
+print(df[df.FDR < 0.05][["OG","LRT","pvalue","FDR","omega_positive_class"]].head(20))
+
+df.to_csv("positive_selection_results.csv", index=False)
+print("\nSaved: positive_selection_results.csv")</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s7-parse" data-filename="07_parse_codeml_lrt.py"><i class="bi bi-download me-1"></i>07_parse_codeml_lrt.py</button></div>
+          <div class="param-table mt-3">
+            <table class="table table-striped mb-0">
+              <thead><tr><th>Column</th><th>Description</th></tr></thead>
+              <tbody>
+                <tr><td><code>lnL_M7</code></td><td>Log-likelihood under null model (no positive selection allowed)</td></tr>
+                <tr><td><code>lnL_M8</code></td><td>Log-likelihood under alternative model (positive selection allowed)</td></tr>
+                <tr><td><code>LRT</code></td><td>Likelihood ratio statistic = 2×(lnL_M8 − lnL_M7). Chi-squared distributed with 2 df.</td></tr>
+                <tr><td><code>pvalue</code></td><td>Raw p-value from chi-squared test</td></tr>
+                <tr><td><code>FDR</code></td><td>Benjamini–Hochberg corrected false discovery rate</td></tr>
+                <tr><td><code>omega_positive_class</code></td><td>&omega; estimated for the positively selected site class (should be &gt;1)</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="thumb-rule mt-3"><strong>Interpreting results:</strong> A gene is under positive selection if FDR &lt; 0.05 AND omega_positive_class &gt; 1. In the <em>E. coli</em> dataset, virulence factors, membrane proteins, and genes involved in host-pathogen interaction typically show the strongest signal. Look up significant genes in EcoCyc or UniProt to understand their function.</div>
+        </section>
+
+        <section id="errors" class="mb-5">
+          <h2 class="fw-bold"><i class="bi bi-exclamation-triangle me-2 text-warning"></i>Troubleshooting</h2>
+          <div class="error-box">
+            <h6>CodeML: "lnL not found" or blank output files</h6>
+            <p>Check the <code>run.log</code> for each orthogroup. Common causes: (1) Alignment contains stop codons — pal2nal should remove these with <code>-nogap</code> option. (2) Alignment has only 2 sequences — CodeML site models need at least 3. (3) Control file path errors — CodeML uses relative paths; always <code>cd</code> into the directory before running.</p>
+          </div>
+          <div class="error-box">
+            <h6>LRT &lt; 0 for some orthogroups</h6>
+            <p>M8 lnL < M7 lnL is numerically possible when the optimizer gets stuck in a local maximum. Set LRT to 0 for these genes (they show no evidence of positive selection). Increase optimization iterations in the control file: add <code>iterations = 2000</code>.</p>
+          </div>
+          <div class="error-box">
+            <h6>pal2nal fails with "frame shift" errors</h6>
+            <p>Protein and CDS sequences have different lengths or out-of-frame sequences. This happens when gffread extracts incomplete CDS due to annotation errors. Filter out orthogroups where protein length × 3 ≠ CDS length − 3 (stop codon). Add <code>-nogap</code> to pal2nal to skip problematic positions.</p>
+          </div>
+        </section>
+
+        <div class="d-flex justify-content-between mt-4">
+          <a href="comparative-genomics-orthology-synteny.html" class="btn btn-outline-secondary rounded-pill px-4"><i class="bi bi-arrow-left me-2"></i>Orthology &amp; Synteny</a>
+          <a href="index.html" class="btn btn-primary rounded-pill px-4"><i class="bi bi-grid me-2"></i>Tutorial Library</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-lg-6"><h5 class="text-white fw-bold mb-3"><span style="color:#ff9933;">Indian</span><span style="color:var(--ieb-primary);">Elucid</span><span style="color:var(--ieb-accent);">Biology</span></h5><p class="small">Tutorial adapted from the Bioinformatics Workbook (Iowa State University GIF). Based on original analysis by Rick Masonbrink.</p></div>
+      <div class="col-lg-6 text-lg-end"><p class="small mb-1">Founded by <strong>Ankush Sharma</strong></p><div class="d-flex gap-3 justify-content-lg-end"><a href="https://github.com/ank-man" target="_blank" class="text-white fs-5"><i class="bi bi-github"></i></a><a href="https://www.linkedin.com/in/ankush-sharma-290307/" target="_blank" class="text-white fs-5"><i class="bi bi-linkedin"></i></a></div></div>
+    </div>
+    <hr class="border-secondary mt-4 mb-3">
+    <p class="text-center small mb-0">&copy; 2025 IndianElucidBiology. Based on <a href="https://bioinformaticsworkbook.org" class="text-white-50" target="_blank">bioinformaticsworkbook.org</a>.</p>
+  </div>
+</footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/main.js"></script>
+</body>
+</html>

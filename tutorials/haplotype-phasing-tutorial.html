@@ -1,0 +1,535 @@
+﻿<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Haplotype Phasing: SHAPEIT4, WhatsHap and Haplotype Blocks | IndianElucidBiology</title>
+  <meta name="description" content="Complete haplotype phasing tutorial: statistical phasing with SHAPEIT4, read-backed phasing with WhatsHap, haplotype block detection, phase quality evaluation, and breeding applications.">
+  <link rel="canonical" href="https://indianelucidbiology.github.io/tutorials/haplotype-phasing-tutorial.html">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="../css/style.css" rel="stylesheet">
+  <link href="../css/live-spreadsheet.css" rel="stylesheet">
+</head>
+<body>
+<div class="progress-tracker"></div>
+<nav class="navbar navbar-expand-lg fixed-top">
+  <div class="container">
+    <a class="navbar-brand" href="../index.html"><span class="brand-indian">Indian</span><span class="brand-elucid">Elucid</span><span class="brand-biology">Biology</span></a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav"><span class="navbar-toggler-icon"></span></button>
+    <div class="collapse navbar-collapse" id="mainNav">
+      <ul class="navbar-nav ms-auto me-3">
+        <li class="nav-item"><a class="nav-link" href="../index.html">Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="index.html">Tutorial Library</a></li>
+        <li class="nav-item"><a class="nav-link" href="population-genetics-fst-pi-tajimad.html">Pop Gen</a></li>
+      </ul>
+      <button class="theme-toggle" onclick="toggleTheme()">&#9790;</button>
+    </div>
+  </div>
+</nav>
+
+<section class="tutorial-hero">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-lg-8">
+        <nav aria-label="breadcrumb"><ol class="breadcrumb mb-3" style="--bs-breadcrumb-divider-color:rgba(255,255,255,0.5);"><li class="breadcrumb-item"><a href="../index.html" class="text-white-50 text-decoration-none">Home</a></li><li class="breadcrumb-item"><a href="index.html" class="text-white-50 text-decoration-none">Tutorials</a></li><li class="breadcrumb-item active text-white">Haplotype Phasing</li></ol></nav>
+        <h1 class="display-5 fw-bold text-white mb-3">Haplotype Phasing</h1>
+        <p class="lead text-white-50 mb-4">Resolve diploid genotypes into phased haplotypes using SHAPEIT4 (statistical), WhatsHap (read-backed), and long-read methods. Covers haplotype block detection, switch error evaluation, and applications in selection scans and breeding.</p>
+        <div class="d-flex gap-3 flex-wrap">
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-clock me-1"></i>~120 min</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-bar-chart me-1"></i>Intermediate</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-terminal me-1"></i>SHAPEIT4 / WhatsHap / R</span>
+        </div>
+      </div>
+      <div class="col-lg-4 text-center d-none d-lg-block"><img src="../img/Byte1.png" alt="Byte" class="img-fluid" style="max-height:230px;filter:drop-shadow(0 10px 30px rgba(0,0,0,0.4));"></div>
+    </div>
+  </div>
+</section>
+
+<div class="container py-5">
+  <div class="row">
+    <div class="col-lg-3 d-none d-lg-block">
+      <div class="toc-sidebar">
+        <h6 class="fw-bold text-muted text-uppercase small mb-3">On this page</h6>
+        <nav class="nav flex-column">
+          <a class="nav-link" href="#concepts">What is Phasing?</a>
+          <a class="nav-link" href="#methods">Phasing Methods Compared</a>
+          <a class="nav-link" href="#shapeit">1. Statistical Phasing: SHAPEIT4</a>
+          <a class="nav-link" href="#whatshap">2. Read-backed: WhatsHap</a>
+          <a class="nav-link" href="#longread">3. Long-read Phasing</a>
+          <a class="nav-link" href="#blocks">4. Haplotype Block Detection</a>
+          <a class="nav-link" href="#qc">5. Phase Quality Evaluation</a>
+          <a class="nav-link" href="#applications">6. Applications</a>
+          <a class="nav-link" href="#pitfalls">Pitfalls</a>
+        </nav>
+      </div>
+    </div>
+    <div class="col-lg-9">
+      <div class="tutorial-content">
+
+<section id="concepts" class="mb-5">
+  <h2 class="section-divider">What is Phasing and Why Does It Matter?</h2>
+  <p>When you genotype a diploid individual, you get unphased genotypes: at a heterozygous site you know the individual has alleles A and B, but not <em>which chromosome each allele is on</em>. Phasing resolves this ambiguity, assigning each allele to its parental haplotype (chromosome copy).</p>
+
+  <div class="param-table">
+    <table class="table table-bordered mb-0">
+      <thead class="table-dark"><tr><th>Unphased</th><th>Phased (two haplotypes)</th><th>Biological meaning</th></tr></thead>
+      <tbody>
+        <tr><td>SNP1: A/B, SNP2: C/D</td><td>Hap1: A-C  &nbsp; Hap2: B-D</td><td>Alleles A and C are inherited together on the same chromosome copy</td></tr>
+        <tr><td>Same genotypes</td><td>Hap1: A-D  &nbsp; Hap2: B-C</td><td>Alternative phase -- A inherited with D on one chromosome</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="byte-callout mt-4">
+    <img src="../img/Byte2.png" alt="Byte">
+    <div><strong>Why phasing matters in practice:</strong>
+      <ul class="mb-0 mt-1 small">
+        <li><strong>Selection scans (iHS/XP-EHH):</strong> REQUIRE phased haplotypes. Without phasing these statistics cannot be computed.</li>
+        <li><strong>Compound heterozygosity:</strong> Two mutations in trans (on different chromosomes) = loss-of-function. Two mutations in cis (same chromosome) = one functional copy remains. Clinically critical distinction.</li>
+        <li><strong>Haplotype-based breeding:</strong> Marker-assisted selection and genomic selection work better with haplotype alleles than individual SNP alleles.</li>
+        <li><strong>Imputation reference panels:</strong> All major imputation tools (Beagle, IMPUTE5) require a phased reference panel.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="methods" class="mb-5">
+  <h2 class="section-divider">Phasing Methods Compared</h2>
+  <div class="param-table">
+    <table class="table table-bordered mb-0">
+      <thead class="table-dark"><tr><th>Method</th><th>Data needed</th><th>Accuracy</th><th>Best use case</th><th>Tool</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Statistical (population)</strong></td><td>Large cohort of unrelated individuals (N &gt; 100 ideal)</td><td>High for common variants; degrades for rare variants</td><td>Population studies, GWAS, imputation panels</td><td>SHAPEIT4, BEAGLE5</td></tr>
+        <tr><td><strong>Read-backed</strong></td><td>Short-read WGS (same sample BAM); works with N=1</td><td>Limited to heterozygous sites on the same read pair (~500 bp)</td><td>Clinical samples, single samples, refine statistical phase</td><td>WhatsHap</td></tr>
+        <tr><td><strong>Long-read</strong></td><td>PacBio HiFi or Oxford Nanopore reads (&gt;10 kb)</td><td>Excellent; resolves haplotypes across entire chromosomes</td><td>De novo assemblies, structural variants, complex regions</td><td>WhatsHap, HapCUT2, HiFiasm</td></tr>
+        <tr><td><strong>Trio-based</strong></td><td>Parents + offspring sequencing</td><td>Essentially perfect where parental genotypes differ</td><td>Family studies; creates ground-truth phase for benchmarking</td><td>WhatsHap --ped</td></tr>
+        <tr><td><strong>Genetic map</strong></td><td>Dense reference genetic map</td><td>Depends on map quality and LD structure</td><td>Improves all statistical phasing methods; reduces switch errors</td><td>SHAPEIT4 --map</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="shapeit" class="mb-5">
+  <h2 class="section-divider">Step 1 &mdash; Statistical Phasing with SHAPEIT4</h2>
+  <p>SHAPEIT4 is the current gold standard for statistical phasing of large cohorts. It uses a MCMC algorithm with a Li-Stephens haplotype copying model: each individual's haplotype is modelled as a mosaic of haplotypes from the reference panel (other individuals in the cohort or an external panel).</p>
+
+  <div class="formula-explain">
+    <div class="fe-title"><i class="bi bi-calculator"></i> Li-Stephens Haplotype Copying Model (concept)</div>
+    <div class="fe-equation">P(h | H_ref) = product over sites of P(h_i | h_i copied from some ref haplotype k)</div>
+    <div class="fe-terms">
+      <span class="fe-var">h</span><span class="fe-def">Target haplotype being phased (the unknown we are inferring)</span>
+      <span class="fe-var">H_ref</span><span class="fe-def">Reference panel -- all other phased haplotypes in the cohort (or an external panel like 1000G)</span>
+      <span class="fe-var">Copying probability</span><span class="fe-def">At each site, the target haplotype is probabilistically "copied" from the most similar reference haplotype, with occasional copying switches (= recombination events). The model learns which reference haplotypes best explain the observed heterozygous genotype pattern.</span>
+    </div>
+  </div>
+
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash -- SHAPEIT4 statistical phasing pipeline</span><button class="btn-copy">Copy</button></div>
+<pre id="s1-shapeit">## ================================================================
+## SHAPEIT4 statistical phasing
+## Prerequisites: SHAPEIT4 v4.2+, bcftools, tabix
+## Dataset: Rice 3K chr04 multi-sample VCF
+## ================================================================
+
+## Step 0: Pre-flight checks
+## SHAPEIT4 requires:
+##   1. Multi-sample VCF (biallelic SNPs, genotyped calls -- not missing)
+##   2. Genetic map in PLINK format (chr pos_bp cM pos_bp)
+##   3. Optionally: a pre-phased reference panel for scaffold phasing
+
+VCF="rice3k_chr04_filtered.vcf.gz"
+MAP="chr04_genetic_map_plink.txt"   ## 4-column: chr snpID cM bp
+OUTVCF="rice3k_chr04_phased.vcf.gz"
+
+## Step 1: Filter to high-quality biallelic SNPs with <10% missing
+bcftools view ${VCF} \
+  --min-alleles 2 --max-alleles 2 \
+  --type snps \
+  --min-ac 1:minor | \
+bcftools filter \
+  -e 'F_MISSING > 0.1' \
+  -o rice3k_chr04_forPhasing.vcf.gz \
+  -O z
+tabix -p vcf rice3k_chr04_forPhasing.vcf.gz
+
+## Step 2: Run SHAPEIT4
+shapeit4.2 \
+  --input rice3k_chr04_forPhasing.vcf.gz \
+  --map ${MAP} \
+  --region chr04 \
+  --output ${OUTVCF} \
+  --thread 16 \
+  --mcmc-iterations 5b,1p,1b,1p,1b,1p,5m \  ## burn-in+pruning+main iterations
+  --pbwt-depth 4 \                             ## number of PBWT neighbours to condition on (4-8 typical)
+  --pbwt-mac 2 \                               ## min MAC for PBWT conditioning
+  --log shapeit4_chr04.log
+
+tabix -p vcf ${OUTVCF}
+
+## Step 3: Verify phasing -- check PS (phase set) tags and switch to | notation
+bcftools view -h ${OUTVCF} | grep "FORMAT"
+## Phased genotypes are coded as 0|1 or 1|0 (pipe = phased)
+## Unphased remaining genotypes are 0/1 (slash = unphased)
+
+## Count phased vs unphased sites
+bcftools stats ${OUTVCF} | grep "^PSC"  ## per-sample phasing stats
+bcftools view ${OUTVCF} | grep -v "^#" | \
+  awk '{for(i=10;i<=NF;i++) if($i~/\|/) phased++; else unphased++}
+  END {print "Phased:", phased, "Unphased:", unphased,
+       "Rate:", phased/(phased+unphased)}'
+
+## Step 4: Scaffold with reference panel (optional -- improves rare variant phasing)
+## Use 1000G phased reference or in-house phased panel as scaffold
+shapeit4.2 \
+  --input rice3k_chr04_forPhasing.vcf.gz \
+  --map ${MAP} \
+  --region chr04 \
+  --reference 1kg_phased_reference_chr04.vcf.gz \  ## pre-phased reference
+  --output rice3k_chr04_phased_scaffolded.vcf.gz \
+  --thread 16</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s1-shapeit" data-filename="01_shapeit4_phasing.sh"><i class="bi bi-download me-1"></i>01_shapeit4_phasing.sh</button></div>
+</section>
+
+<section id="whatshap" class="mb-5">
+  <h2 class="section-divider">Step 2 &mdash; Read-backed Phasing with WhatsHap</h2>
+  <p>WhatsHap phases heterozygous variants that are co-covered by the same sequencing reads. It works on a single individual's BAM + VCF -- no population panel needed. It is ideal for: clinical samples, de novo assemblies, and refining statistical phase in regions of low LD.</p>
+
+  <div class="formula-explain">
+    <div class="fe-title"><i class="bi bi-calculator"></i> WhatsHap Phase Quality (PHRED-scaled)</div>
+    <div class="fe-equation">Phase quality (PQ) = -10 * log10(P_error)</div>
+    <div class="fe-terms">
+      <span class="fe-var">P_error</span><span class="fe-def">Posterior probability that the inferred phase assignment is incorrect, given the read evidence</span>
+      <span class="fe-var">PQ = 0</span><span class="fe-def">No phasing information -- site was not covered by any informative read pair</span>
+      <span class="fe-var">PQ >= 20</span><span class="fe-def">Phase assignment has &lt;1% error probability -- high confidence</span>
+      <span class="fe-var">PS tag</span><span class="fe-def">Phase set ID in the VCF FORMAT field -- all sites with the same PS are connected in a haplotype block by read evidence</span>
+    </div>
+  </div>
+
+  <div class="live-sheet" data-sheet='{
+    "title": "WhatsHap Phase Block Quality Calculator -- live",
+    "legend": true,
+    "cols": [
+      {"id":"A","label":"Parameter","desc":"Phase block metric"},
+      {"id":"B","label":"Your value","desc":"Edit to match your stats output"},
+      {"id":"C","label":"Good range","desc":"Typical high-quality values"},
+      {"id":"D","label":"Formula / meaning","desc":""}
+    ],
+    "rows": [
+      {"header":"Input your WhatsHap stats output values:"},
+      {"rowNum":2,"cells":{"A":{"text":"Total heterozygous sites"},"B":{"input":850000,"step":1000,"min":1},"C":{"text":"All het SNPs in VCF"},"D":{"text":""}}},
+      {"rowNum":3,"cells":{"A":{"text":"Phased het sites (in a phase block)"},"B":{"input":620000,"step":1000,"min":0},"C":{"text":">70% for 30x WGS short-read"},"D":{"text":""}}},
+      {"rowNum":4,"cells":{"A":{"text":"N50 phase block length (bp)"},"B":{"input":85000,"step":1000,"min":1},"C":{"text":"Short-read: 50-200 kb; HiFi: >10 Mb"},"D":{"text":"50% of phased bases in blocks >= this size"}}},
+      {"rowNum":5,"cells":{"A":{"text":"Largest phase block (bp)"},"B":{"input":420000,"step":10000,"min":1},"C":{"text":"Short-read: typically <2 Mb"},"D":{"text":""}}},
+      {"rowNum":6,"cells":{"A":{"text":"Number of phase blocks"},"B":{"input":12400,"step":100,"min":1},"C":{"text":"Lower = better (fewer breaks)"},"D":{"text":""}}},
+      {"header":"Derived metrics:"},
+      {"rowNum":8,"cells":{"A":{"text":"Phasing rate = phased / total het sites"},"B":{"formula":"=ROUND(B3/B2*100,2)"},"C":{"text":"% phased"},"D":{"text":"=B3/B2*100"}}},
+      {"rowNum":9,"cells":{"A":{"text":"Mean block size = genome_covered / n_blocks"},"B":{"formula":"=ROUND(B3/B6,0)"},"C":{"text":"bp per block on average"},"D":{"text":"approx = phased_sites / n_blocks"}}},
+      {"rowNum":10,"cells":{"A":{"text":"Quality tier (1=excellent, 2=good, 3=poor)"},"B":{"formula":"=IF(B8>=75,IF(B4>=50000,1,2),IF(B8>=50,2,3))"},"C":{"text":"1=excellent | 2=acceptable | 3=needs improvement"},"D":{"text":"Based on phasing rate and N50"}}}
+    ],
+    "colDesc": [
+      {"col":"B8 (phasing rate)","desc":"= phased_het_sites / total_het_sites * 100. For 30x WGS short-read data, expect 65-80% phasing rate. Long reads (HiFi 20x) typically achieve >95%. A low rate means fragmented blocks -- check read depth and heterozygosity level."},
+      {"col":"B4 (N50 block)","desc":"The length at which 50% of all phased bases are in blocks of this size or larger. Short-read WGS: 50-200 kb. 10x Genomics linked reads: 1-4 Mb. PacBio HiFi: chromosome-scale. This is the key metric for deciding whether your phasing is adequate for downstream analyses like iHS."}
+    ]
+  }'></div>
+
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash -- WhatsHap read-backed phasing + polyphase for polyploids</span><button class="btn-copy">Copy</button></div>
+<pre id="s2-whatshap">## ================================================================
+## WhatsHap read-backed phasing
+## Works with short reads, PacBio HiFi, Nanopore, and trio data
+## ================================================================
+
+BAM="sample01_sorted_markdup.bam"
+VCF="sample01_genotyped.vcf.gz"
+REF="IRGSP1.0_genome.fasta"
+OUT="sample01_phased.vcf.gz"
+
+## Step 1: Basic read-backed phasing (single individual)
+whatshap phase \
+  --output ${OUT} \
+  --reference ${REF} \
+  --indels \            ## also phase insertions/deletions
+  --distrust-genotypes \ ## re-genotype using read evidence (improves accuracy)
+  ${VCF} ${BAM}
+bgzip ${OUT}; tabix -p vcf ${OUT}.gz
+
+## Step 2: Phasing statistics
+whatshap stats \
+  --gtf phase_blocks.gtf \   ## optional: output phase blocks as GTF for IGV
+  ${OUT}.gz
+
+## Step 3: Trio phasing (parents remove switch errors completely)
+## Requires: proband VCF, father BAM, mother BAM
+whatshap phase \
+  --ped pedigree.ped \       ## pedigree file: child father mother sex
+  --output trio_phased.vcf.gz \
+  --reference ${REF} \
+  child.vcf.gz child.bam father.bam mother.bam
+
+## Step 4: Haplotag BAM (tag each read with its inferred haplotype HP:i:1 or HP:i:2)
+## Required for haplotype-specific methylation, allele-specific expression
+whatshap haplotag \
+  --output sample01_haplotagged.bam \
+  --reference ${REF} \
+  ${OUT}.gz ${BAM}
+samtools index sample01_haplotagged.bam
+## Now reads carry HP:1 or HP:2 tags -- usable in methylation and ASE analyses
+
+## Step 5: Combine statistical + read-backed phasing
+## Best practice: run SHAPEIT4 first (population-level), then refine with WhatsHap
+## This gives chromosome-scale blocks with read-level accuracy within blocks
+shapeit4.2 --input sample01.vcf.gz --map chr04.map \
+  --region chr04 --output sample01_stat_phased.vcf.gz --thread 8
+
+whatshap phase \
+  --reference ${REF} \
+  --chromosome chr04 \
+  --output sample01_combined_phased.vcf.gz \
+  sample01_stat_phased.vcf.gz ${BAM}  ## WhatsHap refines the SHAPEIT4 phase
+
+## Step 6: Long-read phasing with HiFi (PacBio)
+## No genetic map needed; reads are long enough to bridge most het sites
+whatshap phase \
+  --output sample01_hifi_phased.vcf.gz \
+  --reference ${REF} \
+  --indels \
+  sample01.vcf.gz sample01_hifi.bam   ## HiFi BAM replaces short-read BAM</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s2-whatshap" data-filename="02_whatshap_phasing.sh"><i class="bi bi-download me-1"></i>02_whatshap_phasing.sh</button></div>
+</section>
+
+<section id="longread" class="mb-5">
+  <h2 class="section-divider">Step 3 &mdash; Long-read and Hi-C Phasing</h2>
+  <div class="param-table">
+    <table class="table table-bordered mb-0">
+      <thead class="table-dark"><tr><th>Technology</th><th>Read length</th><th>Phase block N50</th><th>Pipeline</th></tr></thead>
+      <tbody>
+        <tr><td>PacBio HiFi (CCS)</td><td>10-25 kb</td><td>Chromosome-scale (&gt;10 Mb typical)</td><td>HiFiasm, WhatsHap, DeepVariant+WhatsHap</td></tr>
+        <tr><td>Oxford Nanopore (ultra-long)</td><td>Up to 4 Mb</td><td>Chromosome-scale</td><td>PEPPER-Margin-DeepVariant, Clair3+WhatsHap</td></tr>
+        <tr><td>Hi-C proximity ligation</td><td>Short reads (150 bp) but captures long-range contacts</td><td>Chromosome-scale</td><td>HapCUT2+HiCPhase, 3D-DNA</td></tr>
+        <tr><td>10x Genomics Linked Reads</td><td>Short reads from the same DNA molecule (60 kb)</td><td>1-4 Mb</td><td>LongRanger, STEP</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="code-block-wrapper mt-4">
+    <div class="code-block-header"><span>Bash -- PacBio HiFi complete assembly phasing with HiFiasm</span><button class="btn-copy">Copy</button></div>
+<pre id="s3-longread">## ================================================================
+## PacBio HiFi chromosome-scale phasing
+## HiFiasm produces a phased assembly directly from HiFi reads
+## ================================================================
+
+HIFI_READS="sample01_hifi.fastq.gz"
+HIC_R1="sample01_hic_R1.fastq.gz"
+HIC_R2="sample01_hic_R2.fastq.gz"
+
+## Option A: HiFi-only assembly (haplotype-resolved if heterozygosity >0.5%)
+hifiasm -o sample01 -t 32 ${HIFI_READS}
+## Outputs: sample01.hic.hap1.p_ctg.gfa, sample01.hic.hap2.p_ctg.gfa
+
+## Option B: Hi-C integrated phasing (chromosome-scale haplotypes)
+hifiasm -o sample01_hic -t 32 \
+  --h1 ${HIC_R1} \
+  --h2 ${HIC_R2} \
+  ${HIFI_READS}
+## Convert GFA to FASTA
+awk '/^S/{print ">"$2"\n"$3}' sample01_hic.hic.hap1.p_ctg.gfa > hap1.fasta
+awk '/^S/{print ">"$2"\n"$3}' sample01_hic.hic.hap2.p_ctg.gfa > hap2.fasta
+
+## Evaluate phasing quality: QUAST + BUSCO per haplotype
+quast.py hap1.fasta hap2.fasta \
+  --reference reference.fasta \
+  --threads 8 \
+  --output-dir quast_haplotypes
+busco -i hap1.fasta -o busco_hap1 -l embryophyta_odb10 -m genome -c 16
+busco -i hap2.fasta -o busco_hap2 -l embryophyta_odb10 -m genome -c 16
+
+## Map HiFi reads back to determine switch errors vs reference
+## Use yak to calculate QV and switch error rate
+yak count -b37 -t16 -o pat.yak pat_reads.fastq.gz  ## paternal k-mers
+yak count -b37 -t16 -o mat.yak mat_reads.fastq.gz  ## maternal k-mers
+yak trioeval pat.yak mat.yak hap1.fasta hap2.fasta</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s3-longread" data-filename="03_hifiasm_longread_phasing.sh"><i class="bi bi-download me-1"></i>03_hifiasm_longread_phasing.sh</button></div>
+</section>
+
+<section id="blocks" class="mb-5">
+  <h2 class="section-divider">Step 4 &mdash; Haplotype Block Detection</h2>
+  <p>Haplotype blocks (also called LD blocks) are chromosomal regions where recombination is suppressed and alleles are inherited as a unit. Detecting them helps identify haplotype-tag SNPs, understand population history, and design marker panels.</p>
+
+  <div class="live-sheet" data-sheet='{
+    "title": "LD Haplotype Block Detector -- D-prime (D) calculator",
+    "legend": true,
+    "cols": [
+      {"id":"A","label":"Haplotype","desc":"2-SNP haplotype class"},
+      {"id":"B","label":"Count","desc":"Observed count -- EDIT"},
+      {"id":"C","label":"Expected","desc":"Expected under LE = pA*pB"},
+      {"id":"D","label":"Formula","desc":""}
+    ],
+    "rows": [
+      {"header":"Observed 2-SNP haplotype counts:"},
+      {"rowNum":2,"cells":{"A":{"text":"AB haplotype (A at SNP1, B at SNP2)"},"B":{"input":55,"step":1,"min":0},"C":{"text":""},"D":{"text":""}}},
+      {"rowNum":3,"cells":{"A":{"text":"Ab haplotype (A at SNP1, b at SNP2)"},"B":{"input":8,"step":1,"min":0},"C":{"text":""},"D":{"text":""}}},
+      {"rowNum":4,"cells":{"A":{"text":"aB haplotype (a at SNP1, B at SNP2)"},"B":{"input":6,"step":1,"min":0},"C":{"text":""},"D":{"text":""}}},
+      {"rowNum":5,"cells":{"A":{"text":"ab haplotype (a at SNP1, b at SNP2)"},"B":{"input":31,"step":1,"min":0},"C":{"text":""},"D":{"text":""}}},
+      {"header":"Allele frequency calculations:"},
+      {"rowNum":7,"cells":{"A":{"text":"N_total haplotypes"},"B":{"formula":"=B2+B3+B4+B5"},"C":{"text":""},"D":{"text":""}}},
+      {"rowNum":8,"cells":{"A":{"text":"p_A = freq A allele at SNP1"},"B":{"formula":"=ROUND((B2+B3)/B7,4)"},"C":{"text":""},"D":{"text":"=(AB+Ab)/N"}}},
+      {"rowNum":9,"cells":{"A":{"text":"p_B = freq B allele at SNP2"},"B":{"formula":"=ROUND((B2+B4)/B7,4)"},"C":{"text":""},"D":{"text":"=(AB+aB)/N"}}},
+      {"header":"LD statistics:"},
+      {"rowNum":11,"cells":{"A":{"text":"D = freq(AB) - p_A*p_B"},"B":{"formula":"=ROUND(B2/B7 - B8*B9,5)"},"C":{"text":"D>0: alleles A and B co-occur more than expected"},"D":{"text":"=f(AB) - pA*pB"}}},
+      {"rowNum":12,"cells":{"A":{"text":"D_max (theoretical maximum |D|)"},"B":{"formula":"=IF(B11>0, ROUND(MIN(B8*(1-B9),(1-B8)*B9),5), ROUND(MIN(B8*B9,(1-B8)*(1-B9)),5))"},"C":{"text":""},"D":{"text":"D>0: min(pA*qB, qA*pB); D<0: min(pA*pB, qA*qB)"}}},
+      {"rowNum":13,"cells":{"A":{"text":"D-prime = D / D_max"},"B":{"formula":"=ROUND(B11/B12,4)"},"C":{"text":"Range -1 to +1. |D|>0.8 = strong LD block."},"D":{"text":"=D/D_max"}}},
+      {"rowNum":14,"cells":{"A":{"text":"r-squared = D^2 / (pA*qA*pB*qB)"},"B":{"formula":"=ROUND(B11*B11/(B8*(1-B8)*B9*(1-B9)),4)"},"C":{"text":"Range 0 to 1. r2>0.8 = perfect LD (tag SNP equivalent)."},"D":{"text":"=D^2/(pA*qA*pB*qB)"}}},
+      {"rowNum":15,"cells":{"A":{"text":"Block status (|D|>0.8 = same block)"},"B":{"formula":"=IF(ABS(B13)>0.8,1,IF(ABS(B13)>0.5,2,3))"},"C":{"text":"1=same block | 2=partial LD | 3=different blocks"},"D":{"text":""}}}
+    ],
+    "colDesc": [
+      {"col":"B11 (D)","desc":"= f(AB) - pA*pB. D is the linkage disequilibrium coefficient -- the difference between observed and expected (under linkage equilibrium) frequency of the AB haplotype. D=0 means the two alleles are in complete linkage equilibrium (independent). D != 0 means they co-occur more (D>0) or less (D<0) than expected by chance."},
+      {"col":"B13 (D-prime)","desc":"= D / D_max. Normalises D to its theoretical maximum, making D-prime comparable across sites with different allele frequencies. |D| = 1.0 means there has been no historical recombination between the two sites in the sample (perfect LD block). The Gabriel et al. (2002) definition of a haplotype block: 95% of informative site pairs have |D| > 0.8."}
+    ]
+  }'></div>
+
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>R -- Haplotype block detection with LDBlockShow and ggplot2</span><button class="btn-copy">Copy</button></div>
+<pre id="s4-blocks">## ================================================================
+## Haplotype block detection using PLINK and LDBlockShow
+## ================================================================
+library(dplyr); library(ggplot2)
+
+## Step 1: Compute pairwise LD with PLINK2
+## plink2 --vcf phased.vcf.gz --r2-phased --ld-window-kb 500 \
+##   --ld-window-r2 0.05 --out chr04_ld_phased --allow-extra-chr --double-id
+
+## Step 2: Define blocks using Gabriel 2002 method in PLINK1.9
+## plink --vcf phased.vcf.gz --blocks no-pheno-req --blocks-max-kb 500 \
+##   --out chr04_blocks --allow-extra-chr --double-id
+## Output: chr04_blocks.blocks.det -- block start, end, n_SNPs, kb
+
+## Step 3: Visualise block structure in R
+blocks <- read.table("chr04_blocks.blocks.det", header=TRUE)
+blocks$size_kb <- (blocks$BP2 - blocks$BP1) / 1000
+
+## Block size distribution
+ggplot(blocks, aes(size_kb)) +
+  geom_histogram(bins=60, fill="#2171b5", colour="white", linewidth=0.2) +
+  scale_x_log10() +
+  labs(x="Block size (kb, log scale)", y="Count",
+       title=paste0("Haplotype block size distribution (n=", nrow(blocks), " blocks)")) +
+  theme_bw(base_size=12)
+ggsave("block_size_distribution.png", width=7, height=5, dpi=200)
+
+cat("Block summary:\n")
+cat("  N blocks:", nrow(blocks), "\n")
+cat("  Median size (kb):", round(median(blocks$size_kb),1), "\n")
+cat("  Max size (kb):", round(max(blocks$size_kb),1), "\n")
+cat("  Total covered (Mb):", round(sum(blocks$size_kb)/1000, 1), "\n")
+
+## Step 4: LD heatmap for a candidate region (e.g. Fst peak)
+## Use LDheatmap package for focused visualisation
+## library(LDheatmap); library(genetics)
+## genos <- read.table("candidate_region_genotypes.txt", header=TRUE)
+## ldh <- LDheatmap(genos, distances=positions, color=heat.colors(20))</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s4-blocks" data-filename="04_haplotype_blocks.R"><i class="bi bi-download me-1"></i>04_haplotype_blocks.R</button></div>
+</section>
+
+<section id="qc" class="mb-5">
+  <h2 class="section-divider">Step 5 &mdash; Phase Quality Evaluation (Switch Error Rate)</h2>
+  <p>Phase switch errors occur when the inferred haplotype assignment switches between the two true haplotypes. Switch error rate (SER) is the key quality metric -- measured by comparing against a known-truth phase (trio, long reads, or a population reference).</p>
+
+  <div class="param-table">
+    <table class="table table-bordered mb-0">
+      <thead class="table-dark"><tr><th>Evaluation method</th><th>Gold standard</th><th>Tool</th><th>Expected SER</th></tr></thead>
+      <tbody>
+        <tr><td>Trio comparison</td><td>Trio-phased VCF (parent-offspring)</td><td>WhatsHap compare</td><td>SHAPEIT4 on N=1000: ~0.3-0.5% SER</td></tr>
+        <tr><td>Long-read comparison</td><td>HiFi-phased VCF same individual</td><td>WhatsHap compare</td><td>SHAPEIT4 on large cohort: ~0.1% SER</td></tr>
+        <tr><td>Cross-validation</td><td>Leave-one-out from panel</td><td>SHAPEIT4 --check</td><td>Population size matters most</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="code-block-wrapper mt-3">
+    <div class="code-block-header"><span>Bash -- Phase switch error evaluation with WhatsHap compare</span><button class="btn-copy">Copy</button></div>
+<pre id="s5-qc">## Evaluate statistical phase against trio ground truth
+whatshap compare \
+  --sample SAMPLE01 \
+  --names shapeit,trio \
+  --tsv-pairwise switch_errors.tsv \
+  shapeit4_phased.vcf.gz trio_phased_truth.vcf.gz
+
+## Key output metrics:
+## - switch_rate: fraction of consecutive het sites with wrong phase order
+## - hamming_rate: fraction of all het sites on the wrong haplotype
+## - block_n50: N50 of correct-phase runs
+
+## Parse results
+awk -F'\t' 'NR>1 {
+  print "Switch error rate:", $6
+  print "Hamming error rate:", $7
+  print "Phase block N50:", $8
+}' switch_errors.tsv</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s5-qc" data-filename="05_phase_qc.sh"><i class="bi bi-download me-1"></i>05_phase_qc.sh</button></div>
+</section>
+
+<section id="applications" class="mb-5">
+  <h2 class="section-divider">Step 6 &mdash; Applications of Phased Data</h2>
+  <div class="param-table">
+    <table class="table table-bordered mb-0">
+      <thead class="table-dark"><tr><th>Application</th><th>Why phasing helps</th><th>Downstream tool</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Selection scans (iHS, XP-EHH)</strong></td><td>These statistics are computed from haplotype frequencies -- require phased input</td><td>selscan, rehh</td></tr>
+        <tr><td><strong>Imputation</strong></td><td>Imputation accuracy depends on phased reference panel quality</td><td>Beagle5, IMPUTE5, Minimac4</td></tr>
+        <tr><td><strong>Genomic selection</strong></td><td>Haplotype-based prediction outperforms single-SNP models in some scenarios</td><td>BGLR (haplotype block effects)</td></tr>
+        <tr><td><strong>Allele-specific expression</strong></td><td>Assign RNA-seq reads to parental haplotypes; requires haplotagged BAM from WhatsHap</td><td>ASEReadCounter, WASP</td></tr>
+        <tr><td><strong>Compound het detection</strong></td><td>Distinguish trans (LOF) from cis (one functional copy) mutations in clinical genetics</td><td>PharmCAT, manual VCF inspection</td></tr>
+        <tr><td><strong>Haplotype-based GWAS</strong></td><td>Test haplotype alleles instead of individual SNPs -- more power in low-diversity regions</td><td>PLINK --hap, GEMMA</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="pitfalls" class="mb-5">
+  <h2 class="section-divider">Common Pitfalls</h2>
+  <div class="param-table">
+    <table class="table table-bordered mb-0">
+      <thead class="table-dark"><tr><th>Problem</th><th>Symptom</th><th>Fix</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Small cohort = high switch error</strong></td><td>SHAPEIT4 SER &gt; 2% with N &lt; 50</td><td>Add a larger reference panel (1000G, HRC) as a phasing scaffold. Use --reference flag in SHAPEIT4. Or use read-backed phasing (WhatsHap) which does not require a large cohort.</td></tr>
+        <tr><td><strong>Missing genotypes fragment phase blocks</strong></td><td>Many short phase blocks; low N50</td><td>Pre-impute missing genotypes with Beagle --impute before phasing with SHAPEIT4. Or filter to &lt;5% missingness per site.</td></tr>
+        <tr><td><strong>Inbred samples confuse statistical phasing</strong></td><td>All sites appear homozygous; near-zero heterozygosity</td><td>Statistical phasing is nearly irrelevant for highly inbred lines (RILs, inbred strains) where most sites are already homozygous. Focus on the few heterozygous regions using read-backed phasing.</td></tr>
+        <tr><td><strong>Phasing across centromeres unreliable</strong></td><td>Phase blocks never span centromere</td><td>This is expected and correct -- centromeres suppress recombination so phase connections are rare. Split analyses by chromosome arm if needed.</td></tr>
+        <tr><td><strong>WhatsHap PQ = 0 for most sites</strong></td><td>Very few reads bridge heterozygous pairs</td><td>Read depth too low (&lt;10x) or insert size too short. Increase to 30x+ for short reads. For sparse variants, long reads are required.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="mb-5">
+  <div class="d-flex justify-content-between">
+    <a href="index.html" class="btn btn-outline-secondary rounded-pill px-4"><i class="bi bi-grid me-2"></i>All Tutorials</a>
+    <a href="copy-number-variation-cnv.html" class="btn btn-primary rounded-pill px-4">CNV Detection <i class="bi bi-arrow-right ms-2"></i></a>
+  </div>
+</section>
+
+      </div>
+    </div>
+  </div>
+</div>
+<footer class="site-footer">
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-lg-6"><h5 class="text-white fw-bold mb-3"><span style="color:#ff9933;">Indian</span><span style="color:var(--ieb-primary);">Elucid</span><span style="color:var(--ieb-accent);">Biology</span></h5><p class="small">Free, interactive bioinformatics tutorials.</p></div>
+      <div class="col-lg-6 text-lg-end"><p class="small mb-1">Founded by <strong>Ankush Sharma</strong></p><div class="d-flex gap-3 justify-content-lg-end"><a href="https://github.com/ank-man" target="_blank" class="text-white fs-5"><i class="bi bi-github"></i></a><a href="https://www.linkedin.com/in/ankush-sharma-290307/" target="_blank" class="text-white fs-5"><i class="bi bi-linkedin"></i></a><a href="mailto:mr.ank2999@gmail.com" class="text-white fs-5"><i class="bi bi-envelope"></i></a></div></div>
+    </div>
+    <hr class="border-secondary mt-4 mb-3">
+    <p class="text-center small mb-0">&copy; 2025 IndianElucidBiology</p>
+  </div>
+</footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/main.js"></script>
+<script src="../js/live-spreadsheet.js"></script>
+</body>
+</html>

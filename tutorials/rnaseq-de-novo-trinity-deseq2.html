@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>De Novo Transcriptomics: Trinity + DESeq2 | IndianElucidBiology</title>
+  <meta name="description" content="Assemble a transcriptome from scratch without a reference genome using Trinity, quantify expression with Salmon, and run differential expression analysis with DESeq2. Uses a real coral bleaching dataset.">
+  <meta name="keywords" content="de novo transcriptome, Trinity, RNA-seq, DESeq2, Salmon, tximport, non-model organism, differential expression, transcriptomics, annotation, TransDecoder">
+  <link rel="canonical" href="https://indianelucidbiology.github.io/tutorials/rnaseq-de-novo-trinity-deseq2.html">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="../css/style.css" rel="stylesheet">
+</head>
+<body>
+<div class="progress-tracker"></div>
+
+<nav class="navbar navbar-expand-lg fixed-top">
+  <div class="container">
+    <a class="navbar-brand" href="../index.html">
+      <span class="brand-indian">Indian</span><span class="brand-elucid">Elucid</span><span class="brand-biology">Biology</span>
+    </a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="mainNav">
+      <ul class="navbar-nav ms-auto me-3">
+        <li class="nav-item"><a class="nav-link" href="../index.html">Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="index.html">Tutorial Library</a></li>
+        <li class="nav-item"><a class="nav-link" href="deseq2-edger-differential-expression.html">DESeq2 Deep Dive <i class="bi bi-arrow-right ms-1"></i></a></li>
+      </ul>
+      <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode">&#9790;</button>
+    </div>
+  </div>
+</nav>
+
+<section class="tutorial-hero">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-lg-8">
+        <nav aria-label="breadcrumb">
+          <ol class="breadcrumb mb-3" style="--bs-breadcrumb-divider-color:rgba(255,255,255,0.5);">
+            <li class="breadcrumb-item"><a href="../index.html" class="text-white-50 text-decoration-none">Home</a></li>
+            <li class="breadcrumb-item"><a href="index.html" class="text-white-50 text-decoration-none">Tutorials</a></li>
+            <li class="breadcrumb-item active text-white">De Novo Transcriptomics</li>
+          </ol>
+        </nav>
+        <h1 class="display-5 fw-bold text-white mb-3">De Novo Transcriptomics: Trinity + DESeq2</h1>
+        <p class="lead text-white-50 mb-4">
+          QC &amp; trimming &middot; Trinity assembly &middot; BUSCO completeness &middot; Salmon quantification &middot; tximport &middot; DESeq2 DE &middot; TransDecoder ORF prediction &middot; functional annotation
+        </p>
+        <div class="d-flex gap-3 flex-wrap">
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-clock me-1"></i> ~150 min</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-bar-chart me-1"></i> Intermediate</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-terminal me-1"></i> Bash / R</span>
+        </div>
+      </div>
+      <div class="col-lg-4 text-center d-none d-lg-block">
+        <img src="../img/Byte3.png" alt="Byte" class="img-fluid" style="max-height:230px;filter:drop-shadow(0 10px 30px rgba(0,0,0,0.4));">
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="container py-5">
+  <div class="row">
+    <div class="col-lg-3 d-none d-lg-block">
+      <div class="toc-sidebar">
+        <h6 class="fw-bold text-muted text-uppercase small mb-3">On this page</h6>
+        <nav class="nav flex-column">
+          <a class="nav-link" href="#overview">Overview</a>
+          <a class="nav-link" href="#dirstructure">Directory Structure</a>
+          <a class="nav-link" href="#dataset">Dataset</a>
+          <a class="nav-link" href="#step1">1. QC &amp; Trimming</a>
+          <a class="nav-link" href="#step2">2. Trinity Assembly</a>
+          <a class="nav-link" href="#step3">3. Assembly QC (BUSCO)</a>
+          <a class="nav-link" href="#step4">4. Salmon Quantification</a>
+          <a class="nav-link" href="#step5">5. DESeq2 in R</a>
+          <a class="nav-link" href="#step6">6. TransDecoder + Annotation</a>
+          <a class="nav-link" href="#step7">7. Visualise Results</a>
+        </nav>
+      </div>
+    </div>
+
+    <div class="col-lg-9">
+      <div class="tutorial-content">
+
+<section id="overview" class="mb-5">
+  <h2 class="section-divider">Overview</h2>
+  <p>Most organisms do not have a reference genome. <strong>De novo transcriptome assembly</strong> lets you reconstruct all expressed transcripts directly from RNA-seq reads, with no reference needed. Trinity is the gold-standard tool for this. After assembly, you use Salmon for ultra-fast pseudo-alignment quantification, then DESeq2 for differential expression &mdash; the same statistical framework as reference-based RNA-seq.</p>
+  <div class="byte-callout">
+    <img src="../img/Byte1.png" alt="Byte">
+    <div>
+      <strong>When should you do de novo transcriptomics?</strong>
+      <ul class="mb-0 mt-1 small">
+        <li>Your organism has no reference genome (coral, tardigrade, non-model insects, marine invertebrates)</li>
+        <li>You want to discover novel transcripts or isoforms not in the reference annotation</li>
+        <li>The reference genome is fragmented or poorly annotated</li>
+        <li>You are working with a transcriptome from a tissue/condition not represented in the reference annotation</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="dirstructure" class="mb-5">
+  <h2 class="section-divider">Ideal Directory Structure</h2>
+  <div class="dir-tree">
+    <div class="dir-tree-header"><i class="bi bi-folder2-open"></i> trinity_denovo/</div>
+<span class="tree-folder">trinity_denovo/</span>
+&#9500;&#9472;&#9472; <span class="tree-folder tree-active">0_raw/</span>             <span class="tree-note"># raw paired-end FASTQ files</span>
+&#9500;&#9472;&#9472; <span class="tree-folder">1_trimmed/</span>         <span class="tree-note"># Trimmomatic-cleaned reads</span>
+&#9500;&#9472;&#9472; <span class="tree-folder">2_assembly/</span>        <span class="tree-note"># Trinity output directory</span>
+&#9474;   &#9492;&#9472;&#9472; <span class="tree-output">Trinity.fasta</span>      <span class="tree-note"># assembled transcriptome</span>
+&#9500;&#9472;&#9472; <span class="tree-folder">3_busco/</span>           <span class="tree-note"># BUSCO completeness assessment</span>
+&#9500;&#9472;&#9472; <span class="tree-folder">4_quant/</span>           <span class="tree-note"># Salmon per-sample quantification folders</span>
+&#9500;&#9472;&#9472; <span class="tree-folder">5_deseq2/</span>          <span class="tree-note"># R analysis: tximport + DESeq2</span>
+&#9474;   &#9500;&#9472;&#9472; <span class="tree-file">sample_table.txt</span>   <span class="tree-note"># sample metadata (condition, replicate)</span>
+&#9474;   &#9492;&#9472;&#9472; <span class="tree-output">DESeq2_results.csv</span>
+&#9492;&#9472;&#9472; <span class="tree-folder">6_annotation/</span>      <span class="tree-note"># TransDecoder + BLAST functional annotation</span>
+  </div>
+</section>
+
+<section id="dataset" class="mb-5">
+  <h2 class="section-divider">Dataset</h2>
+  <p>We use the <strong>Acropora millepora coral bleaching</strong> RNA-seq dataset — a classic de novo transcriptomics study of gene expression during thermal stress in a non-model coral species with no chromosome-level genome at the time of publication.</p>
+  <div class="param-table">
+    <table class="table table-striped mb-0">
+      <thead><tr><th>Property</th><th>Value</th></tr></thead>
+      <tbody>
+        <tr><td>Organism</td><td><em>Acropora millepora</em> (reef-building coral)</td></tr>
+        <tr><td>Experiment</td><td>Control vs thermal bleaching stress (3 replicates each)</td></tr>
+        <tr><td>Accession</td><td><a href="https://www.ncbi.nlm.nih.gov/bioproject/PRJNA189030" target="_blank">PRJNA189030</a></td></tr>
+        <tr><td>Read type</td><td>Paired-end Illumina 100 bp</td></tr>
+        <tr><td>Expected assembly</td><td>~85,000 Trinity transcripts (Trinity &ldquo;genes&rdquo;)</td></tr>
+        <tr><td>Publication</td><td>Matz et al. 2013 <em>PLOS ONE</em></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="step1" class="mb-5">
+  <h2 class="section-divider">Step 1 — QC &amp; Trimming</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash — FastQC + Trimmomatic adapter and quality trimming</span><button class="btn-copy">Copy</button></div>
+<pre id="s1-qc">######################################################################
+## STEP 1: Quality control and adapter trimming
+## De novo assembly is sensitive to low-quality reads and adapter
+## contamination — dirty reads inflate transcript count and reduce N50.
+## Always trim BEFORE running Trinity.
+######################################################################
+
+mkdir -p 0_raw 1_trimmed 2_assembly 3_busco 4_quant 5_deseq2 6_annotation
+module load fastqc/0.11.9
+module load trimmomatic/0.39
+module load sra-tools/3.0
+
+## --- Download coral bleaching dataset (6 samples: 3 control, 3 bleach) ---
+## Sample accessions from PRJNA189030
+SAMPLES=(SRR534005 SRR534006 SRR534007 SRR534008 SRR534009 SRR534010)
+
+for SRR in "${SAMPLES[@]}"; do
+    ## fasterq-dump: download and split paired-end reads from SRA
+    ## --split-files : create _1.fastq and _2.fastq for paired reads
+    ## --outdir      : where to save output files
+    ## --threads 8   : use 8 threads for faster download
+    fasterq-dump \
+        --split-files \
+        --outdir 0_raw/ \
+        --threads 8 \
+        ${SRR}
+    ## Compress to save disk space (FASTQ files are large; gzip reduces by ~4x)
+    gzip 0_raw/${SRR}_1.fastq 0_raw/${SRR}_2.fastq
+    echo "Downloaded: ${SRR}"
+done
+
+## --- Run FastQC on all raw files ---
+## FastQC: visual QC report — shows adapter content, quality scores per cycle,
+##   GC content, overrepresented sequences, duplication levels
+## -t 12 : use 12 threads (one per file)
+fastqc -t 12 0_raw/*.fastq.gz -o 1_trimmed/
+
+## --- Adapter trimming with Trimmomatic ---
+## ILLUMINACLIP : remove Illumina adapter sequences
+##   TruSeq3-PE.fa = adapter file (check Trimmomatic's adapters/ folder)
+##   2 = seed mismatches allowed
+##   30 = palindrome clip threshold (for PE reads)
+##   10 = simple clip threshold
+## LEADING:3    : remove leading bases below quality 3
+## TRAILING:3   : remove trailing bases below quality 3
+## SLIDINGWINDOW:4:15 : slide a 4-base window; cut when average quality < 15
+## MINLEN:36    : discard reads shorter than 36 bases after trimming
+for SRR in "${SAMPLES[@]}"; do
+    trimmomatic PE \
+        -threads 8 \
+        0_raw/${SRR}_1.fastq.gz \
+        0_raw/${SRR}_2.fastq.gz \
+        1_trimmed/${SRR}_R1_paired.fq.gz \
+        1_trimmed/${SRR}_R1_unpaired.fq.gz \
+        1_trimmed/${SRR}_R2_paired.fq.gz \
+        1_trimmed/${SRR}_R2_unpaired.fq.gz \
+        ILLUMINACLIP:TruSeq3-PE.fa:2:30:10 \
+        LEADING:3 \
+        TRAILING:3 \
+        SLIDINGWINDOW:4:15 \
+        MINLEN:36 \
+        2> 1_trimmed/${SRR}_trim.log
+    echo "Trimmed: ${SRR}"
+done
+
+## --- Run FastQC again on trimmed reads to verify improvement ---
+fastqc -t 12 1_trimmed/*_paired.fq.gz -o 1_trimmed/qc_post/
+
+echo "QC complete. Check FastQC HTML reports in 1_trimmed/."</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s1-qc" data-filename="01_qc_trim.sh"><i class="bi bi-download me-1"></i>01_qc_trim.sh</button></div>
+  <div class="cmd-explain">
+    <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> QC parameters decoded</div>
+    <table>
+      <tr><td><span class="cmd-emoji">&#9986;</span>SLIDINGWINDOW:4:15</td><td>Scans along the read in windows of 4 bases. When the average quality score inside that window drops below 15 (Phred scale: ~97% accuracy), the read is cut from that point onward. This is gentler than a hard quality cutoff at the 3&prime; end and handles gradual quality decline better.</td></tr>
+      <tr><td><span class="cmd-emoji">&#128101;</span>PE output files</td><td>Trimmomatic PE outputs 4 files per sample: two &ldquo;paired&rdquo; files (both reads survived trimming) and two &ldquo;unpaired&rdquo; files (only one of the pair survived). Trinity can use both paired and unpaired reads — pass unpaired reads with <code>--single</code> flag to maximise data. Most users discard unpaired reads but including them improves assembly completeness by ~5&ndash;10%.</td></tr>
+    </table>
+  </div>
+</section>
+
+<section id="step2" class="mb-5">
+  <h2 class="section-divider">Step 2 — Trinity Assembly</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash — Trinity de novo transcriptome assembly</span><button class="btn-copy">Copy</button></div>
+<pre id="s2-trinity">######################################################################
+## STEP 2: Run Trinity to assemble a de novo transcriptome
+## Trinity works in 3 phases:
+##   Phase 1 (Inchworm): builds linear contigs from k-mers
+##   Phase 2 (Chrysalis): clusters contigs into components (= genes)
+##   Phase 3 (Butterfly): resolves alternative splicing within components
+## Result: FASTA file of all assembled transcript sequences
+######################################################################
+
+module load trinity/2.15.1
+
+## Create a comma-separated list of R1 and R2 files for Trinity
+## Trinity accepts all samples simultaneously to improve splice graph assembly
+R1_FILES=$(ls 1_trimmed/*_R1_paired.fq.gz | tr '\n' ',' | sed 's/,$//')
+R2_FILES=$(ls 1_trimmed/*_R2_paired.fq.gz | tr '\n' ',' | sed 's/,$//')
+
+echo "R1 files: ${R1_FILES}"
+echo "R2 files: ${R2_FILES}"
+
+## --- Run Trinity ---
+## --seqType fq        : input is FASTQ format (not FASTA)
+## --left              : comma-separated list of R1 (left) read files
+## --right             : comma-separated list of R2 (right) read files
+## --SS_lib_type RF    : strand-specific library type
+##   RF = typical dUTP/Illumina stranded protocol (read 1 is reverse complement)
+##   Use FR for older protocols; omit if non-stranded (reduces false transcripts)
+## --max_memory 50G    : maximum RAM Trinity can use
+##   Trinity is memory-intensive: needs ~1 GB per million read pairs
+## --CPU 16            : number of CPUs to use
+## --output            : output directory name
+## --min_contig_length 200 : discard transcripts shorter than 200 bp
+##   (very short transcripts are usually artifacts or degradation fragments)
+## --normalize_max_cov 200 : normalize read coverage to max 200x
+##   (prevents assembly from being dominated by very highly expressed genes)
+Trinity \
+    --seqType fq \
+    --left  ${R1_FILES} \
+    --right ${R2_FILES} \
+    --SS_lib_type RF \
+    --max_memory 50G \
+    --CPU 16 \
+    --output 2_assembly/trinity_out \
+    --min_contig_length 200 \
+    --normalize_max_cov 200
+
+## The assembled transcriptome is in:
+## 2_assembly/trinity_out/Trinity.fasta
+
+## --- Basic assembly statistics ---
+## TrinityStats.pl counts transcripts, genes, N50, median length
+## Trinity gene = component = a set of overlapping transcripts (isoforms)
+## Trinity transcript = individual isoform within a gene
+${TRINITY_HOME}/util/TrinityStats.pl 2_assembly/trinity_out/Trinity.fasta
+
+echo "Assembly complete. FASTA: 2_assembly/trinity_out/Trinity.fasta"</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s2-trinity" data-filename="02_trinity_assembly.sh"><i class="bi bi-download me-1"></i>02_trinity_assembly.sh</button></div>
+  <div class="cmd-explain">
+    <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> Trinity flags decoded</div>
+    <table>
+      <tr><td><span class="cmd-emoji">&#128200;</span>--SS_lib_type RF</td><td>Tells Trinity the strand orientation of the library. RF means read 2 is sense (forward) and read 1 is antisense (reverse) — this is the output of most dUTP-based stranded Illumina protocols (TruSeq Stranded). Using the wrong strand type will cause Trinity to merge sense and antisense transcripts, doubling transcript count artifactually. Check with RSeQC infer_experiment.py if unsure.</td></tr>
+      <tr><td><span class="cmd-emoji">&#128204;</span>--normalize_max_cov 200</td><td>Trinity down-samples reads from very highly expressed genes (e.g. actin, tubulin) to a maximum of 200x coverage before assembly. Without normalisation, high-abundance transcripts dominate memory and runtime, and low-abundance transcripts are missed. This is on by default in Trinity ≥v2.6 but worth understanding.</td></tr>
+      <tr><td><span class="cmd-emoji">&#128368;</span>Runtime expectations</td><td>Trinity on 6 samples × 20M read pairs typically takes 12&ndash;48 hours on 16 CPUs and 50 GB RAM. Submit as an HPC job requesting at least 60 GB RAM. Trinity creates thousands of temporary files — run on a local scratch disk if possible, not on a network filesystem.</td></tr>
+    </table>
+  </div>
+  <div class="fun-tip"><span class="fun-tip-icon">&#127755;</span><div><strong>Expected coral assembly stats:</strong> ~85,000 Trinity &ldquo;genes&rdquo;, ~150,000 transcripts (isoforms), N50 ~1,200 bp, median length ~600 bp. A healthy assembly has N50 &gt; 1 kb and &lt;2 isoforms per gene on average. If you see 500,000+ transcripts, re-run with <code>--normalize_max_cov 50</code> to be more aggressive about normalization.</div></div>
+</section>
+
+<section id="step3" class="mb-5">
+  <h2 class="section-divider">Step 3 — Assembly QC with BUSCO</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash — BUSCO completeness assessment on Trinity transcriptome</span><button class="btn-copy">Copy</button></div>
+<pre id="s3-busco">######################################################################
+## STEP 3: Assess transcriptome completeness using BUSCO
+## BUSCO (Benchmarking Universal Single-Copy Orthologs) tests whether
+## your assembly contains the expected set of highly conserved genes.
+## A complete, non-fragmented transcriptome should recover >70-80% of
+## BUSCOs as complete. Low BUSCO scores = incomplete assembly or
+## wrong lineage database.
+######################################################################
+
+module load busco/5.7.0
+
+TRANSCRIPTOME="2_assembly/trinity_out/Trinity.fasta"
+
+## --- Run BUSCO in transcriptome mode ---
+## -i      : input FASTA file (the Trinity output)
+## -o      : output directory name
+## -m tran : mode = transcriptome (vs genome or protein)
+## -l metazoa_odb10 : BUSCO lineage database to use
+##   Choose based on your organism:
+##   metazoa_odb10    = animals (coral = Cnidaria = Metazoa)
+##   viridiplantae_odb10 = plants
+##   fungi_odb10      = fungi
+##   bacteria_odb10   = bacteria
+##   Download databases: busco --list-datasets
+## --cpu 16 : number of parallel threads for BLAST/HMMER
+## -f      : force overwrite existing output directory
+busco \
+    -i ${TRANSCRIPTOME} \
+    -o 3_busco/coral_busco \
+    -m transcriptome \
+    -l metazoa_odb10 \
+    --cpu 16 \
+    -f
+
+## --- View the summary ---
+cat 3_busco/coral_busco/short_summary.specific.metazoa_odb10.coral_busco.txt
+
+## --- Expected output format ---
+## C:78.5%[S:42.1%,D:36.4%],F:6.3%,M:15.2%,n:954
+## C = Complete BUSCOs (S = Single copy, D = Duplicated)
+## F = Fragmented BUSCOs
+## M = Missing BUSCOs
+## n = total BUSCOs in the database
+## Duplicated (D) > 20% is normal for transcriptomes because
+## alternative splicing isoforms of the same gene each match the BUSCO.</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s3-busco" data-filename="03_busco_qc.sh"><i class="bi bi-download me-1"></i>03_busco_qc.sh</button></div>
+  <div class="cmd-explain">
+    <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> BUSCO metrics decoded</div>
+    <table>
+      <tr><td><span class="cmd-emoji">&#127775;</span>High Duplicated % is OK in transcriptomes</td><td>For genome BUSCO, high duplication is a red flag (suggests assembly chimeras). For <em>transcriptome</em> BUSCO, high duplication is expected and normal — each isoform of a gene independently matches the same BUSCO marker, so genes with many isoforms appear &ldquo;duplicated.&rdquo; Focus on C+F &gt; 80% as the completeness indicator.</td></tr>
+      <tr><td><span class="cmd-emoji">&#128203;</span>Missing % interpretation</td><td>Missing BUSCOs can mean: (1) the gene is not expressed in your samples (not a problem), (2) the assembly failed to reconstruct that gene (quality issue), or (3) the lineage database is too distant from your organism. For coral, use <code>metazoa_odb10</code> rather than a more specific database — more BUSCO markers = better assessment.</td></tr>
+    </table>
+  </div>
+</section>
+
+<section id="step4" class="mb-5">
+  <h2 class="section-divider">Step 4 — Salmon Quantification</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash — Build Salmon index and quantify each sample</span><button class="btn-copy">Copy</button></div>
+<pre id="s4-salmon">######################################################################
+## STEP 4: Quantify expression using Salmon
+## Salmon uses quasi-mapping (not full alignment) to quantify how many
+## reads came from each transcript — much faster than STAR/HISAT2+featureCounts
+## and statistically superior for isoform-level quantification.
+## Output: estimated counts and TPM per transcript, per sample.
+######################################################################
+
+module load salmon/1.10.0
+
+TRANSCRIPTOME="2_assembly/trinity_out/Trinity.fasta"
+
+## --- Step 4a: Build Salmon index from the Trinity transcriptome ---
+## salmon index: creates a quasi-mapping index (suffix array) from FASTA
+## -t : transcriptome FASTA file (Trinity.fasta)
+## -i : where to save the index files
+## --gencode : NOT used here (that flag is for GENCODE reference transcriptomes)
+## -k 31 : k-mer length for indexing
+##   Default 31 works for most data; use 25 for reads < 75 bp
+salmon index \
+    -t ${TRANSCRIPTOME} \
+    -i 2_assembly/salmon_index \
+    -k 31
+
+echo "Salmon index built."
+
+## --- Step 4b: Quantify each sample ---
+## salmon quant: count reads per transcript using quasi-mapping
+## -i    : path to the Salmon index built above
+## -l A  : library type = Automatic detection (Salmon detects strand orientation)
+##   You can also specify: IU=inward unstranded, ISR=inward stranded reverse, etc.
+##   'A' lets Salmon auto-detect from the first 100k reads — recommended
+## -1    : R1 (left) reads
+## -2    : R2 (right) reads
+## -p 8  : 8 threads
+## --validateMappings : more sensitive quasi-mapping (uses chaining)
+##   Increases sensitivity by ~5% at cost of ~2x runtime — recommended
+## --gcBias : correct for GC content bias in quantification
+##   Recommended when GC content varies between samples
+## -o    : output directory for this sample's results
+SAMPLES=(SRR534005 SRR534006 SRR534007 SRR534008 SRR534009 SRR534010)
+
+for SRR in "${SAMPLES[@]}"; do
+    salmon quant \
+        -i 2_assembly/salmon_index \
+        -l A \
+        -1 1_trimmed/${SRR}_R1_paired.fq.gz \
+        -2 1_trimmed/${SRR}_R2_paired.fq.gz \
+        -p 8 \
+        --validateMappings \
+        --gcBias \
+        -o 4_quant/${SRR}
+    echo "Quantified: ${SRR}"
+done
+
+## Each output directory contains:
+##   quant.sf        ← the main output: Name, Length, EffectiveLength, TPM, NumReads
+##   lib_format_counts.json  ← shows which library type was auto-detected
+##   aux_info/       ← GC bias correction curves, mapping rate stats
+echo "Salmon quantification complete."
+echo "Check mapping rates in each aux_info/alevin_meta_info.json file."</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s4-salmon" data-filename="04_salmon_quant.sh"><i class="bi bi-download me-1"></i>04_salmon_quant.sh</button></div>
+  <div class="cmd-explain">
+    <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> Salmon flags decoded</div>
+    <table>
+      <tr><td><span class="cmd-emoji">&#128202;</span>TPM vs raw counts</td><td>Salmon outputs both TPM (Transcripts Per Million — normalised for length and sequencing depth) and NumReads (estimated raw counts). <strong>Use TPM for visualisation and sample-level comparison</strong>. <strong>Use NumReads as input to DESeq2</strong> — DESeq2 does its own internal normalisation and requires raw counts, not pre-normalised values.</td></tr>
+      <tr><td><span class="cmd-emoji">&#127919;</span>--validateMappings</td><td>Standard quasi-mapping is extremely fast but can have slightly lower sensitivity for reads with many mismatches. <code>--validateMappings</code> adds a chaining step that checks if mapped k-mers form a consistent chain along the transcript. This improves sensitivity for reads near splicing junctions and reduces false mappings by ~3-fold.</td></tr>
+    </table>
+  </div>
+</section>
+
+<section id="step5" class="mb-5">
+  <h2 class="section-divider">Step 5 — DESeq2 Differential Expression in R</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>R — tximport + DESeq2 + volcano plot</span><button class="btn-copy">Copy</button></div>
+<pre id="s5-deseq2">######################################################################
+## STEP 5: Import Salmon counts and run DESeq2 differential expression
+## tximport: aggregates Salmon transcript-level estimates to gene level
+##   using the Trinity gene-to-transcript mapping table
+## DESeq2: negative binomial model for count-based differential expression
+######################################################################
+
+library(tximport)    # import Salmon/kallisto/STAR quantifications
+library(DESeq2)      # differential expression analysis
+library(tidyverse)   # data manipulation and ggplot2 plotting
+library(ggrepel)     # non-overlapping labels on volcano plots
+
+## --- Step 5a: Build the gene-to-transcript mapping table ---
+## Trinity names transcripts like: TRINITY_DN1000_c0_g1_i1
+##   DN1000 = component number
+##   c0     = sub-component
+##   g1     = gene within component
+##   i1     = isoform number (transcript)
+## We need: transcript_ID → gene_ID mapping for tximport aggregation
+## TrinityStats generates this table automatically
+tx2gene <- read.table(
+    "2_assembly/trinity_out/Trinity.fasta.gene_trans_map",
+    header = FALSE,
+    col.names = c("gene_id", "transcript_id")
+)
+## tximport expects: data.frame with columns TXNAME, GENEID
+tx2gene <- tx2gene[, c("transcript_id", "gene_id")]
+cat("Transcript-to-gene mapping: ", nrow(tx2gene), "transcripts\n")
+
+## --- Step 5b: Import Salmon quantifications with tximport ---
+## List all quant.sf files
+samples <- c("SRR534005","SRR534006","SRR534007",
+             "SRR534008","SRR534009","SRR534010")
+files <- file.path("4_quant", samples, "quant.sf")
+names(files) <- samples   # name each file by sample ID
+
+## tximport aggregates transcript-level counts to gene level
+## type = "salmon"  : tell tximport the input format is Salmon quant.sf
+## tx2gene          : the mapping table from above
+## ignoreTxVersion = TRUE : ignore transcript version suffixes if present
+txi <- tximport(
+    files,
+    type       = "salmon",
+    tx2gene    = tx2gene,
+    ignoreTxVersion = TRUE
+)
+cat("Genes after aggregation:", nrow(txi$counts), "\n")
+
+## --- Step 5c: Sample metadata table ---
+## This tells DESeq2 which samples belong to which condition
+col_data <- data.frame(
+    sample    = samples,
+    condition = factor(c("control","control","control",
+                         "bleach","bleach","bleach")),
+    row.names = samples
+)
+
+## --- Step 5d: Build the DESeq2 object ---
+## DESeqDataSetFromTximport: builds a DESeqDataSet from tximport output
+## design = ~ condition : the statistical model
+##   DESeq2 will test for differential expression between conditions
+dds <- DESeqDataSetFromTximport(
+    txi      = txi,
+    colData  = col_data,
+    design   = ~ condition
+)
+
+## --- Step 5e: Pre-filter low-count genes ---
+## Remove genes with fewer than 10 total counts across all samples
+## Low-count genes add noise and inflate multiple testing correction
+keep <- rowSums(counts(dds)) >= 10
+dds  <- dds[keep, ]
+cat("Genes after low-count filter:", nrow(dds), "\n")
+
+## Set the reference level: "control" is baseline
+## (so fold-change = bleach / control)
+dds$condition <- relevel(dds$condition, ref = "control")
+
+## --- Step 5f: Run DESeq2 ---
+## DESeq() fits the negative binomial GLM, estimates size factors,
+## dispersions, and performs Wald test for each gene
+dds <- DESeq(dds)
+
+## --- Step 5g: Extract results ---
+## results(): extract the comparison bleach vs control
+## alpha = 0.05 : significance threshold for independent filtering
+## lfcThreshold = 0 : test against null hypothesis of log2FC = 0
+## contrast: which comparison to extract
+res <- results(
+    dds,
+    contrast   = c("condition", "bleach", "control"),
+    alpha      = 0.05,
+    lfcThreshold = 0
+)
+
+## --- Shrink log2FC estimates (recommended for visualisation) ---
+## lfcShrink: applies Bayesian shrinkage to log2FC estimates
+## This reduces noise for low-count genes without affecting significance
+## type = "apeglm" is the most accurate shrinkage method
+res_shrunk <- lfcShrink(
+    dds,
+    coef    = "condition_bleach_vs_control",
+    type    = "apeglm"
+)
+
+## --- Summary of results ---
+summary(res)
+## "out of X with nonzero total read count"
+## "LFC > 0 (up)"   = upregulated in bleach
+## "LFC < 0 (down)" = downregulated in bleach
+
+## --- Save results ---
+res_df <- as.data.frame(res_shrunk) %>%
+    rownames_to_column("gene_id") %>%
+    arrange(padj)
+
+write.csv(res_df, "5_deseq2/DESeq2_bleach_vs_control.csv", row.names=FALSE)
+
+## --- Volcano plot ---
+## Highlights significant genes (padj < 0.05 AND |log2FC| > 1)
+res_plot <- res_df %>%
+    filter(!is.na(padj)) %>%
+    mutate(
+        significant = padj < 0.05 & abs(log2FoldChange) > 1,
+        direction   = case_when(
+            padj < 0.05 & log2FoldChange >  1 ~ "Up in bleach",
+            padj < 0.05 & log2FoldChange < -1 ~ "Down in bleach",
+            TRUE ~ "NS"
+        )
+    )
+
+ggplot(res_plot, aes(x=log2FoldChange, y=-log10(padj), color=direction)) +
+    geom_point(size=0.8, alpha=0.6) +
+    geom_hline(yintercept=-log10(0.05), linetype="dashed", color="grey50") +
+    geom_vline(xintercept=c(-1, 1),     linetype="dashed", color="grey50") +
+    scale_color_manual(values=c("Up in bleach"="firebrick","Down in bleach"="steelblue","NS"="grey70")) +
+    geom_text_repel(
+        data = filter(res_plot, significant) %>% head(20),
+        aes(label=gene_id), size=2.5, max.overlaps=20
+    ) +
+    labs(title="Coral bleaching: DE genes (bleach vs control)",
+         x="log2 Fold Change", y="-log10 adjusted p-value",
+         color="Direction") +
+    theme_bw(base_size=12)
+
+ggsave("5_deseq2/volcano_bleach_vs_control.png", width=10, height=7, dpi=150)</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s5-deseq2" data-filename="05_deseq2_analysis.R"><i class="bi bi-download me-1"></i>05_deseq2_analysis.R</button></div>
+  <div class="cmd-explain">
+    <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> DESeq2 workflow decoded</div>
+    <table>
+      <tr><td><span class="cmd-emoji">&#128202;</span>tximport gene aggregation</td><td>Salmon quantifies at the transcript (isoform) level. tximport sums counts across all isoforms of each Trinity gene (component) to get gene-level counts. This is better than simply summing TPM because tximport uses the &ldquo;scaledTPM&rdquo; method, which corrects for differences in average transcript length between samples when performing gene-level aggregation.</td></tr>
+      <tr><td><span class="cmd-emoji">&#127919;</span>lfcShrink(type="apeglm")</td><td>Genes with very low counts have wildly unstable fold-change estimates (e.g. 1 read → 3 reads = log2FC = 1.58, but meaningless). apeglm shrinkage borrows information across all genes to pull noisy fold-changes toward zero, making MA plots and volcano plots much cleaner. Always use shrunken log2FC for visualisation, but <em>report unshrunken padj</em> for significance.</td></tr>
+    </table>
+  </div>
+  <div class="fun-tip"><span class="fun-tip-icon">&#127755;</span><div><strong>Expected coral result:</strong> ~2,000&ndash;4,000 DE genes between control and bleached coral. Many upregulated genes in bleach are heat shock proteins (HSP70, HSP90), oxidative stress response, and apoptosis genes. Downregulated genes include calcification and photosynthesis-related transcripts (from symbiotic zooxanthellae).</div></div>
+</section>
+
+<section id="step6" class="mb-5">
+  <h2 class="section-divider">Step 6 — TransDecoder ORF Prediction &amp; Functional Annotation</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash — TransDecoder + BLAST + HMMER annotation pipeline</span><button class="btn-copy">Copy</button></div>
+<pre id="s6-annot">######################################################################
+## STEP 6: Predict protein-coding ORFs and annotate transcripts
+## TransDecoder: predicts coding regions (ORFs) in Trinity transcripts
+## BLAST:       annotates ORFs against UniProt/SwissProt
+## HMMER:       annotates with Pfam protein family domains
+## Combined: prioritise ORFs with homology support
+######################################################################
+
+module load transdecoder/5.7.0
+module load blast+/2.14.0
+module load hmmer/3.3.2
+
+TRANSCRIPTOME="2_assembly/trinity_out/Trinity.fasta"
+
+## --- Step 6a: Extract long ORFs ---
+## TransDecoder.LongOrfs: scans each transcript for all ORFs
+## (sets of codons in frame between a start and stop codon)
+## -t : input transcriptome FASTA
+## -S : strand-specific (only predict ORFs on the sense strand)
+##   Use -S if you know your library is stranded (RF or FR)
+TransDecoder.LongOrfs \
+    -t ${TRANSCRIPTOME} \
+    -S
+
+## Creates: Trinity.fasta.transdecoder_dir/longest_orfs.pep
+## This file contains all candidate ORF protein sequences
+
+## --- Step 6b: BLAST ORFs against SwissProt ---
+## blastp: protein-protein BLAST (ORF vs protein database)
+## -query    : predicted ORF protein sequences
+## -db       : SwissProt database (download: makeblastdb -in uniprot_sprot.fasta)
+## -outfmt 6 : tabular output (easier to parse than default)
+## -max_target_seqs 1 : report only the single best hit per query
+## -evalue 1e-5 : maximum E-value for reporting (stringent)
+## -num_threads 16 : parallel threads
+blastp \
+    -query Trinity.fasta.transdecoder_dir/longest_orfs.pep \
+    -db /path/to/uniprot_sprot.fasta \
+    -out 6_annotation/blastp_swissprot.outfmt6 \
+    -outfmt 6 \
+    -max_target_seqs 1 \
+    -evalue 1e-5 \
+    -num_threads 16
+
+## --- Step 6c: HMMER Pfam domain search ---
+## hmmscan: search ORF sequences against the Pfam database of protein families
+## --cpu 16   : use 16 threads
+## --domtblout : domain table output (one hit per domain per sequence)
+## Pfam-A.hmm : download from https://www.ebi.ac.uk/interpro/download/Pfam/
+hmmscan \
+    --cpu 16 \
+    --domtblout 6_annotation/pfam_domains.domtblout \
+    /path/to/Pfam-A.hmm \
+    Trinity.fasta.transdecoder_dir/longest_orfs.pep
+
+## --- Step 6d: TransDecoder.Predict with homology support ---
+## Uses BLAST and HMMER evidence to preferentially retain ORFs with
+## functional annotation, even if they don't meet the length threshold alone
+TransDecoder.Predict \
+    -t ${TRANSCRIPTOME} \
+    --retain_blastp_hits 6_annotation/blastp_swissprot.outfmt6 \
+    --retain_pfam_hits   6_annotation/pfam_domains.domtblout \
+    --single_best_only
+
+## Output: Trinity.fasta.transdecoder.pep  ← predicted protein sequences
+## Output: Trinity.fasta.transdecoder.gff3 ← coordinates of coding regions
+
+echo "TransDecoder complete. Protein file: Trinity.fasta.transdecoder.pep"
+echo "Annotated ORFs: $(grep -c '>' Trinity.fasta.transdecoder.pep)"</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s6-annot" data-filename="06_transdecoder_annotation.sh"><i class="bi bi-download me-1"></i>06_transdecoder_annotation.sh</button></div>
+</section>
+
+<section id="step7" class="mb-5">
+  <h2 class="section-divider">Step 7 — Visualise: Heatmap &amp; GO Enrichment</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>R — Heatmap of top DE genes + clusterProfiler GO enrichment</span><button class="btn-copy">Copy</button></div>
+<pre id="s7-viz">######################################################################
+## STEP 7: Heatmap of top DE genes and GO enrichment analysis
+## clusterProfiler: over-representation analysis using GO annotations
+## ComplexHeatmap: publication-quality clustered heatmaps
+######################################################################
+
+library(DESeq2); library(clusterProfiler); library(tidyverse)
+library(pheatmap); library(RColorBrewer)
+
+## --- Heatmap of top 50 most variable DE genes ---
+## Extract variance-stabilised expression values (better for visualisation than raw counts)
+vsd <- vst(dds, blind=FALSE)   # variance stabilising transformation
+
+## Get top 50 DE genes by adjusted p-value
+top50 <- res_df %>%
+    filter(!is.na(padj), padj < 0.05) %>%
+    arrange(padj) %>%
+    head(50) %>%
+    pull(gene_id)
+
+## Extract expression matrix for top 50 genes
+mat <- assay(vsd)[top50, ]
+## Center and scale each gene (subtract mean, divide by SD)
+## This makes rows comparable regardless of absolute expression level
+mat_scaled <- t(scale(t(mat)))
+
+## Annotation for column colors
+ann_col <- data.frame(
+    Condition = col_data$condition,
+    row.names = colnames(mat_scaled)
+)
+
+pheatmap(
+    mat_scaled,
+    annotation_col  = ann_col,
+    show_rownames   = TRUE,
+    show_colnames   = TRUE,
+    cluster_cols    = TRUE,   # cluster samples by expression similarity
+    cluster_rows    = TRUE,   # cluster genes by expression pattern
+    color           = colorRampPalette(rev(brewer.pal(9, "RdBu")))(100),
+    main            = "Top 50 DE genes: coral bleaching",
+    filename        = "5_deseq2/heatmap_top50.png",
+    width = 10, height = 12
+)
+
+## --- Gene Ontology enrichment (requires annotation) ---
+## For de novo transcriptomes, GO terms come from BLAST/Trinotate annotation
+## Load a simple gene → GO mapping table (created from Trinotate output)
+## Format: two columns: gene_id, GO_term (one row per term per gene)
+## This file is created by running Trinotate after TransDecoder annotation
+
+gene2go <- read.table("6_annotation/gene2go.txt",
+                      sep="\t", col.names=c("gene_id","GO"))
+
+## DE genes (adjusted p-value < 0.05)
+de_genes <- res_df %>% filter(!is.na(padj), padj < 0.05) %>% pull(gene_id)
+
+## All tested genes (background universe)
+all_genes <- res_df$gene_id
+
+## clusterProfiler: enrichGO tests if GO terms are over-represented in DE genes
+## OrgDb: organism database (for non-model organisms, use the gene2go table instead)
+## ont = "BP" : Biological Process GO category
+## pAdjustMethod = "BH" : Benjamini-Hochberg FDR correction
+ego <- enricher(
+    gene         = de_genes,
+    universe     = all_genes,
+    TERM2GENE    = gene2go,
+    pAdjustMethod = "BH",
+    pvalueCutoff  = 0.05
+)
+
+dotplot(ego, showCategory=20, title="GO Biological Process: bleach vs control")
+ggsave("5_deseq2/GO_enrichment_dotplot.png", width=10, height=8, dpi=150)</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s7-viz" data-filename="07_visualise_results.R"><i class="bi bi-download me-1"></i>07_visualise_results.R</button></div>
+</section>
+
+<section class="mb-5">
+  <div class="d-flex justify-content-between">
+    <a href="index.html" class="btn btn-outline-secondary rounded-pill px-4"><i class="bi bi-grid-3x3-gap me-2"></i>All Tutorials</a>
+    <a href="deseq2-edger-differential-expression.html" class="btn btn-primary rounded-pill px-4">DESeq2 / edgeR Deep Dive <i class="bi bi-arrow-right ms-2"></i></a>
+  </div>
+</section>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-lg-6"><h5 class="text-white fw-bold mb-3"><span style="color:#ff9933;">Indian</span><span style="color:var(--ieb-primary);">Elucid</span><span style="color:var(--ieb-accent);">Biology</span></h5><p class="small">Free, interactive bioinformatics tutorials. Open source and community-driven.</p></div>
+      <div class="col-lg-6 text-lg-end"><p class="small mb-1">Founded by <strong>Ankush Sharma</strong></p><div class="d-flex gap-3 justify-content-lg-end"><a href="https://github.com/ank-man" target="_blank" class="text-white fs-5"><i class="bi bi-github"></i></a><a href="https://www.linkedin.com/in/ankush-sharma-290307/" target="_blank" class="text-white fs-5"><i class="bi bi-linkedin"></i></a><a href="mailto:mr.ank2999@gmail.com" class="text-white fs-5"><i class="bi bi-envelope"></i></a></div></div>
+    </div>
+    <hr class="border-secondary mt-4 mb-3">
+    <p class="text-center small mb-0">&copy; 2025 IndianElucidBiology &mdash; Made with <span style="color:#e25555;">&#9829;</span> for the bioinformatics community.</p>
+  </div>
+</footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/main.js"></script>
+</body>
+</html>

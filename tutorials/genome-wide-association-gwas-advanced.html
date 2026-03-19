@@ -1,0 +1,528 @@
+﻿<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Advanced GWAS: LD Pruning, Mixed Models, Fine-mapping | IndianElucidBiology</title>
+  <meta name="description" content="Advanced GWAS tutorial: LD pruning, population stratification PCA, mixed models (EMMA/EMMAX/BGLMM), Manhattan and QQ plots, fine-mapping with FINEMAP/SuSiE, GWAS catalog interpretation, and multi-trait analysis.">
+  <link rel="canonical" href="https://indianelucidbiology.github.io/tutorials/genome-wide-association-gwas-advanced.html">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="../css/style.css" rel="stylesheet">
+  <link href="../css/live-spreadsheet.css" rel="stylesheet">
+</head>
+<body>
+<div class="progress-tracker"></div>
+<nav class="navbar navbar-expand-lg fixed-top">
+  <div class="container">
+    <a class="navbar-brand" href="../index.html"><span class="brand-indian">Indian</span><span class="brand-elucid">Elucid</span><span class="brand-biology">Biology</span></a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav"><span class="navbar-toggler-icon"></span></button>
+    <div class="collapse navbar-collapse" id="mainNav">
+      <ul class="navbar-nav ms-auto me-3">
+        <li class="nav-item"><a class="nav-link" href="../index.html">Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="index.html">Tutorial Library</a></li>
+        <li class="nav-item"><a class="nav-link" href="population-genetics-fst-pi-tajimad.html">Pop Gen</a></li>
+      </ul>
+      <button class="theme-toggle" onclick="toggleTheme()">&#9790;</button>
+    </div>
+  </div>
+</nav>
+
+<section class="tutorial-hero">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-lg-8">
+        <nav aria-label="breadcrumb"><ol class="breadcrumb mb-3" style="--bs-breadcrumb-divider-color:rgba(255,255,255,0.5);"><li class="breadcrumb-item"><a href="../index.html" class="text-white-50 text-decoration-none">Home</a></li><li class="breadcrumb-item"><a href="index.html" class="text-white-50 text-decoration-none">Tutorials</a></li><li class="breadcrumb-item active text-white">Advanced GWAS</li></ol></nav>
+        <h1 class="display-5 fw-bold text-white mb-3">Advanced GWAS</h1>
+        <p class="lead text-white-50 mb-4">LD pruning, population stratification, mixed models, Bonferroni vs FDR thresholds, Manhattan and QQ plots, fine-mapping with SuSiE/FINEMAP, and multi-trait GWAS. Every p-value threshold formula shown live.</p>
+        <div class="d-flex gap-3 flex-wrap">
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-clock me-1"></i>~150 min</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-bar-chart me-1"></i>Advanced</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-file-earmark-spreadsheet me-1"></i>Live spreadsheets</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-terminal me-1"></i>PLINK2 / GAPIT / GEMMA / R</span>
+        </div>
+      </div>
+      <div class="col-lg-4 text-center d-none d-lg-block"><img src="../img/Byte1.png" alt="Byte" class="img-fluid" style="max-height:230px;filter:drop-shadow(0 10px 30px rgba(0,0,0,0.4));"></div>
+    </div>
+  </div>
+</section>
+
+<div class="container py-5">
+  <div class="row">
+    <div class="col-lg-3 d-none d-lg-block">
+      <div class="toc-sidebar">
+        <h6 class="fw-bold text-muted text-uppercase small mb-3">On this page</h6>
+        <nav class="nav flex-column">
+          <a class="nav-link" href="#concepts">GWAS Concepts</a>
+          <a class="nav-link" href="#qc">1. QC and LD Pruning</a>
+          <a class="nav-link" href="#stratification">2. Population Stratification</a>
+          <a class="nav-link" href="#models">3. Association Models</a>
+          <a class="nav-link" href="#threshold">4. Significance Thresholds</a>
+          <a class="nav-link" href="#plots">5. Manhattan and QQ Plots</a>
+          <a class="nav-link" href="#finemapping">6. Fine-mapping</a>
+          <a class="nav-link" href="#multitrait">7. Multi-trait GWAS</a>
+          <a class="nav-link" href="#pitfalls">Pitfalls</a>
+        </nav>
+      </div>
+    </div>
+    <div class="col-lg-9">
+      <div class="tutorial-content">
+
+<section id="concepts" class="mb-5">
+  <h2 class="section-divider">GWAS Concepts and Design</h2>
+  <p>A genome-wide association study (GWAS) tests whether each SNP in the genome is statistically associated with a phenotype of interest. It is essentially a massive regression: for each SNP, regress phenotype on allele count (0, 1, or 2 copies of the minor allele).</p>
+  <div class="param-table">
+    <table class="table table-bordered mb-0">
+      <thead class="table-dark"><tr><th>Component</th><th>What it is</th><th>Key decision</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Genotype matrix</strong></td><td>N individuals x M SNPs; each cell = 0, 1, or 2 copies of minor allele</td><td>SNP QC: MAF, missing rate, HWE; LD pruning for PCA</td></tr>
+        <tr><td><strong>Phenotype</strong></td><td>Quantitative (height, yield) or binary (case/control)</td><td>Normalise continuous traits; use logistic regression for binary</td></tr>
+        <tr><td><strong>Covariates</strong></td><td>Variables that confound the SNP-phenotype association</td><td>Always include: PC1-PC5 (population structure) + any known batch effects</td></tr>
+        <tr><td><strong>Association model</strong></td><td>Regression of phenotype on genotype, corrected for covariates</td><td>Linear mixed model (LMM) for structured populations; logistic regression for case/control</td></tr>
+        <tr><td><strong>Multiple testing</strong></td><td>M tests performed; Bonferroni threshold = 0.05/M</td><td>Bonferroni for genome-wide; FDR 5% for discovery with replication</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="qc" class="mb-5">
+  <h2 class="section-divider">Step 1 &mdash; GWAS Quality Control and LD Pruning</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash -- PLINK2 GWAS quality control pipeline</span><button class="btn-copy">Copy</button></div>
+<pre id="s1-qc">## ================================================================
+## GWAS QC with PLINK2
+## Dataset: Rice 3K SNP array or WGS VCF
+## ================================================================
+
+VCF="rice3k_snps.vcf.gz"
+
+## Step 1: Convert VCF to PLINK binary format
+plink2 --vcf ${VCF} \
+  --allow-extra-chr --double-id \
+  --make-bed --out rice3k_raw
+
+## Step 2: Per-sample QC
+plink2 --bfile rice3k_raw \
+  --mind 0.05 \       ## remove samples with >5% missing genotypes
+  --het \             ## compute heterozygosity (outliers = contamination)
+  --out rice3k_sampleqc
+
+## Remove heterozygosity outliers (>3 SD from mean)
+Rscript -e '
+  het <- read.table("rice3k_sampleqc.het", header=TRUE)
+  mean_f <- mean(het$F); sd_f <- sd(het$F)
+  fail <- het[abs(het$F - mean_f) > 3 * sd_f, "IID"]
+  write.table(data.frame(FID=fail, IID=fail), "het_outliers.txt",
+              row.names=FALSE, col.names=FALSE, quote=FALSE)
+'
+plink2 --bfile rice3k_raw \
+  --remove het_outliers.txt \
+  --make-bed --out rice3k_sampQC
+
+## Step 3: Per-SNP QC
+plink2 --bfile rice3k_sampQC \
+  --maf 0.01 \            ## remove MAF < 1%
+  --geno 0.05 \           ## remove SNPs with >5% missing rate
+  --hwe 1e-6 \            ## remove SNPs failing HWE at p<1e-6
+  --snps-only \           ## SNPs only (no indels)
+  --make-bed --out rice3k_snpQC
+
+## Step 4: LD pruning for PCA and relatedness (NOT for GWAS itself)
+## PCA should be done on LD-pruned SNPs to avoid PC axes being
+## dominated by large LD blocks
+plink2 --bfile rice3k_snpQC \
+  --indep-pairwise 50 10 0.2 \  ## 50-SNP window, step 10, r2<0.2
+  --out rice3k_pruning
+
+## Step 5: PCA on LD-pruned SNPs
+plink2 --bfile rice3k_snpQC \
+  --extract rice3k_pruning.prune.in \
+  --pca 20 \   ## top 20 PCs (use PC1-PC5 as GWAS covariates)
+  --out rice3k_pca
+
+## Step 6: Relatedness check
+plink2 --bfile rice3k_snpQC \
+  --extract rice3k_pruning.prune.in \
+  --king-cutoff 0.125 \  ## remove one of each pair with kinship > 0.125 (2nd degree)
+  --out rice3k_unrelated
+
+echo "Final unrelated samples: $(wc -l < rice3k_unrelated.king.cutoff.in.id)"</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s1-qc" data-filename="01_gwas_qc_plink2.sh"><i class="bi bi-download me-1"></i>01_gwas_qc_plink2.sh</button></div>
+</section>
+
+<section id="stratification" class="mb-5">
+  <h2 class="section-divider">Step 2 &mdash; Population Stratification: Why It Matters</h2>
+  <p>Population stratification is the most common source of false positives in GWAS. If allele frequencies differ between subpopulations AND the phenotype also differs between those subpopulations (for any reason), you get spurious associations. The classic solution is to include top principal components (PCs) as covariates.</p>
+
+  <div class="formula-explain">
+    <div class="fe-title"><i class="bi bi-calculator"></i> Genomic Inflation Factor (Lambda)</div>
+    <div class="fe-equation">lambda = median(observed chi2) / 0.4549</div>
+    <div class="fe-equation">0.4549 = median of chi2 distribution with 1 df (expected under null)</div>
+    <div class="fe-terms">
+      <span class="fe-var">lambda = 1.0</span><span class="fe-def">No inflation -- association test is well-calibrated under the null</span>
+      <span class="fe-var">lambda &gt; 1.1</span><span class="fe-def">Inflation -- likely cryptic population structure, batch effects, or relatedness. Add more PCs as covariates.</span>
+      <span class="fe-var">lambda &gt; 1.5</span><span class="fe-def">Severe inflation -- major stratification issue. Check ADMIXTURE plot. May need population-specific GWAS or LMM.</span>
+      <span class="fe-var">lambda &lt; 1.0</span><span class="fe-def">Deflation -- model is over-correcting (too many PCs). Reduce PC number.</span>
+    </div>
+  </div>
+
+  <div class="live-sheet" data-sheet='{
+    "title": "Live Genomic Inflation Factor (Lambda) Calculator",
+    "legend": true,
+    "cols": [
+      {"id":"A","label":"Parameter","desc":"GWAS summary statistic"},
+      {"id":"B","label":"Value","desc":"Edit yellow cells"},
+      {"id":"C","label":"Formula","desc":"Exact formula"},
+      {"id":"D","label":"Interpretation","desc":""}
+    ],
+    "rows": [
+      {"header":"Input your GWAS summary statistics:"},
+      {"rowNum":2,"cells":{"A":{"text":"Number of SNPs tested (M)"},"B":{"input":850000,"step":10000,"min":100},"C":{"text":"Total SNPs in GWAS"},"D":{"text":""}}},
+      {"rowNum":3,"cells":{"A":{"text":"Median chi-squared statistic across all SNPs"},"B":{"input":0.512,"step":0.001,"min":0.01},"C":{"text":"From summary stats: median(chi2)"},"D":{"text":"Under null H0: expected = 0.4549"}}},
+      {"rowNum":4,"cells":{"A":{"text":"Number of significant SNPs (p < 5e-8)"},"B":{"input":42,"step":1,"min":0},"C":{"text":"Count of genome-wide significant hits"},"D":{"text":""}}},
+      {"header":"Calculated values:"},
+      {"rowNum":6,"cells":{"A":{"text":"Lambda (genomic inflation factor)"},"B":{"formula":"=ROUND(B3/0.4549,4)"},"C":{"text":"=median_chi2 / 0.4549"},"D":{"text":"Expected = 1.0 for well-calibrated test"}}},
+      {"rowNum":7,"cells":{"A":{"text":"Lambda status (1=good, 2=mild inflation, 3=severe)"},"B":{"formula":"=IF(B6<=1.05,1,IF(B6<=1.15,2,3))"},"C":{"text":"1=lambda<1.05 | 2=1.05-1.15 | 3=>1.15"},"D":{"text":""}}},
+      {"rowNum":8,"cells":{"A":{"text":"Bonferroni threshold (-log10 p)"},"B":{"formula":"=ROUND(-LOG10(0.05/B2),2)"},"C":{"text":"=-log10(0.05/M)"},"D":{"text":"Standard genome-wide significance cutoff"}}},
+      {"rowNum":9,"cells":{"A":{"text":"Bonferroni threshold (p-value)"},"B":{"formula":"=5/B2/100"},"C":{"text":"=0.05/M"},"D":{"text":"e.g. M=1M SNPs => p<5e-8"}}},
+      {"rowNum":10,"cells":{"A":{"text":"Expected random hits by chance at Bonferroni"},"B":{"formula":"=ROUND(B2*(0.05/B2),1)"},"C":{"text":"=M * alpha = 0.05"},"D":{"text":"Always expect ~0.05 false positives at Bonferroni"}}}
+    ],
+    "colDesc": [
+      {"col":"B6 (Lambda)","desc":"=median(observed_chi2) / 0.4549. The value 0.4549 is the median of the chi-squared distribution with 1 degree of freedom -- this is the expected median test statistic when all null hypotheses are true. Lambda > 1 means the observed statistics are systematically inflated, most likely due to population stratification."},
+      {"col":"B8 (Bonferroni)","desc":"=-log10(0.05/M). The Bonferroni correction divides the family-wise error rate (0.05) by the number of tests (M). For M = 1 million SNPs, the threshold is p < 5e-8 (log10 = 7.3). This is the genome-wide significance threshold used in human GWAS. For non-human species with different LD structure and genome size, the appropriate threshold should be calibrated by permutation."}
+    ]
+  }'></div>
+</section>
+
+<section id="models" class="mb-5">
+  <h2 class="section-divider">Step 3 &mdash; Association Models: GLM vs LMM</h2>
+  <div class="param-table">
+    <table class="table table-bordered mb-0">
+      <thead class="table-dark"><tr><th>Model</th><th>Formula</th><th>When to use</th><th>Tool</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Linear regression (GLM)</strong></td><td>y = SNP*beta + covariates + epsilon</td><td>Unstructured populations; after removing all related individuals and correcting PCs. Fastest.</td><td>PLINK2 --linear</td></tr>
+        <tr><td><strong>Logistic regression</strong></td><td>log(p/1-p) = SNP*beta + covariates</td><td>Binary phenotypes (case/control). Required for correct p-value calibration with binary traits.</td><td>PLINK2 --logistic</td></tr>
+        <tr><td><strong>Linear mixed model (LMM)</strong></td><td>y = SNP*beta + Zu + epsilon; u ~ N(0, sigma2*K)</td><td>Structured populations (crops, inbred lines, related samples). Accounts for kinship via the genetic relatedness matrix K.</td><td>GEMMA, EMMAX, GAPIT3</td></tr>
+        <tr><td><strong>BGLMM (Bayesian)</strong></td><td>Full Bayesian LMM with prior on effect sizes</td><td>When effect sizes are of interest; when proportion of causal SNPs is small. Slower but better calibrated.</td><td>BGLMM, BayesC, rrBLUP</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="code-block-wrapper mt-4">
+    <div class="code-block-header"><span>Bash + R -- GEMMA LMM GWAS + GAPIT3 MLM pipeline</span><button class="btn-copy">Copy</button></div>
+<pre id="s3-models">## ================================================================
+## GEMMA LMM GWAS -- for structured populations (crops, inbreds)
+## GEMMA models population structure via the kinship matrix K
+## ================================================================
+
+BFILE="rice3k_snpQC"   ## PLINK binary
+PHENO="rice_phenotypes.txt"  ## tab-separated: FID IID trait1 trait2 ...
+
+## Step 1: Compute centered relatedness matrix (kinship)
+gemma -bfile ${BFILE} \
+  -gk 1 \           ## method 1 = centered kinship (Amin et al.)
+  -o rice3k_kinship
+## Output: output/rice3k_kinship.cXX.txt
+
+## Step 2: Run LMM GWAS for each trait
+## -lmm 4 = output all test statistics (Wald, likelihood ratio, score test)
+gemma -bfile ${BFILE} \
+  -k output/rice3k_kinship.cXX.txt \
+  -lmm 4 \
+  -n 1 \            ## column 1 of phenotype file (first trait)
+  -o rice3k_trait1_lmm
+## Output: output/rice3k_trait1_lmm.assoc.txt
+
+## Step 3: GAPIT3 MLM in R (user-friendly alternative to GEMMA)
+## install.packages("devtools")
+## devtools::install_github("jiabowang/GAPIT3", force=TRUE)
+library(GAPIT3)
+
+myGD <- read.table("rice3k_snps_numeric.txt", header=TRUE) ## numeric genotype matrix
+myGM <- read.table("rice3k_snp_map.txt", header=TRUE)      ## SNP map: SNP chr pos
+myY  <- read.table("rice3k_phenotypes.txt", header=TRUE)   ## phenotype: taxaID + traits
+
+## Run MLM (Mixed Linear Model) GWAS with PCA covariates
+myGAPIT <- GAPIT(
+  Y = myY,
+  GD = myGD,
+  GM = myGM,
+  model = "MLM",
+  PCA.total = 5,    ## use top 5 PCs as covariates
+  SNP.MAF = 0.01,   ## minor allele frequency filter
+  file.output = TRUE
+)
+## Outputs: GAPIT.MLM.*.GWAS.Results.csv -- SNP, Chr, Pos, P.value, MAF, Effect</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s3-models" data-filename="03_gwas_lmm_gemma_gapit.sh"><i class="bi bi-download me-1"></i>03_gwas_lmm_gemma_gapit.sh</button></div>
+</section>
+
+<section id="threshold" class="mb-5">
+  <h2 class="section-divider">Step 4 &mdash; Significance Thresholds: Bonferroni vs FDR vs Permutation</h2>
+  <div class="live-sheet" data-sheet='{
+    "title": "Live GWAS Significance Threshold Calculator",
+    "legend": true,
+    "cols": [
+      {"id":"A","label":"Method","desc":"Multiple testing correction approach"},
+      {"id":"B","label":"Threshold (p-value)","desc":"Calculated from inputs"},
+      {"id":"C","label":"-log10(p) cutoff","desc":"For Manhattan plot y-axis"},
+      {"id":"D","label":"When to use","desc":""}
+    ],
+    "rows": [
+      {"header":"Edit your study parameters:"},
+      {"rowNum":2,"cells":{"A":{"text":"Number of SNPs tested (M)"},"B":{"input":850000,"step":10000,"min":100},"C":{"text":""},"D":{"text":""}}},
+      {"rowNum":3,"cells":{"A":{"text":"Alpha (family-wise error rate)"},"B":{"input":0.05,"step":0.01,"min":0.001,"max":0.5},"C":{"text":""},"D":{"text":"Typically 0.05"}}},
+      {"rowNum":4,"cells":{"A":{"text":"Number of independent tests (eff M, accounts for LD)"},"B":{"input":600000,"step":10000,"min":100},"C":{"text":"Often ~70% of total SNPs for human; varies by LD"},"D":{"text":""}}},
+      {"header":"Significance thresholds:"},
+      {"rowNum":6,"cells":{"A":{"text":"Bonferroni (naive) = alpha / M"},"B":{"formula":"=ROUND(B3/B2,12)"},"C":{"formula":"=ROUND(-LOG10(B3/B2),2)"},"D":{"text":"Conservative; ignores LD between SNPs"}}},
+      {"rowNum":7,"cells":{"A":{"text":"Bonferroni (LD-effective) = alpha / M_eff"},"B":{"formula":"=ROUND(B3/B4,12)"},"C":{"formula":"=ROUND(-LOG10(B3/B4),2)"},"D":{"text":"Less conservative; accounts for LD"}}},
+      {"rowNum":8,"cells":{"A":{"text":"Standard human GWAS threshold (5e-8)"},"B":{"input":0.00000005,"step":0.000000001,"min":0.000000001},"C":{"formula":"=ROUND(-LOG10(B8),1)"},"D":{"text":"Empirically calibrated for human 1M SNP arrays"}}},
+      {"rowNum":9,"cells":{"A":{"text":"Suggestive threshold = 1 / M"},"B":{"formula":"=ROUND(1/B2,10)"},"C":{"formula":"=ROUND(-LOG10(1/B2),2)"},"D":{"text":"Expect ~1 false positive at this threshold; follow up required"}}},
+      {"header":"FDR (Benjamini-Hochberg) for discovery:"},
+      {"rowNum":11,"cells":{"A":{"text":"Number of significant hits at p < 1e-5 (input)"},"B":{"input":125,"step":1,"min":1},"C":{"text":""},"D":{"text":""}}},
+      {"rowNum":12,"cells":{"A":{"text":"Expected FP at p<1e-5 = M * p_thresh"},"B":{"formula":"=ROUND(B2*0.00001,2)"},"C":{"text":"Expected false positives"},"D":{"text":"=M * p_threshold"}}},
+      {"rowNum":13,"cells":{"A":{"text":"FDR = expected FP / observed hits"},"B":{"formula":"=ROUND(B12/B11,3)"},"C":{"text":"5% FDR = 5% of hits are expected to be false"},"D":{"formula":"=IF(B13<0.05,1,IF(B13<0.2,2,3))"}}}
+    ],
+    "colDesc": [
+      {"col":"B6 (Bonferroni)","desc":"=alpha/M = 0.05/M. The Bonferroni correction guarantees that the probability of ANY false positive across all M tests is <= alpha. For M=1M SNPs, p<5e-8. This is conservative because it assumes all tests are independent -- LD means tests are correlated, so the true correction is less stringent."},
+      {"col":"B13 (FDR)","desc":"=expected_FP / observed_significant. The false discovery rate is less conservative than Bonferroni. FDR=0.05 means 5% of your significant hits are expected to be false positives. It is appropriate for discovery GWAS where hits will be replicated in a second cohort. Bonferroni is required for confirmatory analyses."}
+    ]
+  }'></div>
+</section>
+
+<section id="plots" class="mb-5">
+  <h2 class="section-divider">Step 5 &mdash; Manhattan and QQ Plots</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>R -- Publication-quality Manhattan and QQ plots with ggplot2</span><button class="btn-copy">Copy</button></div>
+<pre id="s5-plots">library(ggplot2); library(dplyr)
+
+## Load GEMMA results
+gwas <- read.table("output/rice3k_trait1_lmm.assoc.txt",
+                   header=TRUE, sep="\t")
+gwas$LOG10P <- -log10(gwas$p_lrt)   ## use likelihood ratio test p-value
+
+## Prepare chromosome positions for Manhattan plot
+gwas <- gwas %>%
+  group_by(chr) %>%
+  mutate(chr_max = max(ps)) %>%
+  ungroup() %>%
+  arrange(chr, ps)
+
+## Cumulative positions
+gwas <- gwas %>%
+  mutate(chr = as.numeric(chr)) %>%
+  group_by(chr) %>%
+  mutate(pos_cum = ps + cumsum(c(0, diff(ps)))[1]) %>%
+  ungroup()
+
+chr_offsets <- gwas %>%
+  group_by(chr) %>%
+  summarise(start_cum = min(pos_cum), center = mean(pos_cum), .groups="drop")
+
+## Build cumulative positions across chromosomes
+offset <- 0; gwas$pos_plot <- 0
+for(ch in sort(unique(gwas$chr))) {
+  mask <- gwas$chr == ch
+  gwas$pos_plot[mask] <- gwas$ps[mask] + offset
+  offset <- offset + max(gwas$ps[mask]) + 5e7
+  chr_offsets$center[chr_offsets$chr == ch] <- mean(gwas$pos_plot[mask])
+}
+
+bonf <- -log10(0.05 / nrow(gwas))
+sugg <- -log10(1 / nrow(gwas))
+
+## Manhattan plot
+col_odd  <- "#2166ac"; col_even <- "#74add1"
+gwas$colour <- ifelse(gwas$chr %% 2 == 0, col_even, col_odd)
+gwas$colour[gwas$LOG10P > bonf] <- "#e31a1c"  ## significant = red
+
+ggplot(gwas, aes(pos_plot, LOG10P, colour=I(colour))) +
+  geom_point(size=0.4, alpha=0.8) +
+  geom_hline(yintercept=bonf, linetype="dashed", colour="red",   linewidth=0.6) +
+  geom_hline(yintercept=sugg, linetype="dotted", colour="orange", linewidth=0.5) +
+  scale_x_continuous(breaks=chr_offsets$center,
+                     labels=paste0("Chr", chr_offsets$chr)) +
+  scale_y_continuous(name="-log10(p)", expand=c(0.02,0)) +
+  labs(title="GWAS Manhattan Plot",
+       subtitle=paste0(nrow(gwas), " SNPs; red dashed = Bonferroni; orange dotted = suggestive")) +
+  theme_minimal(base_size=11) +
+  theme(axis.text.x=element_text(angle=45, hjust=1, size=8),
+        panel.grid.major.x=element_blank())
+ggsave("gwas_manhattan.png", width=14, height=5, dpi=200)
+
+## QQ plot (quantile-quantile) -- diagnoses inflation
+observed <- sort(-log10(gwas$p_lrt))
+expected <- sort(-log10(ppoints(nrow(gwas))))
+lambda   <- round(median(qchisq(gwas$p_lrt, df=1, lower.tail=FALSE), na.rm=TRUE) / 0.4549, 3)
+
+ggplot(data.frame(expected, observed), aes(expected, observed)) +
+  geom_point(size=0.5, colour="#2166ac", alpha=0.6) +
+  geom_abline(slope=1, intercept=0, colour="red", linewidth=0.7) +
+  labs(x="Expected -log10(p)", y="Observed -log10(p)",
+       title=paste0("GWAS QQ Plot (lambda = ", lambda, ")"),
+       subtitle="Points should lie on the diagonal; deviation above = inflation") +
+  theme_bw(base_size=13)
+ggsave("gwas_qq_plot.png", width=6, height=6, dpi=200)
+cat("Genomic inflation lambda:", lambda, "\n")</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s5-plots" data-filename="05_gwas_manhattan_qq.R"><i class="bi bi-download me-1"></i>05_gwas_manhattan_qq.R</button></div>
+</section>
+
+<section id="finemapping" class="mb-5">
+  <h2 class="section-divider">Step 6 &mdash; Fine-mapping with SuSiE</h2>
+  <p>Fine-mapping identifies the most likely causal SNP(s) within a GWAS locus. GWAS hits are often in LD with dozens of other SNPs; fine-mapping uses Bayesian models to compute a credible set -- the smallest set of SNPs that contains the causal variant with 95% probability.</p>
+
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>R -- SuSiE fine-mapping of a GWAS locus</span><button class="btn-copy">Copy</button></div>
+<pre id="s6-finemapping">## ================================================================
+## SuSiE (Sum of Single Effects) fine-mapping
+## Wang et al. 2020 JRSS-B
+## Requires: GWAS summary stats + LD matrix for the locus
+## ================================================================
+## install.packages("susieR")
+library(susieR)
+library(dplyr)
+
+## Define locus: top hit region +/- 500 kb
+TOP_SNP  <- "S04_12345678"
+CHR      <- "chr04"
+WIN_HALF <- 5e5  ## 500 kb window
+
+## Load GWAS summary statistics for locus
+locus_gwas <- read.table("output/rice3k_trait1_lmm.assoc.txt",
+                          header=TRUE, sep="\t") %>%
+  filter(chr == CHR,
+         abs(ps - 12345678) < WIN_HALF)
+
+cat("SNPs in locus:", nrow(locus_gwas), "\n")
+
+## Compute LD matrix for the locus from individual-level genotypes
+## (SuSiE can also accept in-sample LD)
+## plink2 --bfile rice3k_snpQC --chr chr04 --from-bp 11845678 --to-bp 12845678
+##   --r2-unphased square --out locus_LD
+LD_matrix <- as.matrix(read.table("locus_LD.ld", header=FALSE))
+rownames(LD_matrix) <- colnames(LD_matrix) <- locus_gwas$rs
+
+## Convert p-values to z-scores for SuSiE-RSS (summary-stat version)
+## z = sign(beta) * |qnorm(p/2)|
+locus_gwas$z <- sign(locus_gwas$beta) * abs(qnorm(locus_gwas$p_lrt / 2))
+
+## Run SuSiE-RSS
+fitted_susie <- susie_rss(
+  bhat       = locus_gwas$z,
+  shat       = rep(1, nrow(locus_gwas)),   ## z-scores already standardised
+  R          = LD_matrix,
+  n          = 3000,          ## sample size
+  L          = 10,            ## maximum number of causal signals to find
+  estimate_residual_variance = TRUE,
+  verbose    = TRUE
+)
+
+## Extract 95% credible sets
+cs <- fitted_susie$sets$cs
+cat("\nNumber of credible sets found:", length(cs), "\n")
+for(i in seq_along(cs)) {
+  cat("CS", i, "-- SNPs:", length(cs[[i]]),
+      " -- Covered PIPs:", round(sum(fitted_susie$pip[cs[[i]]]),3), "\n")
+  cat("  Top SNP:", locus_gwas$rs[cs[[i]][which.max(fitted_susie$pip[cs[[i]]])]], "\n")
+}
+
+## Plot PIP (posterior inclusion probability) for each SNP
+pip_df <- data.frame(
+  snp  = locus_gwas$rs,
+  pos  = locus_gwas$ps,
+  pip  = fitted_susie$pip,
+  log10p = -log10(locus_gwas$p_lrt)
+)
+
+library(ggplot2)
+ggplot(pip_df, aes(pos/1e6, pip)) +
+  geom_segment(aes(xend=pos/1e6, yend=0), colour="grey70", linewidth=0.4) +
+  geom_point(aes(colour=pip > 0.1), size=2) +
+  scale_colour_manual(values=c("FALSE"="#6baed6","TRUE"="#e31a1c"),
+                      labels=c("PIP < 0.1","PIP > 0.1"), name=NULL) +
+  geom_hline(yintercept=0.1, linetype="dashed", colour="red") +
+  labs(x="Position (Mb)", y="Posterior inclusion probability (PIP)",
+       title=paste0("SuSiE fine-mapping: ", CHR, " locus")) +
+  theme_bw(base_size=12)
+ggsave("susie_pip_locus.png", width=9, height=4, dpi=200)</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s6-finemapping" data-filename="06_susie_finemapping.R"><i class="bi bi-download me-1"></i>06_susie_finemapping.R</button></div>
+</section>
+
+<section id="multitrait" class="mb-5">
+  <h2 class="section-divider">Step 7 &mdash; Multi-trait GWAS</h2>
+  <div class="param-table">
+    <table class="table table-bordered mb-0">
+      <thead class="table-dark"><tr><th>Method</th><th>What it tests</th><th>Power advantage</th><th>Tool</th></tr></thead>
+      <tbody>
+        <tr><td><strong>MTAG</strong></td><td>Multi-trait analysis of GWAS summary statistics</td><td>Increases power when traits are genetically correlated; boosts sample size effectively</td><td>mtag (Python)</td></tr>
+        <tr><td><strong>MVMR</strong></td><td>Multivariable Mendelian Randomization; instruments multiple traits simultaneously</td><td>Disentangles direct vs indirect genetic effects on a phenotype</td><td>MendelianRandomization (R)</td></tr>
+        <tr><td><strong>PHENIX</strong></td><td>Jointly models multiple correlated phenotypes in a LMM framework</td><td>Power gain proportional to genetic correlation between traits</td><td>PHENIX, mvLMM in GEMMA</td></tr>
+        <tr><td><strong>PheWAS</strong></td><td>Scans all phenotypes in a biobank for association with one SNP</td><td>Discovers pleiotropic effects; identifies side effects in drug targets</td><td>PheWAS (R), UK Biobank PheWeb</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="code-block-wrapper mt-3">
+    <div class="code-block-header"><span>R -- GEMMA multivariate LMM (mvLMM) for two correlated traits</span><button class="btn-copy">Copy</button></div>
+<pre id="s7-multi">## GEMMA multivariate LMM: test association of each SNP
+## with two traits simultaneously, accounting for phenotypic correlation
+## More powerful than running two separate GWAS when traits are correlated
+
+gemma -bfile rice3k_snpQC \
+  -k output/rice3k_kinship.cXX.txt \
+  -lmm 4 \
+  -n 1 2 \    ## column 1 AND column 2 of phenotype file = two traits
+  -o rice3k_mvlmm_trait12
+## Output: pnorm test combines evidence across both traits
+## A SNP pleiotropically affecting both traits will have a more significant
+## mvLMM p-value than either single-trait GWAS alone</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s7-multi" data-filename="07_mvlmm_multitrait.sh"><i class="bi bi-download me-1"></i>07_mvlmm_multitrait.sh</button></div>
+</section>
+
+<section id="pitfalls" class="mb-5">
+  <h2 class="section-divider">Common Pitfalls</h2>
+  <div class="param-table">
+    <table class="table table-bordered mb-0">
+      <thead class="table-dark"><tr><th>Problem</th><th>Symptom</th><th>Fix</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Spurious hits from population structure</strong></td><td>Lambda > 1.2; QQ plot inflated throughout</td><td>Add PC1-PC10 as covariates. For highly structured populations (rice indica/japonica) use LMM (GEMMA) instead of GLM. Confirm: run GWAS on simulated random phenotype -- should see lambda = 1.0.</td></tr>
+        <tr><td><strong>p-value = 0 in output</strong></td><td>GEMMA or GAPIT reports p=0 for strongest hits</td><td>Numerical underflow. Use -log10(p) directly from the test statistic: -log10(p) = -log10(pchisq(stat, df=1, lower.tail=FALSE)). Or use the log-p output option in GEMMA (-logp flag).</td></tr>
+        <tr><td><strong>Proximal contamination</strong></td><td>Dozens of highly significant SNPs all in the same region</td><td>This is normal -- LD block around the causal variant. DO NOT interpret each SNP independently. Clump with PLINK2 --clump or fine-map with SuSiE to identify the credible set.</td></tr>
+        <tr><td><strong>Sample size too small for rare variants</strong></td><td>MAF 1-5% variants never reach significance even with large effects</td><td>Aggregate rare variants by gene with SKAT-O or burden test. Minimum N for rare variant GWAS: N > 10,000. For small studies, limit to MAF > 5%.</td></tr>
+        <tr><td><strong>Phenotype not normally distributed</strong></td><td>QQ plot shows deflation in the middle but inflation at the top</td><td>Apply inverse-normal transformation before LMM: pheno_norm = qnorm(rank(pheno)/(N+1)). This is standard practice for any skewed quantitative phenotype.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="mb-5">
+  <div class="d-flex justify-content-between">
+    <a href="index.html" class="btn btn-outline-secondary rounded-pill px-4"><i class="bi bi-grid me-2"></i>All Tutorials</a>
+    <a href="epigenomics-atac-chip-tutorial.html" class="btn btn-primary rounded-pill px-4">Epigenomics <i class="bi bi-arrow-right ms-2"></i></a>
+  </div>
+</section>
+
+      </div>
+    </div>
+  </div>
+</div>
+<footer class="site-footer">
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-lg-6"><h5 class="text-white fw-bold mb-3"><span style="color:#ff9933;">Indian</span><span style="color:var(--ieb-primary);">Elucid</span><span style="color:var(--ieb-accent);">Biology</span></h5><p class="small">Free, interactive bioinformatics tutorials.</p></div>
+      <div class="col-lg-6 text-lg-end"><p class="small mb-1">Founded by <strong>Ankush Sharma</strong></p><div class="d-flex gap-3 justify-content-lg-end"><a href="https://github.com/ank-man" target="_blank" class="text-white fs-5"><i class="bi bi-github"></i></a><a href="https://www.linkedin.com/in/ankush-sharma-290307/" target="_blank" class="text-white fs-5"><i class="bi bi-linkedin"></i></a><a href="mailto:mr.ank2999@gmail.com" class="text-white fs-5"><i class="bi bi-envelope"></i></a></div></div>
+    </div>
+    <hr class="border-secondary mt-4 mb-3">
+    <p class="text-center small mb-0">&copy; 2025 IndianElucidBiology</p>
+  </div>
+</footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/main.js"></script>
+<script src="../js/live-spreadsheet.js"></script>
+</body>
+</html>

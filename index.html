@@ -1,0 +1,740 @@
+﻿<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IndianElucidBiology — Free Interactive Bioinformatics Tutorials</title>
+  <meta name="description" content="Free, interactive bioinformatics tutorials by IndianElucidBiology. Master RNA-Seq, scRNA-Seq, GWAS, population genetics, genome assembly, phylogenetics, CNV detection, and epigenomics with step-by-step guides using real datasets.">
+  <meta name="keywords" content="bioinformatics tutorials, RNA-Seq DESeq2, GWAS mixed models, single cell Seurat, variant calling GATK, metagenomics QIIME2, population genetics Fst, haplotype phasing SHAPEIT4, CNV detection, ATAC-seq ChIP-seq, IndianElucidBiology">
+  <meta name="author" content="IndianElucidBiology — Ankush Sharma">
+  <meta property="og:title" content="IndianElucidBiology — Free Interactive Bioinformatics Tutorials">
+  <meta property="og:description" content="30+ step-by-step bioinformatics tutorials with real datasets, live interactive spreadsheets, and Byte the lab mascot guiding every step.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://indianelucidbiology.github.io/">
+  <meta property="og:image" content="https://indianelucidbiology.github.io/img/Byte1.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="canonical" href="https://indianelucidbiology.github.io/">
+  <!-- Bootstrap 5 -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <!-- Site CSS -->
+  <link href="css/style.css" rel="stylesheet">
+  <!-- Google AdSense — replace ca-pub-XXXXXXXXXXXXXXXX with your Publisher ID after approval -->
+  <!-- <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX" crossorigin="anonymous"></script> -->
+</head>
+<body>
+
+<!-- Progress Bar -->
+<div class="progress-tracker"></div>
+
+<!-- ================================================================
+     NAVBAR — mega-dropdown for categories
+     ================================================================ -->
+<nav class="navbar navbar-expand-lg fixed-top">
+  <div class="container">
+    <a class="navbar-brand" href="index.html" aria-label="IndianElucidBiology Home">
+      <img src="indian_elucid_biology.png" alt="IndianElucidBiology" class="navbar-logo">
+    </a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="mainNav">
+      <ul class="navbar-nav ms-auto me-3 align-items-lg-center gap-lg-1">
+
+        <li class="nav-item"><a class="nav-link" href="index.html"><i class="bi bi-house-door me-1"></i>Home</a></li>
+
+        <!-- Transcriptomics dropdown -->
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Transcriptomics</a>
+          <ul class="dropdown-menu dropdown-menu-end shadow-lg">
+            <li><h6 class="dropdown-header"><i class="bi bi-bar-chart-steps me-1"></i>RNA-Seq</h6></li>
+            <li><a class="dropdown-item" href="tutorials/rnaseq-differential-expression-deseq2-guide.html">DESeq2 Differential Expression</a></li>
+            <li><a class="dropdown-item" href="tutorials/rnaseq-genome-hisat2-deseq2.html">HISAT2 + DESeq2 Pipeline</a></li>
+            <li><a class="dropdown-item" href="tutorials/rnaseq-de-novo-trinity-deseq2.html">De novo Trinity Assembly</a></li>
+            <li><a class="dropdown-item" href="tutorials/deseq2-edger-differential-expression.html">DESeq2 vs edgeR vs limma</a></li>
+            <li><a class="dropdown-item" href="tutorials/gene-coexpression-network-wgcna-tutorial.html">WGCNA Networks</a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><h6 class="dropdown-header"><i class="bi bi-grid-3x3-gap me-1"></i>Single-Cell</h6></li>
+            <li><a class="dropdown-item" href="tutorials/scrna-cell-ranger-seurat.html">Cell Ranger + Seurat v5</a></li>
+            <li><a class="dropdown-item" href="tutorials/scrna-scanpy-python.html">Scanpy (Python)</a></li>
+            <li><a class="dropdown-item" href="tutorials/singlecell-deep-dive-module1.html">scRNA-Seq Deep Dive Series</a></li>
+          </ul>
+        </li>
+
+        <!-- Genomics dropdown -->
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Genomics</a>
+          <ul class="dropdown-menu dropdown-menu-end shadow-lg">
+            <li><h6 class="dropdown-header"><i class="bi bi-dna me-1"></i>Variant Analysis</h6></li>
+            <li><a class="dropdown-item" href="tutorials/gatk-snp-calling-best-practices.html">GATK SNP Calling Best Practices</a></li>
+            <li><a class="dropdown-item" href="tutorials/variant-filtering-pipeline.html">Variant Filtering Pipeline</a></li>
+            <li><a class="dropdown-item" href="tutorials/snpeff-snpsift-variant-annotation.html">SnpEff &amp; SnpSift Annotation</a></li>
+            <li><a class="dropdown-item" href="tutorials/somatic-variant-calling-mutect2.html">Somatic Variants (Mutect2)</a></li>
+            <li><a class="dropdown-item" href="tutorials/copy-number-variation-cnv.html">CNV Detection from WGS</a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><h6 class="dropdown-header"><i class="bi bi-puzzle me-1"></i>Assembly &amp; Annotation</h6></li>
+            <li><a class="dropdown-item" href="tutorials/genome-assembly-hifiasm-flye-spades-tutorial.html">HiFi / ONT Assembly</a></li>
+            <li><a class="dropdown-item" href="tutorials/genome-annotation-maker-braker2-tutorial.html">MAKER &amp; BRAKER2 Annotation</a></li>
+          </ul>
+        </li>
+
+        <!-- Population Genomics dropdown -->
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Pop Gen</a>
+          <ul class="dropdown-menu dropdown-menu-end shadow-lg">
+            <li><a class="dropdown-item" href="tutorials/population-genetics-fst-pi-tajimad.html"><i class="bi bi-graph-up me-1"></i>Fst, &pi;, Tajima's D</a></li>
+            <li><a class="dropdown-item" href="tutorials/haplotype-phasing-tutorial.html"><i class="bi bi-collection me-1"></i>Haplotype Phasing</a></li>
+            <li><a class="dropdown-item" href="tutorials/genome-wide-association-gwas-advanced.html"><i class="bi bi-activity me-1"></i>Advanced GWAS</a></li>
+            <li><a class="dropdown-item" href="tutorials/gwas-plink-gemma-association.html"><i class="bi bi-activity me-1"></i>GWAS with PLINK &amp; GEMMA</a></li>
+            <li><a class="dropdown-item" href="tutorials/linkage-map-construction.html"><i class="bi bi-diagram-3 me-1"></i>Linkage Map Construction</a></li>
+            <li><a class="dropdown-item" href="tutorials/qtl-mapping-tutorial.html"><i class="bi bi-map me-1"></i>QTL Mapping</a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item" href="tutorials/popgen-fst-selective-sweeps.html">Selective Sweeps</a></li>
+            <li><a class="dropdown-item" href="tutorials/popgen-abba-baba-introgression.html">ABBA-BABA Introgression</a></li>
+            <li><a class="dropdown-item" href="tutorials/popgen-treemix-migration.html">TreeMix Migration</a></li>
+          </ul>
+        </li>
+
+        <!-- All Tutorials link -->
+        <li class="nav-item">
+          <a class="nav-link" href="tutorials/index.html"><i class="bi bi-grid-3x3-gap me-1"></i>All Tutorials</a>
+        </li>
+
+        <li class="nav-item"><a class="nav-link" href="tutorials/bioinformatics-101-beginners-guide.html"><i class="bi bi-book me-1"></i>101</a></li>
+        <li class="nav-item"><a class="nav-link" href="#about">About</a></li>
+      </ul>
+      <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode">&#9790;</button>
+    </div>
+  </div>
+</nav>
+
+<!-- ================================================================
+     HERO SECTION
+     ================================================================ -->
+<section class="hero-section">
+  <div class="container position-relative">
+    <div class="row align-items-center g-5">
+      <div class="col-lg-6 text-center text-lg-start">
+        <span class="badge bg-primary bg-opacity-20 text-white border border-primary border-opacity-25 px-3 py-2 mb-4 rounded-pill" style="font-size:0.82rem;backdrop-filter:blur(10px);">
+          <i class="bi bi-stars me-1"></i> 30+ Free Tutorials &middot; Real Datasets &middot; Live Spreadsheets
+        </span>
+        <h1 class="hero-title mb-4">
+          Learn Bioinformatics<br>
+          <span class="gradient-text typing-text typing-cursor" data-words="The Fun Way,With Real Data,Step by Step,Like a Pro,With Byte">The Fun Way</span>
+        </h1>
+        <p class="hero-subtitle mb-5">
+          Step-by-step interactive guides for RNA-Seq, single-cell, GWAS, population genomics, CNV, epigenomics, and 25 more topics. Every threshold justified. Every formula shown live. Guided by <strong style="color:#fff;">Byte</strong>.
+        </p>
+        <div class="d-flex gap-3 justify-content-center justify-content-lg-start flex-wrap">
+          <a href="tutorials/index.html" class="btn btn-primary btn-lg px-5 rounded-pill" style="background:var(--ieb-gradient);border:none;box-shadow:0 6px 24px rgba(13,110,253,0.4);">
+            <i class="bi bi-rocket-takeoff me-2"></i>Browse All Tutorials
+          </a>
+          <a href="tutorials/bioinformatics-101-beginners-guide.html" class="btn btn-outline-light btn-lg px-4 rounded-pill">
+            <i class="bi bi-book me-2"></i>Start from Zero
+          </a>
+        </div>
+        <!-- Quick-access chips -->
+        <div class="d-flex gap-2 flex-wrap mt-4 justify-content-center justify-content-lg-start">
+          <a href="tutorials/rnaseq-differential-expression-deseq2-guide.html" class="hero-chip">RNA-Seq</a>
+          <a href="tutorials/scrna-cell-ranger-seurat.html" class="hero-chip">scRNA-Seq</a>
+          <a href="tutorials/gatk-snp-calling-best-practices.html" class="hero-chip">GATK</a>
+          <a href="tutorials/population-genetics-fst-pi-tajimad.html" class="hero-chip">Pop Gen</a>
+          <a href="tutorials/epigenomics-atac-chip-tutorial.html" class="hero-chip">ATAC-seq</a>
+          <a href="tutorials/genome-wide-association-gwas-advanced.html" class="hero-chip">GWAS</a>
+        </div>
+      </div>
+      <div class="col-lg-6 text-center">
+        <div class="hero-mascot-wrapper position-relative d-inline-block">
+          <div class="hero-glow-ring"></div>
+          <img src="img/Byte1.png" alt="Byte the lab scientist mascot" class="hero-mascot img-fluid">
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================
+     STATS BAR
+     ================================================================ -->
+<section class="stats-bar py-4">
+  <div class="container">
+    <div class="row g-0 text-center stats-row">
+      <div class="col-6 col-md-3 stat-item">
+        <div class="stat-number" data-target="30" data-suffix="+">0</div>
+        <div class="stat-label">Tutorials</div>
+      </div>
+      <div class="col-6 col-md-3 stat-item">
+        <div class="stat-number" data-target="150" data-suffix="+">0</div>
+        <div class="stat-label">Tools Covered</div>
+      </div>
+      <div class="col-6 col-md-3 stat-item">
+        <div class="stat-number" data-target="100" data-suffix="%">0</div>
+        <div class="stat-label">Free Forever</div>
+      </div>
+      <div class="col-6 col-md-3 stat-item">
+        <div class="stat-number">&#9829;</div>
+        <div class="stat-label">Open Source</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================
+     GOOGLE ADSENSE — Leaderboard after stats bar
+     Replace data-ad-client and data-ad-slot with your real values
+     ================================================================ -->
+<div class="ad-slot-leaderboard d-none">
+  <div class="container">
+    <div class="ad-label">Advertisement</div>
+    <!-- AdSense leaderboard 728x90 / responsive -->
+    <!--
+    <ins class="adsbygoogle"
+         style="display:block"
+         data-ad-client="ca-pub-XXXXXXXXXXXXXXXX"
+         data-ad-slot="XXXXXXXXXX"
+         data-ad-format="auto"
+         data-full-width-responsive="true"></ins>
+    <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+    -->
+    <div class="ad-placeholder-leaderboard d-flex align-items-center justify-content-center text-muted small">
+      <i class="bi bi-image me-2"></i> Ad slot — 728&times;90 (leaderboard / responsive) — add AdSense code here
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================
+     CATEGORY SHOWCASE
+     ================================================================ -->
+<section class="py-5" id="categories">
+  <div class="container">
+    <div class="text-center mb-5 fade-up">
+      <span class="section-eyebrow">Explore by Topic</span>
+      <h2 class="fw-bold display-6 mt-2">What do you want to learn?</h2>
+      <p class="text-muted mx-auto" style="max-width:560px;">Every category links to a curated set of tutorials. Pick your domain and dive in.</p>
+    </div>
+
+    <div class="row g-4 stagger-children">
+
+      <!-- Transcriptomics -->
+      <div class="col-6 col-md-4 col-lg-3 fade-up">
+        <a href="tutorials/index.html#rnaseq" class="cat-card text-decoration-none">
+          <div class="cat-icon" style="background:linear-gradient(135deg,#0d6efd22,#0d6efd44);">
+            <i class="bi bi-bar-chart-steps" style="color:#0d6efd;"></i>
+          </div>
+          <div class="cat-title">Transcriptomics</div>
+          <div class="cat-sub">RNA-Seq, DESeq2, WGCNA</div>
+          <div class="cat-count">8 tutorials</div>
+        </a>
+      </div>
+
+      <!-- Single-Cell -->
+      <div class="col-6 col-md-4 col-lg-3 fade-up">
+        <a href="tutorials/index.html#singlecell" class="cat-card text-decoration-none">
+          <div class="cat-icon" style="background:linear-gradient(135deg,#dc354522,#dc354544);">
+            <i class="bi bi-grid-3x3-gap" style="color:#dc3545;"></i>
+          </div>
+          <div class="cat-title">Single-Cell</div>
+          <div class="cat-sub">Seurat, Scanpy, scATAC</div>
+          <div class="cat-count">5 tutorials</div>
+        </a>
+      </div>
+
+      <!-- Variant Calling -->
+      <div class="col-6 col-md-4 col-lg-3 fade-up">
+        <a href="tutorials/index.html#variants" class="cat-card text-decoration-none">
+          <div class="cat-icon" style="background:linear-gradient(135deg,#fd7e1422,#fd7e1444);">
+            <i class="bi bi-activity" style="color:#fd7e14;"></i>
+          </div>
+          <div class="cat-title">Variant Calling</div>
+          <div class="cat-sub">GATK, bcftools, CNV, SV</div>
+          <div class="cat-count">6 tutorials</div>
+        </a>
+      </div>
+
+      <!-- Population Genomics -->
+      <div class="col-6 col-md-4 col-lg-3 fade-up">
+        <a href="tutorials/index.html#popgen" class="cat-card text-decoration-none">
+          <div class="cat-icon" style="background:linear-gradient(135deg,#dc354522,#e63946aa);">
+            <i class="bi bi-people" style="color:#e63946;"></i>
+          </div>
+          <div class="cat-title">Population Genomics</div>
+          <div class="cat-sub">Fst, GWAS, Admixture</div>
+          <div class="cat-count">8 tutorials</div>
+        </a>
+      </div>
+
+      <!-- Epigenomics -->
+      <div class="col-6 col-md-4 col-lg-3 fade-up">
+        <a href="tutorials/epigenomics-atac-chip-tutorial.html" class="cat-card text-decoration-none">
+          <div class="cat-icon" style="background:linear-gradient(135deg,#20c99722,#20c99744);">
+            <i class="bi bi-droplet-half" style="color:#20c997;"></i>
+          </div>
+          <div class="cat-title">Epigenomics</div>
+          <div class="cat-sub">ATAC-seq, ChIP-seq, MACS3</div>
+          <div class="cat-count">3 tutorials</div>
+        </a>
+      </div>
+
+      <!-- Genome Assembly -->
+      <div class="col-6 col-md-4 col-lg-3 fade-up">
+        <a href="tutorials/index.html#assembly" class="cat-card text-decoration-none">
+          <div class="cat-icon" style="background:linear-gradient(135deg,#6f42c122,#6f42c144);">
+            <i class="bi bi-puzzle" style="color:#6f42c1;"></i>
+          </div>
+          <div class="cat-title">Genome Assembly</div>
+          <div class="cat-sub">HiFiasm, Flye, SPAdes</div>
+          <div class="cat-count">3 tutorials</div>
+        </a>
+      </div>
+
+      <!-- Phylogenetics -->
+      <div class="col-6 col-md-4 col-lg-3 fade-up">
+        <a href="tutorials/index.html#phylogenetics" class="cat-card text-decoration-none">
+          <div class="cat-icon" style="background:linear-gradient(135deg,#0dcaf022,#0dcaf044);">
+            <i class="bi bi-diagram-2" style="color:#0dcaf0;"></i>
+          </div>
+          <div class="cat-title">Phylogenetics</div>
+          <div class="cat-sub">IQ-TREE, BEAST2, timetrees</div>
+          <div class="cat-count">9 tutorials</div>
+        </a>
+      </div>
+
+      <!-- Metagenomics -->
+      <div class="col-6 col-md-4 col-lg-3 fade-up">
+        <a href="tutorials/index.html#metagenomics" class="cat-card text-decoration-none">
+          <div class="cat-icon" style="background:linear-gradient(135deg,#19875422,#19875444);">
+            <i class="bi bi-bug" style="color:#198754;"></i>
+          </div>
+          <div class="cat-title">Metagenomics</div>
+          <div class="cat-sub">QIIME2, Kraken2, MAGs</div>
+          <div class="cat-count">4 tutorials</div>
+        </a>
+      </div>
+
+    </div>
+
+    <div class="text-center mt-5 fade-up">
+      <a href="tutorials/index.html" class="btn btn-outline-primary rounded-pill px-5 py-2">
+        <i class="bi bi-grid-3x3-gap me-2"></i>View All 30 Tutorials
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================
+     AD SLOT — Rectangle after categories
+     ================================================================ -->
+<div class="ad-slot-rectangle d-none">
+  <div class="container">
+    <div class="ad-label">Advertisement</div>
+    <!--
+    <ins class="adsbygoogle"
+         style="display:block;text-align:center"
+         data-ad-layout="in-article"
+         data-ad-format="fluid"
+         data-ad-client="ca-pub-XXXXXXXXXXXXXXXX"
+         data-ad-slot="XXXXXXXXXX"></ins>
+    <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+    -->
+    <div class="ad-placeholder-rect d-flex align-items-center justify-content-center text-muted small">
+      <i class="bi bi-image me-2"></i> Ad slot — 300&times;250 (rectangle) — add AdSense code here
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================
+     FEATURED TUTORIALS — highlighted picks
+     ================================================================ -->
+<section class="py-5 bg-body-tertiary" id="tutorials">
+  <div class="container">
+    <div class="text-center mb-5 fade-up">
+      <span class="section-eyebrow">Most Popular</span>
+      <h2 class="fw-bold display-6 mt-2">Featured Tutorials</h2>
+      <p class="text-muted mx-auto" style="max-width:560px;">
+        High-quality, end-to-end guides with downloadable scripts and live interactive spreadsheets.
+      </p>
+    </div>
+
+    <!-- Row 1 — 3 cards -->
+    <div class="row g-4">
+
+      <div class="col-md-6 col-lg-4 tutorial-card-col fade-up">
+        <div class="tutorial-card h-100">
+          <div class="p-4">
+            <div class="d-flex justify-content-between align-items-start mb-3">
+              <div class="card-icon bg-primary bg-opacity-10 text-primary"><i class="bi bi-bar-chart-line"></i></div>
+              <span class="difficulty-badge badge-intermediate">Intermediate</span>
+            </div>
+            <div class="d-flex gap-1 flex-wrap mb-2">
+              <span class="feat-tag">DESeq2</span><span class="feat-tag">edgeR</span><span class="feat-tag">R</span>
+            </div>
+            <h5 class="fw-bold">RNA-Seq Differential Expression</h5>
+            <p class="text-muted small mb-3">DESeq2, edgeR, and limma-voom end-to-end. padj thresholds, MA plots, volcano plots, and GO enrichment — every decision justified.</p>
+            <a href="tutorials/rnaseq-differential-expression-deseq2-guide.html" class="btn btn-primary btn-sm rounded-pill px-3 w-100">Start Tutorial <i class="bi bi-arrow-right ms-1"></i></a>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-md-6 col-lg-4 tutorial-card-col fade-up">
+        <div class="tutorial-card h-100">
+          <div class="p-4">
+            <div class="d-flex justify-content-between align-items-start mb-3">
+              <div class="card-icon bg-danger bg-opacity-10 text-danger"><i class="bi bi-grid-3x3-gap"></i></div>
+              <span class="difficulty-badge badge-advanced">Advanced</span>
+            </div>
+            <div class="d-flex gap-1 flex-wrap mb-2">
+              <span class="feat-tag">Seurat v5</span><span class="feat-tag">UMAP</span><span class="feat-tag">R</span>
+            </div>
+            <h5 class="fw-bold">Single-Cell RNA-Seq with Seurat</h5>
+            <p class="text-muted small mb-3">Cell Ranger output to annotated clusters: QC, normalization, PCA, UMAP, marker discovery, and cell-type annotation with Seurat v5.</p>
+            <a href="tutorials/scrna-cell-ranger-seurat.html" class="btn btn-danger btn-sm rounded-pill px-3 w-100">Start Tutorial <i class="bi bi-arrow-right ms-1"></i></a>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-md-6 col-lg-4 tutorial-card-col fade-up">
+        <div class="tutorial-card h-100">
+          <div class="p-4">
+            <div class="d-flex justify-content-between align-items-start mb-3">
+              <div class="card-icon bg-warning bg-opacity-10 text-warning"><i class="bi bi-activity"></i></div>
+              <span class="difficulty-badge badge-intermediate">Intermediate</span>
+            </div>
+            <div class="d-flex gap-1 flex-wrap mb-2">
+              <span class="feat-tag">GATK4</span><span class="feat-tag">bcftools</span><span class="feat-tag">Bash</span>
+            </div>
+            <h5 class="fw-bold">GATK SNP Calling Best Practices</h5>
+            <p class="text-muted small mb-3">BQSR, HaplotypeCaller, VQSR, and hard-filter thresholds. Covers germline and multi-sample joint genotyping with full parameter rationale.</p>
+            <a href="tutorials/gatk-snp-calling-best-practices.html" class="btn btn-warning btn-sm rounded-pill px-3 w-100 text-dark">Start Tutorial <i class="bi bi-arrow-right ms-1"></i></a>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-md-6 col-lg-4 tutorial-card-col fade-up">
+        <div class="tutorial-card h-100">
+          <div class="p-4">
+            <div class="d-flex justify-content-between align-items-start mb-3">
+              <div class="card-icon" style="background:rgba(32,201,151,0.1);color:#20c997;"><i class="bi bi-graph-up"></i></div>
+              <span class="difficulty-badge badge-advanced">Advanced</span>
+            </div>
+            <div class="d-flex gap-1 flex-wrap mb-2">
+              <span class="feat-tag">vcftools</span><span class="feat-tag">selscan</span><span class="feat-tag tag-live"><i class="bi bi-file-earmark-spreadsheet me-1"></i>Live</span>
+            </div>
+            <h5 class="fw-bold">Population Genetics: Fst, &pi;, Tajima's D</h5>
+            <p class="text-muted small mb-3">Every formula shown in a live interactive spreadsheet. Windowed Fst, nucleotide diversity, Tajima's D, and iHS/XP-EHH selection scans.</p>
+            <a href="tutorials/population-genetics-fst-pi-tajimad.html" class="btn btn-sm rounded-pill px-3 w-100" style="background:#20c997;color:white;">Start Tutorial <i class="bi bi-arrow-right ms-1"></i></a>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-md-6 col-lg-4 tutorial-card-col fade-up">
+        <div class="tutorial-card h-100">
+          <div class="p-4">
+            <div class="d-flex justify-content-between align-items-start mb-3">
+              <div class="card-icon" style="background:rgba(111,66,193,0.1);color:#6f42c1;"><i class="bi bi-diagram-2"></i></div>
+              <span class="difficulty-badge badge-advanced">Advanced</span>
+            </div>
+            <div class="d-flex gap-1 flex-wrap mb-2">
+              <span class="feat-tag">IQ-TREE2</span><span class="feat-tag">BEAST2</span><span class="feat-tag">R</span>
+            </div>
+            <h5 class="fw-bold">Phylogenetics Deep Dive (8 Modules)</h5>
+            <p class="text-muted small mb-3">Site models, Bayesian MCMC, gene vs species trees, divergence dating, ancestral state reconstruction, biogeography, and macroevolution.</p>
+            <a href="tutorials/phylogenetics-deep-dive-module1.html" class="btn btn-sm rounded-pill px-3 w-100" style="background:#6f42c1;color:white;">Start Series <i class="bi bi-arrow-right ms-1"></i></a>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-md-6 col-lg-4 tutorial-card-col fade-up">
+        <div class="tutorial-card h-100">
+          <div class="p-4">
+            <div class="d-flex justify-content-between align-items-start mb-3">
+              <div class="card-icon" style="background:rgba(13,202,240,0.1);color:#0dcaf0;"><i class="bi bi-droplet-half"></i></div>
+              <span class="difficulty-badge badge-advanced">Advanced</span>
+            </div>
+            <div class="d-flex gap-1 flex-wrap mb-2">
+              <span class="feat-tag">MACS3</span><span class="feat-tag">HOMER</span><span class="feat-tag tag-live"><i class="bi bi-file-earmark-spreadsheet me-1"></i>Live</span>
+            </div>
+            <h5 class="fw-bold">Epigenomics: ATAC-seq &amp; ChIP-seq</h5>
+            <p class="text-muted small mb-3">Tn5 shift, TSS enrichment, IDR reproducibility, MACS3 peak calling, motif analysis, DESeq2 differential accessibility, and deepTools heatmaps.</p>
+            <a href="tutorials/epigenomics-atac-chip-tutorial.html" class="btn btn-sm rounded-pill px-3 w-100" style="background:#0dcaf0;color:#000;">Start Tutorial <i class="bi bi-arrow-right ms-1"></i></a>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="text-center mt-5 fade-up">
+      <a href="tutorials/index.html" class="btn btn-primary rounded-pill px-5 py-2">
+        <i class="bi bi-grid-3x3-gap me-2"></i>See All 30 Tutorials
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================
+     AD SLOT — In-feed between sections
+     ================================================================ -->
+<div class="ad-slot-rectangle d-none">
+  <div class="container">
+    <div class="ad-label">Advertisement</div>
+    <!--
+    <ins class="adsbygoogle"
+         style="display:block;text-align:center"
+         data-ad-format="fluid"
+         data-ad-layout-key="-gw-3+1f-3d+2z"
+         data-ad-client="ca-pub-XXXXXXXXXXXXXXXX"
+         data-ad-slot="XXXXXXXXXX"></ins>
+    <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+    -->
+    <div class="ad-placeholder-rect d-flex align-items-center justify-content-center text-muted small">
+      <i class="bi bi-image me-2"></i> Ad slot — in-feed fluid — add AdSense code here
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================
+     LIVE SPREADSHEETS FEATURE CALLOUT
+     ================================================================ -->
+<section class="py-5">
+  <div class="container">
+    <div class="row align-items-center g-5">
+      <div class="col-lg-6 fade-up">
+        <span class="section-eyebrow">Unique Feature</span>
+        <h2 class="fw-bold display-6 mt-2 mb-3">Live Interactive Spreadsheets</h2>
+        <p class="text-muted mb-4">
+          Many tutorials embed fully interactive Excel-like spreadsheets that recalculate every formula in real time as you change inputs. <strong>No more black-box statistics</strong> — see exactly how Fst, LOD scores, Tajima's D, CNV depth ratios, and GWAS lambda inflation are computed.
+        </p>
+        <ul class="list-unstyled feature-list mb-4">
+          <li><i class="bi bi-check-circle-fill text-success me-2"></i>Edit any input cell — all dependent formulas update instantly</li>
+          <li><i class="bi bi-check-circle-fill text-success me-2"></i>Every formula column shows the exact Excel-style expression</li>
+          <li><i class="bi bi-check-circle-fill text-success me-2"></i>Covers Fst, LOD, Tajima's D, CNV depth ratio, GWAS &lambda;, FRiP, D-prime and more</li>
+          <li><i class="bi bi-check-circle-fill text-success me-2"></i>Works in the browser — no install, no login</li>
+        </ul>
+        <a href="tutorials/population-genetics-fst-pi-tajimad.html" class="btn btn-outline-primary rounded-pill px-4">
+          <i class="bi bi-file-earmark-spreadsheet me-2"></i>Try a Live Spreadsheet
+        </a>
+      </div>
+      <div class="col-lg-6 fade-up">
+        <div class="live-sheet-preview rounded-4 shadow-lg p-4">
+          <div class="d-flex align-items-center gap-2 mb-3">
+            <span class="dot-red"></span><span class="dot-yellow"></span><span class="dot-green"></span>
+            <span class="ms-2 small text-muted fw-semibold">Live Fst Calculator — edit cells below</span>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-sm table-bordered mb-0 preview-table">
+              <thead><tr style="background:#1a1a2e;color:#fff;"><th>Population</th><th>p (allele freq)</th><th>2pq (heterozygosity)</th><th>Fst formula</th></tr></thead>
+              <tbody>
+                <tr><td class="text-muted small">Pop A</td><td class="editable-preview">0.72</td><td class="formula-preview">0.403</td><td class="formula-preview text-primary small">=2*B2*(1-B2)</td></tr>
+                <tr><td class="text-muted small">Pop B</td><td class="editable-preview">0.31</td><td class="formula-preview">0.428</td><td class="formula-preview text-primary small">=2*B3*(1-B3)</td></tr>
+                <tr style="background:rgba(13,110,253,0.05);"><td colspan="2" class="fw-bold small">Fst (Ht-Hs)/Ht</td><td class="formula-preview fw-bold text-danger">0.142</td><td class="formula-preview text-primary small">=(D5-D6)/D5</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="text-center mt-3 small text-muted"><i class="bi bi-pencil me-1"></i>In the real tutorial, all yellow cells are fully editable with instant recalculation</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================
+     MEET BYTE SECTION
+     ================================================================ -->
+<section class="py-5 bg-body-tertiary" id="byte">
+  <div class="container">
+    <div class="row align-items-center g-5">
+      <div class="col-lg-4 text-center fade-up">
+        <img src="img/Byte0.png" alt="Byte the lab mascot" class="img-fluid" style="max-height:320px;filter:drop-shadow(0 10px 30px rgba(13,110,253,0.2));">
+      </div>
+      <div class="col-lg-8 fade-up">
+        <span class="section-eyebrow">Your Mentor</span>
+        <h2 class="fw-bold display-6 mt-2 mb-3">Meet <span style="color:var(--ieb-primary);">Byte</span></h2>
+        <p class="lead text-muted mb-4">Your pocket-sized bioinformatics scientist who appears throughout every tutorial — explaining, warning, and waiting with you through the long compute jobs.</p>
+        <div class="row g-3">
+          <div class="col-sm-6">
+            <div class="byte-feature-card">
+              <img src="img/Byte1.png" style="width:44px;" alt="Byte teaching">
+              <div><strong>Explains Every Concept</strong><br><small class="text-muted">Breaks down complex statistics into clear language</small></div>
+            </div>
+          </div>
+          <div class="col-sm-6">
+            <div class="byte-feature-card">
+              <img src="img/Byte3.png" style="width:44px;" alt="Byte pointing">
+              <div><strong>Justifies Every Threshold</strong><br><small class="text-muted">padj &lt; 0.05? Bonferroni vs FDR? Byte tells you why</small></div>
+            </div>
+          </div>
+          <div class="col-sm-6">
+            <div class="byte-feature-card">
+              <img src="img/Byte2.png" style="width:44px;" alt="Byte waiting">
+              <div><strong>Waits With You</strong><br><small class="text-muted">Keeps you company during long MCMC runs and alignment jobs</small></div>
+            </div>
+          </div>
+          <div class="col-sm-6">
+            <div class="byte-feature-card">
+              <img src="img/Byte5.png" style="width:44px;" alt="Byte warning">
+              <div><strong>Prevents Pitfalls</strong><br><small class="text-muted">Warns about common errors before you make them</small></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================
+     AD SLOT — Before About section
+     ================================================================ -->
+<div class="ad-slot-leaderboard d-none">
+  <div class="container">
+    <div class="ad-label">Advertisement</div>
+    <!--
+    <ins class="adsbygoogle"
+         style="display:block"
+         data-ad-client="ca-pub-XXXXXXXXXXXXXXXX"
+         data-ad-slot="XXXXXXXXXX"
+         data-ad-format="auto"
+         data-full-width-responsive="true"></ins>
+    <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+    -->
+    <div class="ad-placeholder-leaderboard d-flex align-items-center justify-content-center text-muted small">
+      <i class="bi bi-image me-2"></i> Ad slot — responsive banner — add AdSense code here
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================
+     ABOUT SECTION
+     ================================================================ -->
+<section id="about" class="py-5">
+  <div class="container">
+    <div class="row justify-content-center">
+      <div class="col-lg-8 text-center fade-up">
+        <span class="section-eyebrow">About This Site</span>
+        <h2 class="fw-bold display-6 mt-2 mb-3">
+          <span class="brand-indian">Indian</span><span class="brand-elucid">Elucid</span><span class="brand-biology">Biology</span>
+        </h2>
+        <p class="lead text-muted">
+          We believe bioinformatics should be <strong>accessible, enjoyable, and transparent</strong>. Every tutorial is written from scratch with updated tools, detailed parameter explanations, and real threshold-selection guidance — so you understand <em>why</em>, not just <em>how</em>.
+        </p>
+        <p class="text-muted">
+          From a biology student doing their first RNA-Seq to a researcher exploring GWAS fine-mapping or long-read haplotype phasing, these guides meet you where you are and take you further.
+        </p>
+      </div>
+    </div>
+
+    <div class="row justify-content-center align-items-center mt-5 g-5">
+      <div class="col-lg-5 fade-up">
+        <div class="founder-card text-center">
+          <div class="founder-avatar mx-auto mb-4">AS</div>
+          <h5 class="fw-bold mb-1">Ankush Sharma</h5>
+          <p class="text-muted small mb-1">Founder, IndianElucidBiology</p>
+          <p class="small text-muted mb-3">Passionate about making bioinformatics accessible to everyone — from bench biologists to computational scientists.</p>
+          <div class="d-flex justify-content-center gap-3">
+            <a href="https://github.com/ank-man" target="_blank" class="founder-social" title="GitHub"><i class="bi bi-github"></i></a>
+            <a href="https://www.linkedin.com/in/ankush-sharma-290307/" target="_blank" class="founder-social" title="LinkedIn"><i class="bi bi-linkedin"></i></a>
+            <a href="mailto:mr.ank2999@gmail.com" class="founder-social" title="Email"><i class="bi bi-envelope-fill"></i></a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick stats panel -->
+      <div class="col-lg-5 fade-up">
+        <div class="about-stats-panel">
+          <div class="about-stat"><span class="as-num">30+</span><span class="as-label">Tutorials published</span></div>
+          <div class="about-stat"><span class="as-num">150+</span><span class="as-label">Bioinformatics tools covered</span></div>
+          <div class="about-stat"><span class="as-num">10+</span><span class="as-label">Live interactive spreadsheets</span></div>
+          <div class="about-stat"><span class="as-num">100%</span><span class="as-label">Free &amp; open source forever</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================
+     FOOTER
+     ================================================================ -->
+<footer class="site-footer">
+  <div class="container">
+    <div class="row g-4">
+
+      <!-- Brand col -->
+      <div class="col-lg-3 col-md-6">
+        <a href="index.html" class="d-inline-block mb-3">
+          <img src="indian_elucid_biology.png" alt="IndianElucidBiology" class="footer-logo">
+        </a>
+        <h5 class="text-white fw-bold mb-2" style="font-size:0.95rem;">
+          <span style="color:#ff9933;">Indian</span><span style="color:var(--ieb-primary);">Elucid</span><span style="color:var(--ieb-accent);">Biology</span>
+        </h5>
+        <p class="small mb-3">Free, interactive bioinformatics tutorials using real NCBI/ENA datasets. Open source and community-driven.</p>
+        <div class="d-flex gap-3">
+          <a href="https://github.com/ank-man" target="_blank" class="text-white fs-5" title="GitHub"><i class="bi bi-github"></i></a>
+          <a href="https://www.linkedin.com/in/ankush-sharma-290307/" target="_blank" class="text-white fs-5" title="LinkedIn"><i class="bi bi-linkedin"></i></a>
+          <a href="mailto:mr.ank2999@gmail.com" class="text-white fs-5" title="Email"><i class="bi bi-envelope"></i></a>
+        </div>
+      </div>
+
+      <!-- Transcriptomics links -->
+      <div class="col-lg-2 col-md-6 col-sm-6">
+        <h6 class="text-white fw-semibold mb-3">Transcriptomics</h6>
+        <ul class="list-unstyled small footer-links">
+          <li><a href="tutorials/rnaseq-differential-expression-deseq2-guide.html">RNA-Seq / DESeq2</a></li>
+          <li><a href="tutorials/gene-coexpression-network-wgcna-tutorial.html">WGCNA Networks</a></li>
+          <li><a href="tutorials/scrna-cell-ranger-seurat.html">scRNA-Seq Seurat</a></li>
+          <li><a href="tutorials/scrna-scanpy-python.html">Scanpy Python</a></li>
+          <li><a href="tutorials/deseq2-edger-differential-expression.html">DESeq2 vs edgeR</a></li>
+        </ul>
+      </div>
+
+      <!-- Genomics links -->
+      <div class="col-lg-2 col-md-6 col-sm-6">
+        <h6 class="text-white fw-semibold mb-3">Genomics</h6>
+        <ul class="list-unstyled small footer-links">
+          <li><a href="tutorials/gatk-snp-calling-best-practices.html">GATK Best Practices</a></li>
+          <li><a href="tutorials/variant-filtering-pipeline.html">Variant Filtering</a></li>
+          <li><a href="tutorials/copy-number-variation-cnv.html">CNV Detection</a></li>
+          <li><a href="tutorials/genome-assembly-hifiasm-flye-spades-tutorial.html">Genome Assembly</a></li>
+          <li><a href="tutorials/genome-annotation-maker-braker2-tutorial.html">Genome Annotation</a></li>
+        </ul>
+      </div>
+
+      <!-- Pop Gen links -->
+      <div class="col-lg-2 col-md-6 col-sm-6">
+        <h6 class="text-white fw-semibold mb-3">Population Genomics</h6>
+        <ul class="list-unstyled small footer-links">
+          <li><a href="tutorials/population-genetics-fst-pi-tajimad.html">Fst / &pi; / Tajima's D</a></li>
+          <li><a href="tutorials/haplotype-phasing-tutorial.html">Haplotype Phasing</a></li>
+          <li><a href="tutorials/genome-wide-association-gwas-advanced.html">Advanced GWAS</a></li>
+          <li><a href="tutorials/linkage-map-construction.html">Linkage Mapping</a></li>
+          <li><a href="tutorials/qtl-mapping-tutorial.html">QTL Mapping</a></li>
+        </ul>
+      </div>
+
+      <!-- More links -->
+      <div class="col-lg-3 col-md-6 col-sm-6">
+        <h6 class="text-white fw-semibold mb-3">More</h6>
+        <ul class="list-unstyled small footer-links">
+          <li><a href="tutorials/epigenomics-atac-chip-tutorial.html">ATAC-seq &amp; ChIP-seq</a></li>
+          <li><a href="tutorials/metagenomics-qiime2-amplicon.html">Metagenomics QIIME2</a></li>
+          <li><a href="tutorials/phylogenetics-deep-dive-module1.html">Phylogenetics Series</a></li>
+          <li><a href="tutorials/wgd-polyploidy-analysis.html">WGD &amp; Polyploidy</a></li>
+          <li><a href="tutorials/bioinformatics-101-beginners-guide.html">Bioinformatics 101</a></li>
+          <li><a href="tutorials/index.html" class="text-white"><strong>View All Tutorials &rarr;</strong></a></li>
+        </ul>
+        <!-- AdSense disclosure required by policy -->
+        <p class="small mt-3" style="color:rgba(255,255,255,0.35);font-size:0.72rem;">This site may display ads via Google AdSense to support free content.</p>
+      </div>
+
+    </div>
+    <hr class="border-secondary mt-5 mb-3">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-2">
+      <p class="small mb-0">&copy; 2025 IndianElucidBiology &mdash; Made with <span style="color:#e25555;">&#9829;</span> for the bioinformatics community.</p>
+      <p class="small mb-0" style="color:rgba(255,255,255,0.4);">Content is open source. Data from NCBI, ENA, and published research.</p>
+    </div>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

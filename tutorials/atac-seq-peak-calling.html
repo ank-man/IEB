@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ATAC-seq Chromatin Accessibility Analysis | IndianElucidBiology</title>
+  <meta name="description" content="ATAC-seq tutorial using Arabidopsis BRM chromatin dataset (PRJNA351855). Bowtie2 alignment, organelle read removal, MACS2 broad peak calling, and bigWig generation for IGV visualization.">
+  <link rel="canonical" href="https://indianelucidbiology.github.io/tutorials/atac-seq-peak-calling.html">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="../css/style.css" rel="stylesheet">
+</head>
+<body>
+<div class="progress-tracker"></div>
+<nav class="navbar navbar-expand-lg fixed-top">
+  <div class="container">
+    <a class="navbar-brand" href="../index.html"><span class="brand-indian">Indian</span><span class="brand-elucid">Elucid</span><span class="brand-biology">Biology</span></a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav"><span class="navbar-toggler-icon"></span></button>
+    <div class="collapse navbar-collapse" id="mainNav">
+      <ul class="navbar-nav ms-auto me-3">
+        <li class="nav-item"><a class="nav-link" href="../index.html">Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="index.html">Tutorial Library</a></li>
+      </ul>
+      <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode">&#9790;</button>
+    </div>
+  </div>
+</nav>
+
+<section class="tutorial-hero">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-lg-8">
+        <nav aria-label="breadcrumb"><ol class="breadcrumb mb-3" style="--bs-breadcrumb-divider-color:rgba(255,255,255,0.5);"><li class="breadcrumb-item"><a href="../index.html" class="text-white-50 text-decoration-none">Home</a></li><li class="breadcrumb-item"><a href="index.html" class="text-white-50 text-decoration-none">Tutorials</a></li><li class="breadcrumb-item active text-white">ATAC-seq</li></ol></nav>
+        <h1 class="display-5 fw-bold text-white mb-3">ATAC-seq: Chromatin Accessibility Analysis</h1>
+        <p class="lead text-white-50 mb-4">From raw FASTQ to chromatin accessibility peaks using the <em>Arabidopsis</em> BRM chromatin remodeling dataset — bowtie2, MACS2, and IGV visualization.</p>
+        <div class="d-flex gap-3 flex-wrap">
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-clock me-1"></i>~90 min</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-database me-1"></i>PRJNA351855</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-bar-chart me-1"></i>Intermediate</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-terminal me-1"></i>Bash</span>
+        </div>
+      </div>
+      <div class="col-lg-4 text-center d-none d-lg-block">
+        <img src="../img/Byte3.png" alt="Byte" class="img-fluid" style="max-height:220px;filter:drop-shadow(0 10px 30px rgba(0,0,0,0.4));">
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="container py-5">
+  <div class="row">
+    <div class="col-lg-3 d-none d-lg-block">
+      <div class="toc-sidebar">
+        <h6 class="fw-bold text-muted text-uppercase small mb-3">On this page</h6>
+        <nav class="nav flex-column">
+          <a class="nav-link" href="#overview">Overview</a>
+          <a class="nav-link" href="#dataset">Dataset</a>
+          <a class="nav-link" href="#step1">1. Download Data</a>
+          <a class="nav-link" href="#step2">2. Quality Check</a>
+          <a class="nav-link" href="#step3">3. Bowtie2 Alignment</a>
+          <a class="nav-link" href="#step4">4. Remove Organelles</a>
+          <a class="nav-link" href="#step5">5. MACS2 Peak Calling</a>
+          <a class="nav-link" href="#step6">6. BigWig for IGV</a>
+          <a class="nav-link" href="#results">Expected Results</a>
+          <a class="nav-link" href="#errors">Troubleshooting</a>
+        </nav>
+      </div>
+    </div>
+    <div class="col-lg-9">
+      <div class="tutorial-content">
+
+        <section id="overview" class="mb-5">
+          <h2 class="section-divider">Overview</h2>
+          <p>ATAC-seq (Assay for Transposase-Accessible Chromatin by sequencing) uses a hyperactive Tn5 transposase to tag and fragment open chromatin regions. Sequencing these fragments reveals genome-wide chromatin accessibility — a proxy for active regulatory elements.</p>
+          <div class="byte-callout">
+            <img src="../img/Byte1.png" alt="Byte">
+            <div><strong>Why remove organellar reads?</strong> Mitochondrial and chloroplast DNA in plants is <em>highly accessible</em> (no nucleosome packaging) and can dominate 20–80% of ATAC-seq reads. These reads represent contamination of the signal — removing them is essential before peak calling to avoid false peaks and to correctly normalize genomic accessibility.</div>
+          </div>
+          <div class="param-table mt-3">
+            <table class="table table-striped mb-0">
+              <thead><tr><th>Step</th><th>Tool</th><th>Purpose</th></tr></thead>
+              <tbody>
+                <tr><td>QC</td><td>FastQC</td><td>Check read quality; adapters often pre-removed</td></tr>
+                <tr><td>Index</td><td>bowtie2-build</td><td>Build genome index for alignment</td></tr>
+                <tr><td>Align</td><td>bowtie2</td><td>Map reads to genome (ATAC uses generic aligner, not splice-aware)</td></tr>
+                <tr><td>Filter</td><td>samtools idxstats + view</td><td>Remove Mt and Pt (organellar) reads</td></tr>
+                <tr><td>Peak call</td><td>MACS2</td><td>Identify open chromatin regions</td></tr>
+                <tr><td>Visualize</td><td>bedGraphToBigWig + IGV</td><td>Generate browser tracks</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="dirstructure" class="mb-5">
+          <h2 class="section-divider">Ideal Directory Structure</h2>
+          <p>Organize your ATAC-seq project like this. The numbered folder convention keeps every step's outputs separate and easy to re-run.</p>
+          <div class="dir-tree">
+            <div class="dir-tree-header"><i class="bi bi-folder2-open"></i> atacseq_brm_project/</div>
+<span class="tree-folder">atacseq_brm_project/</span>
+├── <span class="tree-folder">0_genome/</span>        <span class="tree-note"># genome FASTA + Bowtie2 index (.bt2 files)</span>
+├── <span class="tree-folder tree-active">1_data/</span>          <span class="tree-note"># raw FASTQ (read-only! never modify)</span>
+│   ├── <span class="tree-file">SRR4733912_1.fastq.gz</span>
+│   └── <span class="tree-file">SRR4733912_2.fastq.gz</span>
+├── <span class="tree-folder">2_fastqc/</span>        <span class="tree-note"># FastQC reports</span>
+├── <span class="tree-folder">3_bam/</span>           <span class="tree-note"># all BAM files</span>
+│   ├── <span class="tree-output">SRR4733912.bam</span>   <span class="tree-note"># raw alignment</span>
+│   ├── <span class="tree-output">SRR4733912.nuclear.bam</span>   <span class="tree-note"># organelles removed</span>
+│   └── <span class="tree-output">SRR4733912.nuclear.bam.bai</span>
+├── <span class="tree-folder">4_peaks/</span>         <span class="tree-note"># MACS2 peak files</span>
+│   ├── <span class="tree-output">WT_peaks.broadPeak</span>
+│   └── <span class="tree-output">WT_treat_pileup.bdg</span>
+├── <span class="tree-folder">5_bigwig/</span>        <span class="tree-note"># normalized BigWig tracks for IGV</span>
+│   └── <span class="tree-output">WT.bw</span>
+└── <span class="tree-file">scripts/</span>         <span class="tree-note"># your .sh scripts</span>
+          </div>
+          <div class="fun-tip"><span class="fun-tip-icon">🌱</span><div><strong>Plant ATAC-seq gotcha:</strong> The <code>0_genome/</code> folder needs both the nuclear chromosomes AND the organellar chromosomes (Mt, Pt) in the same FASTA for alignment — you need to align everything first, then filter organellar reads <em>after</em>. If you omit Mt/Pt from the genome, those reads will mis-map to nuclear chromosomes and create ghost peaks!</div></div>
+        </section>
+
+        <section id="dataset" class="mb-5">
+          <h2 class="section-divider">Dataset</h2>
+          <p>This dataset comes from <a href="http://europepmc.org/backend/ptpmcrender.fcgi?accid=PMC5471679&blobtype=pdf" target="_blank">Jégu et al. (2017)</a>, studying how the BRM chromatin remodeler controls <em>Arabidopsis</em> seedling morphogenesis by modulating chromatin accessibility. The ATAC-seq libraries are paired-end and the adapters were removed prior to deposition.</p>
+          <div class="param-table">
+            <table class="table table-striped mb-0">
+              <thead><tr><th>Sample</th><th>ENA ID</th><th>Description</th></tr></thead>
+              <tbody>
+                <tr><td>ATAC WT seedling</td><td>SRR4733912</td><td>Paired-end, Nextera adapters pre-removed</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="small text-muted mt-1">BioProject: <a href="https://www.ebi.ac.uk/ena/data/view/PRJNA351855" target="_blank">PRJNA351855</a></p>
+        </section>
+
+        <section id="step1" class="mb-5">
+          <h2 class="section-divider">Step 1 — Download Data</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash — Download ATAC-seq reads and Arabidopsis genome</span><button class="btn-copy">Copy</button></div>
+<pre id="s1-atac-dl">mkdir -p 1_data 0_genome
+
+# Download ATAC-seq paired-end reads
+cd 1_data
+wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR473/002/SRR4733912/SRR4733912_1.fastq.gz
+wget ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR473/002/SRR4733912/SRR4733912_2.fastq.gz
+cd ..
+
+# Download Arabidopsis TAIR10 genome from EnsemblPlants
+cd 0_genome
+wget http://ftp.ensemblgenomes.org/pub/plants/release-54/fasta/arabidopsis_thaliana/dna/Arabidopsis_thaliana.TAIR10.dna.toplevel.fa.gz
+gzip -d Arabidopsis_thaliana.TAIR10.dna.toplevel.fa.gz
+ln -s Arabidopsis_thaliana.TAIR10.dna.toplevel.fa At_Genome
+cd ..</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s1-atac-dl" data-filename="01_download_atac.sh"><i class="bi bi-download me-1"></i>01_download_atac.sh</button></div>
+          <div class="cmd-explain">
+            <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> What does each command do?</div>
+            <table>
+              <tr><td><span class="cmd-emoji">➕</span>cat genome.fna Mt.fna Pt.fna</td><td>Concatenates the nuclear genome with the mitochondrial (Mt) and chloroplast (Pt) genomes into one single FASTA. Bowtie2 needs one combined index so reads from organelles are captured and can be removed later — rather than mismapping to the nuclear genome.</td></tr>
+              <tr><td><span class="cmd-emoji">🗺️</span>bowtie2-build</td><td>Builds an FM-index of the combined genome. Unlike HISAT2, Bowtie2 does <em>not</em> handle splicing — perfect for ATAC-seq which comes from genomic DNA, not mRNA.</td></tr>
+            </table>
+          </div>
+          <div class="fun-tip"><span class="fun-tip-icon">�</span><div><strong>What is <code>ln -s</code>?</strong> Creates a symbolic link (shortcut) named <code>At_Genome</code> pointing to the long genome filename. Tools like bowtie2-build can then use the short name. If you ever regenerate the genome file, just update the symlink — all scripts keep working.</div></div>
+        </section>
+
+        <section id="step2" class="mb-5">
+          <h2 class="section-divider">Step 2 — Quality Check</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash — FastQC</span><button class="btn-copy">Copy</button></div>
+<pre id="s2-atac-qc">module load fastqc
+mkdir -p 2_fastqc
+fastqc -o 2_fastqc 1_data/*.fastq.gz
+
+# For this dataset: adapters were already removed by the authors
+# Expect clean per-base quality and minimal adapter content</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s2-atac-qc" data-filename="02_fastqc_atac.sh"><i class="bi bi-download me-1"></i>02_fastqc_atac.sh</button></div>
+        </section>
+
+        <section id="step3" class="mb-5">
+          <h2 class="section-divider">Step 3 — Bowtie2 Alignment</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash — Bowtie2 Index + Alignment</span><button class="btn-copy">Copy</button></div>
+<pre id="s3-bowtie2">module load bowtie2
+module load samtools
+
+# Build genome index (run once)
+mkdir -p 3_bwt_index
+bowtie2-build 0_genome/At_Genome 3_bwt_index/At.TAIR10
+echo "Index complete. Files:"
+ls 3_bwt_index/
+
+# Align ATAC-seq reads
+mkdir -p 4_bam
+bowtie2 --threads 8 \
+    -x 3_bwt_index/At.TAIR10 \
+    -q \
+    -1 1_data/SRR4733912_1.fastq.gz \
+    -2 1_data/SRR4733912_2.fastq.gz \
+    -S 4_bam/SRR4733912.sam \
+    2> 4_bam/SRR4733912_alignment.log
+
+cat 4_bam/SRR4733912_alignment.log  # Check alignment rate
+
+# Convert to sorted BAM
+samtools view --threads 7 -bS 4_bam/SRR4733912.sam \
+    | samtools sort --threads 7 - > 4_bam/SRR4733912.sorted.bam
+
+samtools index 4_bam/SRR4733912.sorted.bam
+rm 4_bam/SRR4733912.sam   # save disk space
+
+# View BAM header (verify chromosome names)
+samtools view -H 4_bam/SRR4733912.sorted.bam | head -20</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s3-bowtie2" data-filename="03_bowtie2_align.sh"><i class="bi bi-download me-1"></i>03_bowtie2_align.sh</button></div>
+          <div class="cmd-explain">
+            <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> Bowtie2 flags decoded</div>
+            <table>
+              <tr><td><span class="cmd-emoji">🧵</span>--threads 8</td><td>Use 8 CPU threads to speed up alignment. Bowtie2 parallelizes very well — 8 threads is ~7× faster than single-threaded.</td></tr>
+              <tr><td><span class="cmd-emoji">🗺️</span>-x 3_bwt_index/At.TAIR10</td><td>The genome inde<strong>x</strong> prefix. Bowtie2 looks for files named <code>At.TAIR10.1.bt2</code>, <code>At.TAIR10.2.bt2</code> etc.</td></tr>
+              <tr><td><span class="cmd-emoji">📖</span>-q</td><td>Input is in FAST<strong>Q</strong> format (the default, but explicit is clearer). Alternatively <code>-f</code> for FASTA.</td></tr>
+              <tr><td><span class="cmd-emoji">👫</span>-1 / -2</td><td>Forward (R1) and reverse (R2) read files. Bowtie2 uses the paired information to improve alignment accuracy and correctly estimate insert sizes.</td></tr>
+              <tr><td><span class="cmd-emoji">💾</span>-S sample.sam</td><td>Write output in <strong>S</strong>AM format. Like RNA-seq, we immediately convert to BAM and delete the SAM.</td></tr>
+              <tr><td><span class="cmd-emoji">🔍</span>samtools view -H</td><td>Prints the BAM <strong>H</strong>eader, which contains chromosome names and lengths. Always check this — MACS2 must get chromosome names from the BAM, and they must match your annotation file.</td></tr>
+            </table>
+          </div>
+        </section>
+
+        <section id="step4" class="mb-5">
+          <h2 class="section-divider">Step 4 — Remove Organellar Reads (Critical for Plants)</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash — Remove Mt and Pt reads</span><button class="btn-copy">Copy</button></div>
+<pre id="s4-organelle">module load samtools
+
+# First, see the read counts per chromosome
+# This shows how many reads align to Mt and Pt vs nuclear chromosomes
+samtools idxstats 4_bam/SRR4733912.sorted.bam
+
+# EXAMPLE OUTPUT (from actual data):
+# 1       30427671   2018268  43655
+# 2       19698289   2796545  47708
+# 3       23459830   1738071  36100
+# 4       18585056   1290746  26515
+# 5       26975502   1795689  40246
+# Mt      366924     2469591  35167     <-- ~2.4M reads = 20% of data!
+# Pt      154478     44476436 524929    <-- ~44M reads = DOMINANT contamination
+
+# Keep only nuclear chromosomes (exclude Mt and Pt)
+samtools idxstats 4_bam/SRR4733912.sorted.bam \
+    | cut -f1 \
+    | grep -v Mt \
+    | grep -v Pt \
+    | xargs samtools view --threads 7 -b \
+        4_bam/SRR4733912.sorted.bam \
+    > 4_bam/SRR4733912.sorted.noorg.bam
+
+samtools index 4_bam/SRR4733912.sorted.noorg.bam
+
+# Verify: Mt and Pt should now show 0 reads
+samtools idxstats 4_bam/SRR4733912.sorted.noorg.bam</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s4-organelle" data-filename="04_remove_organelles.sh"><i class="bi bi-download me-1"></i>04_remove_organelles.sh</button></div>
+          <div class="cmd-explain">
+            <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> Organelle removal — command-by-command</div>
+            <table>
+              <tr><td><span class="cmd-emoji">📊</span>samtools idxstats</td><td>Prints a table: chromosome name, length, mapped reads, unmapped reads. The fastest way to see if your organellar reads dominate the dataset (they will!).</td></tr>
+              <tr><td><span class="cmd-emoji">✂️</span>cut -f1</td><td>Cuts just the first field (column 1 = chromosome name) from the idxstats output. This gives a list of all chromosome names in the BAM.</td></tr>
+              <tr><td><span class="cmd-emoji">🚫</span>grep -v Mt / grep -v Pt</td><td>The <code>-v</code> flag <strong>inverts</strong> the match — keep lines that do NOT contain "Mt" or "Pt". This filters the chromosome list to nuclear chromosomes only.</td></tr>
+              <tr><td><span class="cmd-emoji">🔧</span>xargs samtools view -b</td><td><code>xargs</code> takes the list of chromosome names from the pipe and passes them as arguments to <code>samtools view</code>. Samtools then extracts only reads mapping to those chromosomes. The <code>-b</code> flag outputs BAM format directly.</td></tr>
+            </table>
+          </div>
+          <div class="fun-tip"><span class="fun-tip-icon">🌿</span><div><strong>The pipe (<code>|</code>) trick:</strong> The whole organelle-removal command is one pipeline — <code>idxstats | cut | grep | grep | xargs samtools view</code>. Each <code>|</code> passes the output of one command directly as input to the next, in memory, without writing any intermediate files. Pipelines are a superpower in bioinformatics!</div></div>
+          <div class="thumb-rule mt-3">
+            <strong>Organelle removal is non-negotiable for plant ATAC-seq.</strong> In this dataset, chloroplast reads account for ~44M / ~51M total reads — over 85% of all alignments! Without removal, MACS2 would set its lambda background model using these organellar reads, making peak calling on nuclear chromosomes unreliable.
+          </div>
+        </section>
+
+        <section id="step5" class="mb-5">
+          <h2 class="section-divider">Step 5 — MACS2 Peak Calling</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash — MACS2 Broad Peak Calling</span><button class="btn-copy">Copy</button></div>
+<pre id="s5-macs2">module load macs2  # or: pip install macs2
+
+mkdir -p 5_peaks
+
+macs2 callpeak \
+    -t 4_bam/SRR4733912.sorted.noorg.bam \
+    -q 0.05 \
+    --broad \
+    -f BAMPE \
+    -n SRR4733912 \
+    -B \
+    --trackline \
+    --outdir 5_peaks \
+    2> 5_peaks/SRR4733912.peak.log &
+
+# Key parameters explained:
+# -q 0.05    : FDR cutoff for peak calling
+# --broad    : call broad peaks (ATAC open chromatin regions can be large)
+# -f BAMPE   : BAM paired-end format (uses actual fragment size, not estimate)
+# -B         : generate bedGraph pileup files for visualization
+# --trackline: add UCSC browser track header
+
+# Output files:
+ls 5_peaks/
+# SRR4733912_control_lambda.bdg  -- local lambda model
+# SRR4733912_peaks.broadPeak     -- BED format peak calls
+# SRR4733912_peaks.gappedPeak    -- gapped peak format
+# SRR4733912_peaks.xls           -- peak statistics
+# SRR4733912_treat_pileup.bdg    -- read pileup bedGraph
+
+# Count peaks
+wc -l 5_peaks/SRR4733912_peaks.broadPeak
+
+# Show top peaks by score
+sort -k7,7nr 5_peaks/SRR4733912_peaks.broadPeak | head -20</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s5-macs2" data-filename="05_macs2_peaks.sh"><i class="bi bi-download me-1"></i>05_macs2_peaks.sh</button></div>
+          <div class="cmd-explain">
+            <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> MACS2 callpeak flags decoded</div>
+            <table>
+              <tr><td><span class="cmd-emoji">🎯</span>-t sample.bam</td><td>The <strong>t</strong>reatment BAM file (your ATAC-seq data). MACS2 calls peaks here.</td></tr>
+              <tr><td><span class="cmd-emoji">📉</span>-q 0.05</td><td>FDR (false discovery rate) <strong>q</strong>-value cutoff. Peaks with q &gt; 0.05 are discarded. Stricter (0.01) = fewer but higher confidence peaks.</td></tr>
+              <tr><td><span class="cmd-emoji">🌊</span>--broad</td><td>Call broad (merged) peaks instead of sharp narrow peaks. ATAC-seq open chromatin regions can span hundreds to thousands of base pairs, so broad mode fits better than the narrow mode used for TF ChIP-seq.</td></tr>
+              <tr><td><span class="cmd-emoji">👫</span>-f BAMPE</td><td>Input format: BAM Paired-End. MACS2 uses the actual fragment sizes inferred from read pairs rather than guessing from single reads. More accurate peak boundaries!</td></tr>
+              <tr><td><span class="cmd-emoji">🏷️</span>-n SRR4733912</td><td>Output file prefix <strong>n</strong>ame. All output files will start with this name.</td></tr>
+              <tr><td><span class="cmd-emoji">📈</span>-B</td><td>Output a <strong>B</strong>edGraph pileup file — needed to generate BigWig tracks for IGV.</td></tr>
+            </table>
+          </div>
+          <p class="mt-3 small">MACS2 summary for this dataset (from the actual log):</p>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>MACS2 Parameters (actual output)</span></div>
+<pre># Program:macs2 callpeak
+# name            = SRR4733912
+# format          = BAMPE
+# ChIP-seq file   = SRR4733912.sorted.noorg.bam
+# qvalue cutoff   = 5.00e-02
+# Broad peak mode is on
+# Paired-End mode is on
+# mean fragment size = 139 bp from treatment
+# fragments after filtering in treatment: 4002590</pre>
+          </div>
+        </section>
+
+        <section id="step6" class="mb-5">
+          <h2 class="section-divider">Step 6 — BigWig for IGV Visualization</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash — bedGraph to BigWig conversion</span><button class="btn-copy">Copy</button></div>
+<pre id="s6-bigwig">module load bedtools
+module load ucsc-tools  # or download bedClip + bedGraphToBigWig from UCSC
+
+mkdir -p 6_bigwig
+
+# a) Generate chromosome sizes file from the genome
+bioawk -c fastx '{print $name, length($seq)}' 0_genome/At_Genome \
+    > 6_bigwig/At_chr.sizes
+
+# b) Clip bedGraph to correct chromosome boundaries
+bedtools slop \
+    -i 5_peaks/SRR4733912_treat_pileup.bdg \
+    -g 6_bigwig/At_chr.sizes \
+    -b 0 \
+    | bedClip stdin 6_bigwig/At_chr.sizes \
+      6_bigwig/SRR4733912_treat_pileup.clipped.bdg
+
+# c) Sort the clipped bedGraph
+sort -k1,1 -k2,2n 6_bigwig/SRR4733912_treat_pileup.clipped.bdg \
+    > 6_bigwig/SRR4733912_treat_pileup.clipped.sorted.bdg
+
+# d) Convert to BigWig
+bedGraphToBigWig \
+    6_bigwig/SRR4733912_treat_pileup.clipped.sorted.bdg \
+    6_bigwig/At_chr.sizes \
+    6_bigwig/SRR4733912_treat_pileup.bw
+
+echo "BigWig file ready: 6_bigwig/SRR4733912_treat_pileup.bw"
+echo "Load this file in IGV with TAIR10 genome to view ATAC peaks"</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s6-bigwig" data-filename="06_bigwig_conversion.sh"><i class="bi bi-download me-1"></i>06_bigwig_conversion.sh</button></div>
+          <div class="cmd-explain">
+            <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> BigWig pipeline decoded</div>
+            <table>
+              <tr><td><span class="cmd-emoji">📏</span>bioawk -c fastx</td><td>bioawk reads FASTA files (<code>-c fastx</code>) and lets you use <code>$name</code> and <code>$seq</code> variables. Here we print each chromosome name and its length to make a "chrom sizes" file required by UCSC tools.</td></tr>
+              <tr><td><span class="cmd-emoji">✂️</span>bedClip</td><td>Clips bedGraph entries to not exceed chromosome boundaries. MACS2 sometimes outputs coordinates slightly past the chromosome end due to smoothing — bedClip silently fixes this, preventing bedGraphToBigWig from crashing.</td></tr>
+              <tr><td><span class="cmd-emoji">📊</span>bedGraphToBigWig</td><td>Converts the text bedGraph format to the binary BigWig format. BigWig is ~10× smaller and loads instantly in IGV/UCSC browser compared to bedGraph. The chromosome sizes file is required to set the coordinate boundaries.</td></tr>
+              <tr><td><span class="cmd-emoji">📑</span>sort -k1,1 -k2,2n</td><td>Sorts the bedGraph by chromosome name (<code>-k1,1</code> = column 1, alphabetically) then by start position (<code>-k2,2n</code> = column 2, numerically). bedGraphToBigWig requires sorted input — unsorted input causes an immediate crash.</td></tr>
+            </table>
+          </div>
+          <div class="byte-callout mt-3">
+            <img src="../img/Byte2.png" alt="Byte">
+            <div><strong>Viewing in IGV:</strong> Open IGV, select <em>Arabidopsis thaliana (TAIR10)</em> as the genome, then drag-and-drop the <code>.bw</code> file onto the tracks panel. Navigate to a known regulatory region (e.g., a gene promoter like <em>FLC</em> chr5:3,173,983) to see the pileup of open chromatin reads. Accessible regions appear as sharp peaks. Load the <code>.broadPeak</code> file alongside to see called peak boundaries.</div>
+          </div>
+        </section>
+
+        <section id="results" class="mb-5">
+          <h2 class="section-divider">Expected Results</h2>
+          <div class="param-table">
+            <table class="table table-striped mb-0">
+              <thead><tr><th>File</th><th>Description</th><th>Expected Value</th></tr></thead>
+              <tbody>
+                <tr><td><code>SRR4733912.sorted.bam</code></td><td>All aligned reads</td><td>~51M read pairs</td></tr>
+                <tr><td><code>SRR4733912.sorted.noorg.bam</code></td><td>Nuclear reads only</td><td>~4M read pairs (after Pt/Mt removal)</td></tr>
+                <tr><td><code>SRR4733912_peaks.broadPeak</code></td><td>Called open chromatin peaks</td><td>~15,000–25,000 peaks</td></tr>
+                <tr><td><code>SRR4733912_treat_pileup.bw</code></td><td>BigWig track for IGV</td><td>Peaks visible at gene promoters/enhancers</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="mt-2">The bigwig file shows distinct peaks at promoters and enhancers. Comparing WT vs BRM mutant peaks reveals regions of altered chromatin accessibility regulated by the BRM remodeler.</p>
+        </section>
+
+        <section id="errors" class="mb-5">
+          <h2 class="fw-bold"><i class="bi bi-exclamation-triangle me-2 text-warning"></i>Troubleshooting</h2>
+          <div class="error-box">
+            <h6>MACS2: "No enough paired-end reads"</h6>
+            <p>After organelle removal, too few fragments remain. Check: did you align to the correct genome? Are chromosome names consistent (TAIR10 uses "1","2" not "Chr1","Chr2")? Run <code>samtools flagstat</code> to verify paired-end reads are present.</p>
+          </div>
+          <div class="error-box">
+            <h6>bedGraphToBigWig: "out of bounds" or coordinate errors</h6>
+            <p>The chromosome sizes file must exactly match the genome used for alignment. Generate it from the same FASTA used by bowtie2-build with <code>bioawk -c fastx '{print $name, length($seq)}' genome.fa</code>. Do not use a chromosome sizes file from UCSC if you aligned to Ensembl (different chromosome naming).</p>
+          </div>
+          <div class="error-box">
+            <h6>Very few peaks (&lt;1000) after MACS2</h6>
+            <p>Check organelle read removal — if you forgot this step, MACS2's background model is overwhelmed. Also verify <code>-f BAMPE</code> is set (not <code>BAM</code>) for paired-end data, and that the BAM contains paired reads (<code>samtools flagstat</code> should show properly paired reads).</p>
+          </div>
+        </section>
+
+        <div class="d-flex justify-content-between mt-4">
+          <a href="index.html" class="btn btn-outline-secondary rounded-pill px-4"><i class="bi bi-arrow-left me-2"></i>Tutorial Library</a>
+          <a href="gatk-snp-calling-best-practices.html" class="btn btn-primary rounded-pill px-4">Next: GATK Variant Calling <i class="bi bi-arrow-right ms-2"></i></a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-lg-6"><h5 class="text-white fw-bold mb-3"><span style="color:#ff9933;">Indian</span><span style="color:var(--ieb-primary);">Elucid</span><span style="color:var(--ieb-accent);">Biology</span></h5><p class="small">Tutorial content adapted from the Bioinformatics Workbook (Iowa State University GIF). Author: Siva Chudalayandi.</p></div>
+      <div class="col-lg-6 text-lg-end"><p class="small mb-1">Founded by <strong>Ankush Sharma</strong></p><div class="d-flex gap-3 justify-content-lg-end"><a href="https://github.com/ank-man" target="_blank" class="text-white fs-5"><i class="bi bi-github"></i></a><a href="https://www.linkedin.com/in/ankush-sharma-290307/" target="_blank" class="text-white fs-5"><i class="bi bi-linkedin"></i></a></div></div>
+    </div>
+    <hr class="border-secondary mt-4 mb-3">
+    <p class="text-center small mb-0">&copy; 2025 IndianElucidBiology. Based on <a href="https://bioinformaticsworkbook.org" class="text-white-50" target="_blank">bioinformaticsworkbook.org</a>.</p>
+  </div>
+</footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/main.js"></script>
+</body>
+</html>

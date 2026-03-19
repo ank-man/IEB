@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GRN Inference, Multi-modal and Perturbation - SC Module 3 | IndianElucidBiology</title>
+  <meta name="description" content="Advanced single-cell: gene regulatory network inference (SCENIC, pySCENIC, CellOracle), multi-modal analysis (CITE-seq WNN, scATAC-seq ArchR/Signac, multiome), perturbation screens (Perturb-seq, CRISPR, Mixscape), and spatial transcriptomics.">
+  <link rel="canonical" href="https://indianelucidbiology.github.io/tutorials/singlecell-deep-dive-module3.html">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="../css/style.css" rel="stylesheet">
+</head>
+<body>
+<div class="progress-tracker"></div>
+<nav class="navbar navbar-expand-lg fixed-top">
+  <div class="container">
+    <a class="navbar-brand" href="../index.html"><span class="brand-indian">Indian</span><span class="brand-elucid">Elucid</span><span class="brand-biology">Biology</span></a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav"><span class="navbar-toggler-icon"></span></button>
+    <div class="collapse navbar-collapse" id="mainNav">
+      <ul class="navbar-nav ms-auto me-3">
+        <li class="nav-item"><a class="nav-link" href="../index.html">Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="singlecell-deep-dive-module2.html">SC Module 2</a></li>
+      </ul>
+      <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode">&#9790;</button>
+    </div>
+  </div>
+</nav>
+
+<section class="tutorial-hero">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-lg-8">
+        <nav aria-label="breadcrumb"><ol class="breadcrumb mb-3" style="--bs-breadcrumb-divider-color:rgba(255,255,255,0.5);"><li class="breadcrumb-item"><a href="../index.html" class="text-white-50 text-decoration-none">Home</a></li><li class="breadcrumb-item"><a href="single-cell-rna-seq-seurat-analysis-tutorial.html" class="text-white-50 text-decoration-none">scRNA-seq</a></li><li class="breadcrumb-item active text-white">Module 3</li></ol></nav>
+        <h1 class="display-5 fw-bold text-white mb-3">SC Module 3 - GRN, Multi-modal and Perturbation</h1>
+        <p class="lead text-white-50 mb-4">Gene Regulatory Networks - CITE-seq Protein - scATAC-seq Chromatin - Multiome - Perturbation Screens - Spatial Transcriptomics</p>
+        <div class="d-flex gap-3 flex-wrap">
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-clock me-1"></i> ~200 min</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-bar-chart me-1"></i> Advanced</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-terminal me-1"></i> Python / R</span>
+        </div>
+      </div>
+      <div class="col-lg-4 text-center d-none d-lg-block">
+        <img src="../img/Byte4.png" alt="Byte" class="img-fluid" style="max-height:230px;filter:drop-shadow(0 10px 30px rgba(0,0,0,0.4));">
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="container py-5">
+  <div class="row">
+    <div class="col-lg-3 d-none d-lg-block">
+      <div class="toc-sidebar">
+        <h6 class="fw-bold text-muted text-uppercase small mb-3">On this page</h6>
+        <nav class="nav flex-column">
+          <a class="nav-link" href="#s5-1">5.1 GRN with SCENIC</a>
+          <a class="nav-link" href="#s5-2">5.2 CellOracle</a>
+          <a class="nav-link" href="#s6-1">6.1 CITE-seq / WNN</a>
+          <a class="nav-link" href="#s6-2">6.2 scATAC-seq</a>
+          <a class="nav-link" href="#s6-3">6.3 Multiome</a>
+          <a class="nav-link" href="#s7-1">7.1 Perturb-seq</a>
+          <a class="nav-link" href="#s7-2">7.2 Spatial Transcriptomics</a>
+          <a class="nav-link" href="#ai-prompt">AI Prompt Guide</a>
+          <a class="nav-link" href="#errors">Troubleshooting</a>
+          <a class="nav-link" href="#mnemonics">Mnemonics</a>
+        </nav>
+      </div>
+    </div>
+    <div class="col-lg-9">
+      <div class="tutorial-content">
+
+<section id="s5-1" class="mb-5">
+  <h2 class="section-divider">5.1 - Gene Regulatory Network Inference with SCENIC</h2>
+  <p>SCENIC infers transcription factor (TF) activity and their target gene regulons from scRNA-seq data. It combines co-expression analysis with TF motif enrichment to identify genuine regulatory relationships.</p>
+
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash - pySCENIC Command Line</span><button class="btn-copy">Copy</button></div>
+<pre id="script-pyscenic"># pySCENIC three-step pipeline (command line, recommended for HPC)
+
+# Step 1: GRN inference with GRNBoost2
+pyscenic grn expr_matrix.loom allTFs_hg38.txt \
+  -o adjacencies.tsv --num_workers 16
+
+# Step 2: cisTarget - prune by TF motif enrichment
+pyscenic ctx adjacencies.tsv \
+  hg38_10kbp_up_10kbp_down_full_tx_v10.genes_vs_motifs.rankings.feather \
+  hg38_500bp_up_100bp_down_full_tx_v10.genes_vs_motifs.rankings.feather \
+  --annotations_fname motifs-v10nr_clust-nr.hgnc-m0.001-o0.0.tbl \
+  --expression_mtx_fname expr_matrix.loom \
+  --output regulons.csv --num_workers 16
+
+# Step 3: AUCell - score regulon activity per cell
+pyscenic aucell expr_matrix.loom regulons.csv \
+  --output scenic_output.loom --num_workers 16
+
+# Download cisTarget databases:
+# https://resources.aertslab.org/cistarget/
+# Human: hg38, Mouse: mm10</pre>
+  </div>
+  <div class="download-bar">
+    <span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span>
+    <button class="btn-download-script" data-script-id="script-pyscenic" data-filename="pyscenic_grn.sh"><i class="bi bi-download me-1"></i> pyscenic_grn.sh</button>
+  </div>
+
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Python - Loading SCENIC Results into Scanpy</span><button class="btn-copy">Copy</button></div>
+<pre id="script-scenic-viz">import loompy, pandas as pd, scanpy as sc
+
+# Load regulon AUC scores
+lf = loompy.connect("scenic_output.loom")
+auc_mtx = pd.DataFrame(lf.ca["RegulonsAUC"],
+                         index=lf.ca["CellID"])
+lf.close()
+
+# Add to existing adata
+adata.obsm['X_regulon_auc'] = auc_mtx.loc[adata.obs_names].values
+
+# Visualize regulon activity per cell type
+sc.pl.matrixplot(adata, var_names=['GATA1(+)','SPI1(+)','PAX5(+)',
+                  'CEBPA(+)','TCF7(+)','FOXP3(+)'],
+                  groupby='celltype', standard_scale='var',
+                  cmap='RdBu_r')
+
+# Regulon specificity score (RSS)
+# Identifies which regulons are most cell-type-specific
+from pyscenic.plotting import plot_rss
+rss = pd.DataFrame(columns=adata.obs['celltype'].unique())
+for ct in rss.columns:
+    mask = adata.obs['celltype'] == ct
+    rss[ct] = auc_mtx[mask].mean(axis=0)
+# Top regulons per cell type = cell identity TFs</pre>
+  </div>
+  <div class="download-bar">
+    <span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span>
+    <button class="btn-download-script" data-script-id="script-scenic-viz" data-filename="scenic_analysis.py"><i class="bi bi-download me-1"></i> scenic_analysis.py</button>
+  </div>
+
+  <div class="thumb-rule">
+    <strong>Thumb Rule - SCENIC Validation:</strong> A regulon is trustworthy if: (1) The TF is expressed in the expected cell type, (2) Known target genes are in the regulon, (3) Activity matches published biology. SCENIC finds real biology but also many spurious regulons - always validate top hits experimentally.
+  </div>
+</section>
+
+<section id="s5-2" class="mb-5">
+  <h2 class="section-divider">5.2 - CellOracle: In Silico Perturbation of GRNs</h2>
+
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Python - CellOracle</span><button class="btn-copy">Copy</button></div>
+<pre id="script-celloracle">import celloracle as co
+import scanpy as sc
+
+# CellOracle: build GRN + simulate TF knockouts in silico
+# Step 1: Load base GRN from scATAC or motif scanning
+base_GRN = co.data.load_mouse_scATAC_atlas_base_GRN()
+
+# Step 2: Set up Oracle object
+oracle = co.Oracle()
+oracle.import_anndata_as_raw_count(
+    adata=adata, cluster_column_name="celltype",
+    embedding_name="X_umap"
+)
+oracle.import_TF_data(TF_info_matrix=base_GRN)
+oracle.perform_PCA()
+oracle.knn_imputation(k=30)
+
+# Step 3: Fit GRN per cluster
+links = oracle.get_links(
+    cluster_name_for_GRN_unit="celltype",
+    alpha=10, verbose_level=10
+)
+links.filter_links(p=0.001, weight="coef_abs", threshold=0.1)
+
+# Step 4: Simulate TF knockout
+oracle.simulate_shift(
+    perturb_condition={"Gata1": 0.0},  # set GATA1 expression to 0
+    n_propagation=3
+)
+# Visualize predicted cell state shift
+oracle.estimate_transition_prob(n_neighbors=200, knn_random=True)
+oracle.calculate_embedding_shift(sigma_corr=0.05)
+
+fig, ax = oracle.plot_simulation_result(
+    scale=0.5, show_background=True
+)
+# Arrows show predicted direction cells would move after KO
+# Validates: does GATA1 KO push HSCs away from erythroid fate?</pre>
+  </div>
+  <div class="download-bar">
+    <span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span>
+    <button class="btn-download-script" data-script-id="script-celloracle" data-filename="celloracle_perturbation.py"><i class="bi bi-download me-1"></i> celloracle_perturbation.py</button>
+  </div>
+
+  <div class="mnemonic-box">
+    <span class="mnemonic-label">Mnemonic</span>
+    <p class="mnemonic-phrase">"<strong>SCENIC</strong> finds <strong>who</strong> regulates, <strong>CellOracle</strong> predicts <strong>what happens</strong> if you perturb"</p>
+    <p class="mnemonic-detail">SCENIC identifies TF regulons (the network). CellOracle uses that network to simulate what happens when you knock out or overexpress a TF. Together they provide discovery + prediction.</p>
+  </div>
+</section>
+
+<section id="s6-1" class="mb-5">
+  <h2 class="section-divider">6.1 - CITE-seq and Weighted Nearest Neighbor (WNN)</h2>
+
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>R - Seurat WNN for CITE-seq</span><button class="btn-copy">Copy</button></div>
+<pre id="script-citeseq">library(Seurat)
+
+# CITE-seq: RNA + surface protein (ADT) from same cell
+# Load 10x multi-modal data
+obj &lt;- Read10X("filtered_feature_bc_matrix/")
+# Creates: obj$`Gene Expression` and obj$`Antibody Capture`
+
+obj &lt;- CreateSeuratObject(counts=obj$`Gene Expression`)
+obj[["ADT"]] &lt;- CreateAssay5Object(counts=obj$`Antibody Capture`)
+
+# Process RNA
+obj &lt;- NormalizeData(obj)
+obj &lt;- FindVariableFeatures(obj)
+obj &lt;- ScaleData(obj)
+obj &lt;- RunPCA(obj)
+
+# Process protein (ADT) - CLR normalization
+obj &lt;- NormalizeData(obj, assay="ADT", normalization.method="CLR",
+                      margin=2)
+obj &lt;- ScaleData(obj, assay="ADT")
+obj &lt;- RunPCA(obj, assay="ADT", reduction.name="apca",
+               features=rownames(obj[["ADT"]]))
+
+# Weighted Nearest Neighbor (WNN) - combines both modalities
+obj &lt;- FindMultiModalNeighbors(obj,
+  reduction.list=list("pca","apca"),
+  dims.list=list(1:30, 1:18),
+  modality.weight.name="RNA.weight"
+)
+
+# Cluster and visualize using WNN graph
+obj &lt;- RunUMAP(obj, nn.name="weighted.nn",
+                reduction.name="wnn.umap")
+obj &lt;- FindClusters(obj, graph.name="wsnn", resolution=0.8)
+
+# Compare modalities
+p1 &lt;- DimPlot(obj, reduction="umap", label=TRUE) + ggtitle("RNA")
+p2 &lt;- DimPlot(obj, reduction="wnn.umap", label=TRUE) + ggtitle("WNN")
+p1 + p2
+
+# Protein markers often resolve cell types that RNA cannot
+# e.g., CD4 vs CD8 T cells, naive vs memory
+FeaturePlot(obj, features=c("adt_CD4","adt_CD8","adt_CD45RA"),
+            reduction="wnn.umap")</pre>
+  </div>
+  <div class="download-bar">
+    <span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span>
+    <button class="btn-download-script" data-script-id="script-citeseq" data-filename="citeseq_wnn.R"><i class="bi bi-download me-1"></i> citeseq_wnn.R</button>
+  </div>
+</section>
+
+<section id="s6-2" class="mb-5">
+  <h2 class="section-divider">6.2 - scATAC-seq Analysis</h2>
+
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>R - ArchR (Recommended for scATAC)</span><button class="btn-copy">Copy</button></div>
+<pre id="script-archr">library(ArchR)
+addArchRGenome("hg38")
+addArchRThreads(threads=16)
+
+# Create Arrow files from fragments
+ArrowFiles &lt;- createArrowFiles(
+  inputFiles="fragments.tsv.gz",
+  sampleNames="sample1",
+  minTSS=4, minFrags=1000, addTileMat=TRUE, addGeneScoreMat=TRUE
+)
+
+# Create ArchR project
+proj &lt;- ArchRProject(ArrowFiles=ArrowFiles, outputDirectory="ArchR_out")
+
+# Doublet removal
+proj &lt;- addDoubletScores(proj)
+proj &lt;- filterDoublets(proj)
+
+# Dimensionality reduction (LSI - Latent Semantic Indexing)
+proj &lt;- addIterativeLSI(proj, useMatrix="TileMatrix",
+                          name="IterativeLSI", iterations=2,
+                          clusterParams=list(resolution=0.2))
+
+# Clustering
+proj &lt;- addClusters(proj, reducedDims="IterativeLSI", resolution=0.8)
+proj &lt;- addUMAP(proj, reducedDims="IterativeLSI")
+plotEmbedding(proj, colorBy="cellColData", name="Clusters")
+
+# Gene scores (infer gene expression from chromatin accessibility)
+proj &lt;- addGeneScoreMatrix(proj)
+
+# Peak calling per cluster (MACS2)
+proj &lt;- addGroupCoverages(proj, groupBy="Clusters")
+proj &lt;- addReproduciblePeakSet(proj, groupBy="Clusters",
+                                 pathToMacs2="/path/to/macs2")
+proj &lt;- addPeakMatrix(proj)
+
+# Motif enrichment in differential peaks
+proj &lt;- addMotifAnnotations(proj, motifSet="cisbp")
+enrichMotifs &lt;- peakAnnoEnrichment(
+  seMarker=markersPeaks, ArchRProj=proj,
+  peakAnnotation="Motif", cutOff="FDR &lt;= 0.01"
+)
+
+# ChromVAR: TF motif deviation scores per cell
+proj &lt;- addBgdPeaks(proj)
+proj &lt;- addDeviationsMatrix(proj, peakAnnotation="Motif")
+plotVarDev &lt;- getVarDeviations(proj, name="MotifMatrix")
+plotVarDev  # top variable TF motifs</pre>
+  </div>
+  <div class="download-bar">
+    <span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span>
+    <button class="btn-download-script" data-script-id="script-archr" data-filename="archr_scatac.R"><i class="bi bi-download me-1"></i> archr_scatac.R</button>
+  </div>
+
+  <div class="decision-box">
+    <h5><i class="bi bi-signpost-split me-2"></i>scATAC Tools Comparison</h5>
+    <ul>
+      <li><strong>ArchR (R)</strong>: Most complete, handles large datasets, includes peak calling, motifs, integration. Recommended.</li>
+      <li><strong>Signac (R, Seurat ecosystem)</strong>: Good if already using Seurat. Requires Cell Ranger ATAC output.</li>
+      <li><strong>SnapATAC2 (Python)</strong>: Fast, scalable, integrates with Scanpy. Best for Python users.</li>
+      <li><strong>EpiScanpy (Python)</strong>: Lightweight, extends Scanpy for epigenomics.</li>
+    </ul>
+  </div>
+</section>
+
+<section id="s6-3" class="mb-5">
+  <h2 class="section-divider">6.3 - 10x Multiome (RNA + ATAC from Same Cell)</h2>
+
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>R - Seurat/Signac Multiome</span><button class="btn-copy">Copy</button></div>
+<pre># Process multiome data: joint RNA + ATAC per cell
+library(Seurat)
+library(Signac)
+
+# Load Cell Ranger ARC output
+counts &lt;- Read10X_h5("filtered_feature_bc_matrix.h5")
+fragpath &lt;- "atac_fragments.tsv.gz"
+
+# Create multimodal Seurat object
+obj &lt;- CreateSeuratObject(counts=counts$`Gene Expression`, assay="RNA")
+obj[["ATAC"]] &lt;- CreateChromatinAssay(
+  counts=counts$Peaks, sep=c(":","-"),
+  fragments=fragpath, annotation=annotation
+)
+
+# Process RNA
+obj &lt;- SCTransform(obj, assay="RNA")
+obj &lt;- RunPCA(obj)
+
+# Process ATAC
+DefaultAssay(obj) &lt;- "ATAC"
+obj &lt;- FindTopFeatures(obj, min.cutoff=5)
+obj &lt;- RunTFIDF(obj)
+obj &lt;- RunSVD(obj)
+
+# WNN integration of both modalities
+obj &lt;- FindMultiModalNeighbors(obj,
+  reduction.list=list("pca","lsi"),
+  dims.list=list(1:30, 2:30)  # skip LSI component 1 (depth)
+)
+obj &lt;- RunUMAP(obj, nn.name="weighted.nn", reduction.name="wnn.umap")
+
+# Link peaks to genes (key multiome advantage!)
+obj &lt;- LinkPeaks(obj, peak.assay="ATAC", expression.assay="SCT")
+# Identifies which ATAC peaks regulate which genes
+# Based on correlation of peak accessibility with gene expression</pre>
+  </div>
+
+  <div class="thumb-rule">
+    <strong>Thumb Rule - Multiome LSI Component 1:</strong> Always exclude the first LSI component when analyzing scATAC data. It correlates with sequencing depth (technical), not biology. Use components 2-30 for neighbors/UMAP.
+  </div>
+</section>
+
+<section id="s7-1" class="mb-5">
+  <h2 class="section-divider">7.1 - Perturbation Screens (Perturb-seq / CROP-seq)</h2>
+
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Python - Perturbation Analysis</span><button class="btn-copy">Copy</button></div>
+<pre id="script-perturb">import scanpy as sc
+import pertpy as pt
+
+# Perturb-seq: CRISPR perturbations + scRNA-seq readout
+# Each cell has a guide RNA barcode identifying which gene was targeted
+
+# Load data with guide assignments
+adata = sc.read_h5ad("perturb_seq.h5ad")
+# adata.obs['guide_identity'] = assigned guide RNA
+# adata.obs['gene_target'] = target gene
+
+# Mixscape (Seurat/pertpy): classify perturbed vs escaped cells
+ms = pt.tl.Mixscape()
+ms.perturbation_signature(adata, pert_key="gene_target",
+                            control="non-targeting")
+ms.mixscape(adata, pert_key="gene_target", control="non-targeting",
+             labels="celltype")
+# Cells classified as: perturbed, non-perturbed (KO escaped), NT control
+
+# Differential expression: each KO vs non-targeting controls
+de_results = {}
+for gene in adata.obs['gene_target'].unique():
+    if gene == 'non-targeting':
+        continue
+    mask_ko = adata.obs['gene_target'] == gene
+    mask_nt = adata.obs['gene_target'] == 'non-targeting'
+    sub = adata[mask_ko | mask_nt].copy()
+    sc.tl.rank_genes_groups(sub, groupby='gene_target',
+                             reference='non-targeting', method='wilcoxon')
+    de_results[gene] = sc.get.rank_genes_groups_df(sub, group=gene)
+
+# MILO: differential abundance testing
+# Tests which cell states are enriched/depleted after perturbation
+milo = pt.tl.Milo()
+milo.load(adata)
+milo.make_nhoods(adata)
+milo.count_nhoods(adata, sample_col="replicate")
+milo.da_nhoods(adata, design="~perturbation")</pre>
+  </div>
+  <div class="download-bar">
+    <span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span>
+    <button class="btn-download-script" data-script-id="script-perturb" data-filename="perturbseq_analysis.py"><i class="bi bi-download me-1"></i> perturbseq_analysis.py</button>
+  </div>
+
+  <div class="mnemonic-box">
+    <span class="mnemonic-label">Mnemonic</span>
+    <p class="mnemonic-phrase">"<strong>Mix</strong>scape separates <strong>Hit</strong>s from <strong>Miss</strong>es"</p>
+    <p class="mnemonic-detail">Not all cells with a guide RNA are successfully perturbed. Mixscape classifies cells as truly perturbed (changed transcriptome) vs escaped (guide present but no effect). Always run Mixscape before DE analysis to avoid diluting your signal with unperturbed cells.</p>
+  </div>
+</section>
+
+<section id="s7-2" class="mb-5">
+  <h2 class="section-divider">7.2 - Spatial Transcriptomics Integration</h2>
+
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Python - Squidpy and Cell2location</span><button class="btn-copy">Copy</button></div>
+<pre id="script-spatial">import squidpy as sq
+import scanpy as sc
+
+# Load Visium spatial data
+adata_vis = sc.read_visium("visium_output/")
+adata_vis.var_names_make_unique()
+
+# Standard preprocessing
+sc.pp.normalize_total(adata_vis, target_sum=1e4)
+sc.pp.log1p(adata_vis)
+sc.pp.highly_variable_genes(adata_vis, n_top_genes=2000)
+sc.tl.pca(adata_vis)
+sc.pp.neighbors(adata_vis)
+sc.tl.umap(adata_vis)
+sc.tl.leiden(adata_vis)
+
+# Spatial visualization
+sq.pl.spatial_scatter(adata_vis, color="leiden", shape=None, size=1.3)
+
+# Spatial neighborhood analysis
+sq.gr.spatial_neighbors(adata_vis)
+sq.gr.nhood_enrichment(adata_vis, cluster_key="leiden")
+sq.pl.nhood_enrichment(adata_vis, cluster_key="leiden")
+
+# Spatially variable genes
+sq.gr.spatial_autocorr(adata_vis, mode="moran")
+# High Moran's I = spatially structured expression
+
+# Cell2location: deconvolve spots using scRNA-seq reference
+import cell2location as c2l
+
+# Train reference model on scRNA-seq
+c2l.models.RegressionModel.setup_anndata(
+    adata_sc, batch_key="sample", labels_key="celltype"
+)
+mod_ref = c2l.models.RegressionModel(adata_sc)
+mod_ref.train(max_epochs=250)
+
+# Map to spatial data
+c2l.models.Cell2location.setup_anndata(adata_vis)
+mod_sp = c2l.models.Cell2location(adata_vis,
+    cell_state_df=mod_ref.export_posterior_adata().X)
+mod_sp.train(max_epochs=30000)
+adata_vis = mod_sp.export_posterior(adata_vis)
+# Now each spot has estimated cell type abundances</pre>
+  </div>
+  <div class="download-bar">
+    <span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span>
+    <button class="btn-download-script" data-script-id="script-spatial" data-filename="spatial_analysis.py"><i class="bi bi-download me-1"></i> spatial_analysis.py</button>
+  </div>
+
+  <div class="param-table">
+    <table class="table table-striped mb-0">
+      <thead><tr><th>Platform</th><th>Resolution</th><th>Genes</th><th>Tool</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Visium (10x)</strong></td><td>55um spots (~1-10 cells)</td><td>Whole transcriptome</td><td>Squidpy, Scanpy, Seurat</td></tr>
+        <tr><td><strong>Visium HD</strong></td><td>2um bins (subcellular)</td><td>Whole transcriptome</td><td>Squidpy, Seurat</td></tr>
+        <tr><td><strong>MERFISH</strong></td><td>Single-molecule</td><td>100-10,000 genes</td><td>Squidpy, Baysor</td></tr>
+        <tr><td><strong>Slide-seq</strong></td><td>10um beads</td><td>Whole transcriptome</td><td>Squidpy, RCTD</td></tr>
+        <tr><td><strong>Stereo-seq</strong></td><td>Subcellular</td><td>Whole transcriptome</td><td>STOmics, Squidpy</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- AI PROMPT -->
+<section id="ai-prompt" class="mb-5">
+  <h2 class="fw-bold"><i class="bi bi-robot me-2"></i> AI Prompt Guide</h2>
+  <div class="ai-prompt-box">
+    <h5><i class="bi bi-robot me-2"></i> Multi-modal and GRN Analysis</h5>
+    <div class="ai-prompt-text">I have [MODALITY: CITE-seq / Multiome RNA+ATAC / Perturb-seq / Visium spatial] data from [TISSUE/SYSTEM].
+Species: [SPECIES]. Expected cell types: [LIST].
+
+Please write a complete analysis pipeline that:
+1. Processes each modality with appropriate methods
+2. Integrates modalities (WNN for CITE-seq, joint for multiome)
+3. Runs SCENIC/pySCENIC for GRN inference
+4. [If Perturb-seq]: Classifies perturbed vs escaped cells with Mixscape
+5. [If spatial]: Deconvolves spots with Cell2location using scRNA-seq reference
+6. Identifies cell-type-specific regulatory programs
+7. Performs in silico perturbation with CellOracle
+8. Produces publication-quality figures
+9. Includes interpretation guidelines for each analysis</div>
+    <button class="btn-copy-prompt mt-3"><i class="bi bi-clipboard me-1"></i> Copy Prompt</button>
+  </div>
+</section>
+
+<!-- TROUBLESHOOTING -->
+<section id="errors" class="mb-5">
+  <h2 class="fw-bold"><span class="step-number me-2">&#9888;</span> Troubleshooting</h2>
+
+  <div class="error-box">
+    <h6><i class="bi bi-exclamation-triangle me-2"></i>pySCENIC: cisTarget step takes forever or crashes</h6>
+    <p>The feather ranking databases are very large (5-10 GB). Solutions: (1) Use the command-line version (not Python API) for memory efficiency, (2) Ensure enough RAM (64 GB minimum), (3) Use the smaller 500bp database alone for initial exploration, (4) Subset to fewer cells (5000-10000) for GRNBoost2 step.</p>
+  </div>
+
+  <div class="error-box">
+    <h6><i class="bi bi-exclamation-triangle me-2"></i>ArchR: "No peaks called for cluster X"</h6>
+    <p>Too few cells in that cluster for MACS2 peak calling. Solutions: (1) Merge small clusters before calling peaks, (2) Lower MACS2 q-value threshold, (3) Increase coverage by combining replicates. Minimum ~200 cells per group for reliable peak calling.</p>
+  </div>
+
+  <div class="error-box">
+    <h6><i class="bi bi-exclamation-triangle me-2"></i>Cell2location: Deconvolution gives uniform cell type proportions</h6>
+    <p>The reference scRNA-seq may not match the spatial tissue well. Check: (1) Reference contains all cell types present in the tissue, (2) Reference and spatial data are from the same species/tissue, (3) Training converged (check ELBO loss). Try increasing max_epochs or filtering lowly-expressed genes.</p>
+  </div>
+
+  <div class="error-box">
+    <h6><i class="bi bi-exclamation-triangle me-2"></i>Perturb-seq: Most cells classified as non-perturbed by Mixscape</h6>
+    <p>Low perturbation efficiency. Causes: (1) Weak guide RNAs (low KO efficiency), (2) Gene is not expressed in this cell type (nothing to knock out), (3) Redundant pathways compensate. Check guide efficiency with bulk validation. Focus analysis on the subset of confirmed-perturbed cells.</p>
+  </div>
+</section>
+
+<!-- MNEMONICS -->
+<section id="mnemonics" class="mb-5">
+  <h2 class="fw-bold"><i class="bi bi-lightbulb me-2"></i> Mnemonics and Thumb Rules</h2>
+
+  <div class="mnemonic-box">
+    <span class="mnemonic-label">Mnemonic</span>
+    <p class="mnemonic-phrase">"<strong>GRN</strong>Boost finds links, cis<strong>T</strong>arget <strong>T</strong>rims, <strong>AU</strong>Cell scores"</p>
+    <p class="mnemonic-detail">The SCENIC pipeline in three words: Find (co-expression links), Trim (keep only those with TF motif support), Score (regulon activity per cell). Each step reduces false positives.</p>
+  </div>
+
+  <div class="mnemonic-box">
+    <span class="mnemonic-label">Mnemonic</span>
+    <p class="mnemonic-phrase">"<strong>LSI</strong> component <strong>1</strong> = <strong>L</strong>ibrary <strong>S</strong>ize, <strong>I</strong>gnore it"</p>
+    <p class="mnemonic-detail">In scATAC-seq, the first LSI component always correlates with sequencing depth. Always use components 2-30 for downstream analysis (neighbors, UMAP, clustering). This is unique to ATAC - in RNA PCA, component 1 is usually biological.</p>
+  </div>
+
+  <div class="thumb-rule">
+    <strong>Thumb Rule - Multi-modal Priority:</strong> When RNA and protein (CITE-seq) disagree on cell identity, trust protein for surface markers (direct measurement) but trust RNA for transcription factors and intracellular processes. WNN combines both optimally.</div>
+
+  <div class="thumb-rule">
+    <strong>Thumb Rule - Spatial Resolution:</strong> Visium spots contain 1-10 cells - always deconvolve. MERFISH/Xenium are single-cell resolution - deconvolution not needed but cell segmentation is critical. For subcellular analysis (Visium HD, Stereo-seq), use bin sizes appropriate to your question.</div>
+</section>
+
+<!-- Navigation -->
+<section class="mb-5">
+  <div class="d-flex justify-content-between">
+    <a href="singlecell-deep-dive-module2.html" class="btn btn-outline-secondary rounded-pill px-4"><i class="bi bi-arrow-left me-2"></i>SC Module 2: Integration</a>
+    <a href="singlecell-deep-dive-module4.html" class="btn btn-primary rounded-pill px-4">SC Module 4: Advanced Methods <i class="bi bi-arrow-right ms-2"></i></a>
+  </div>
+</section>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-lg-6"><h5 class="text-white fw-bold mb-3"><span style="color:#ff9933;">Indian</span><span style="color:var(--ieb-primary);">Elucid</span><span style="color:var(--ieb-accent);">Biology</span></h5><p class="small">Free, interactive bioinformatics tutorials. Open source and community-driven.</p></div>
+      <div class="col-lg-6 text-lg-end"><p class="small mb-1">Founded by <strong>Ankush Sharma</strong></p><div class="d-flex gap-3 justify-content-lg-end"><a href="https://github.com/ank-man" target="_blank" class="text-white fs-5"><i class="bi bi-github"></i></a><a href="https://www.linkedin.com/in/ankush-sharma-290307/" target="_blank" class="text-white fs-5"><i class="bi bi-linkedin"></i></a><a href="mailto:mr.ank2999@gmail.com" class="text-white fs-5"><i class="bi bi-envelope"></i></a></div></div>
+    </div>
+    <hr class="border-secondary mt-4 mb-3">
+    <p class="text-center small mb-0">&copy; 2025 IndianElucidBiology - Founded by <a href="https://www.linkedin.com/in/ankush-sharma-290307/" class="text-white-50" target="_blank">Ankush Sharma</a>. Made with <span style="color:#e25555;">&#9829;</span> for the bioinformatics community.</p>
+  </div>
+</footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/main.js"></script>
+</body>
+</html>

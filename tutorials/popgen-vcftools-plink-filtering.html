@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VCF Filtering &amp; Population Stats: VCFtools, PLINK, bcftools | IndianElucidBiology</title>
+  <meta name="description" content="Filter multi-sample VCFs with VCFtools, compute Tajima's D, pi, and Fst, and run PCA with PLINK 2.0. Uses the Arabidopsis thaliana 1001 Genomes dataset (PRJNA273563).">
+  <meta name="keywords" content="VCFtools, PLINK, bcftools, VCF filtering, population genetics, Tajima's D, nucleotide diversity, Fst, PCA, MAF, missingness, Hardy-Weinberg, LD pruning">
+  <link rel="canonical" href="https://indianelucidbiology.github.io/tutorials/popgen-vcftools-plink-filtering.html">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="../css/style.css" rel="stylesheet">
+</head>
+<body>
+<div class="progress-tracker"></div>
+<nav class="navbar navbar-expand-lg fixed-top">
+  <div class="container">
+    <a class="navbar-brand" href="../index.html"><span class="brand-indian">Indian</span><span class="brand-elucid">Elucid</span><span class="brand-biology">Biology</span></a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav"><span class="navbar-toggler-icon"></span></button>
+    <div class="collapse navbar-collapse" id="mainNav">
+      <ul class="navbar-nav ms-auto me-3">
+        <li class="nav-item"><a class="nav-link" href="../index.html">Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="index.html">Tutorial Library</a></li>
+        <li class="nav-item"><a class="nav-link" href="popgen-admixture-population-structure.html">ADMIXTURE<i class="bi bi-arrow-right ms-1"></i></a></li>
+      </ul>
+      <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode">&#9790;</button>
+    </div>
+  </div>
+</nav>
+
+<section class="tutorial-hero">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-lg-8">
+        <nav aria-label="breadcrumb"><ol class="breadcrumb mb-3" style="--bs-breadcrumb-divider-color:rgba(255,255,255,0.5);"><li class="breadcrumb-item"><a href="../index.html" class="text-white-50 text-decoration-none">Home</a></li><li class="breadcrumb-item"><a href="index.html" class="text-white-50 text-decoration-none">Tutorials</a></li><li class="breadcrumb-item active text-white">VCF Filtering &amp; Pop Stats</li></ol></nav>
+        <h1 class="display-5 fw-bold text-white mb-3">VCF Filtering &amp; Population Statistics</h1>
+        <p class="lead text-white-50 mb-4">Quality-filter multi-sample VCFs with VCFtools &amp; bcftools &middot; Compute Tajima&rsquo;s D, &pi;, Fst &middot; LD pruning &amp; PCA with PLINK 2.0</p>
+        <div class="d-flex gap-3 flex-wrap">
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-clock me-1"></i> ~90 min</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-bar-chart me-1"></i> Intermediate</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-terminal me-1"></i> Bash / R</span>
+        </div>
+      </div>
+      <div class="col-lg-4 text-center d-none d-lg-block">
+        <img src="../img/Byte3.png" alt="Byte" class="img-fluid" style="max-height:230px;filter:drop-shadow(0 10px 30px rgba(0,0,0,0.4));">
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="container py-5">
+  <div class="row">
+    <div class="col-lg-3 d-none d-lg-block">
+      <div class="toc-sidebar">
+        <h6 class="fw-bold text-muted text-uppercase small mb-3">On this page</h6>
+        <nav class="nav flex-column">
+          <a class="nav-link" href="#overview">Overview</a>
+          <a class="nav-link" href="#dirstructure">Directory Structure</a>
+          <a class="nav-link" href="#dataset">Dataset</a>
+          <a class="nav-link" href="#step1">1. Download &amp; Inspect VCF</a>
+          <a class="nav-link" href="#step2">2. bcftools QC &amp; Stats</a>
+          <a class="nav-link" href="#step3">3. VCFtools Filtering</a>
+          <a class="nav-link" href="#step4">4. Diversity Stats</a>
+          <a class="nav-link" href="#step5">5. Fst Between Populations</a>
+          <a class="nav-link" href="#step6">6. LD Pruning &amp; PLINK PCA</a>
+          <a class="nav-link" href="#step7">7. Visualize PCA in R</a>
+        </nav>
+      </div>
+    </div>
+    <div class="col-lg-9">
+      <div class="tutorial-content">
+
+        <section id="overview" class="mb-5">
+          <h2 class="section-divider">Overview</h2>
+          <p>Before any population genetic analysis, your VCF must be rigorously filtered. Raw variant calls from GATK or other callers contain genuine polymorphisms, sequencing errors, mapping artefacts, and low-confidence genotypes that will bias every downstream statistic. This tutorial covers the standard filtering and QC pipeline, followed by computing the core summary statistics (nucleotide diversity &pi;, Tajima&rsquo;s D, pairwise Fst) and a PCA to visualise population structure.</p>
+          <div class="byte-callout">
+            <img src="../img/Byte1.png" alt="Byte">
+            <div>
+              <strong>Key concepts:</strong>
+              <ul class="mb-0 mt-1 small">
+                <li><strong>MAF (Minor Allele Frequency):</strong> minimum frequency threshold below which sites are removed — singletons are often sequencing errors</li>
+                <li><strong>Missingness:</strong> fraction of individuals lacking a genotype at a site — high missingness causes biased statistics</li>
+                <li><strong>LD pruning:</strong> removes correlated SNPs before PCA/ADMIXTURE so that independent loci are analysed</li>
+                <li><strong>Fst:</strong> fixation index — proportion of total genetic variance explained by between-population differences (0 = identical, 1 = completely fixed)</li>
+                <li><strong>Tajima&rsquo;s D:</strong> compares two estimators of &theta; (Watterson&rsquo;s vs. pairwise) — negative = excess rare alleles (expansion/selection), positive = excess intermediate alleles (balancing selection/bottleneck)</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <section id="dirstructure" class="mb-5">
+          <h2 class="section-divider">Ideal Directory Structure</h2>
+          <p>Keep raw data untouched and separate from filtered outputs at every step.</p>
+          <div class="dir-tree">
+            <div class="dir-tree-header"><i class="bi bi-folder2-open"></i> popgen_vcf_filtering/</div>
+<span class="tree-folder">popgen_vcf_filtering/</span>
+&#9500;&#9472;&#9472; <span class="tree-folder tree-active">0_raw/</span>                    <span class="tree-note"># downloaded VCF + reference (never modify)</span>
+&#9474;   &#9500;&#9472;&#9472; <span class="tree-file">1001genomes_snp.vcf.gz</span>
+&#9474;   &#9492;&#9472;&#9472; <span class="tree-file">TAIR10.fa</span>
+&#9500;&#9472;&#9472; <span class="tree-folder">1_qc/</span>                     <span class="tree-note"># bcftools stats output</span>
+&#9474;   &#9492;&#9472;&#9472; <span class="tree-output">bcftools_stats.txt</span>
+&#9500;&#9472;&#9472; <span class="tree-folder">2_filtered/</span>               <span class="tree-note"># VCFtools-filtered VCF</span>
+&#9474;   &#9500;&#9472;&#9472; <span class="tree-output">filtered.vcf.gz</span>
+&#9474;   &#9492;&#9472;&#9472; <span class="tree-output">filtered.log</span>
+&#9500;&#9472;&#9472; <span class="tree-folder">3_diversity/</span>              <span class="tree-note"># per-window Tajima D, pi, Fst</span>
+&#9474;   &#9500;&#9472;&#9472; <span class="tree-output">tajimaD.Tajima.D</span>
+&#9474;   &#9500;&#9472;&#9472; <span class="tree-output">pi.windowed.pi</span>
+&#9474;   &#9492;&#9472;&#9472; <span class="tree-output">fst.weir.fst</span>
+&#9500;&#9472;&#9472; <span class="tree-folder">4_pca/</span>                    <span class="tree-note"># PLINK LD-pruned files + eigenvectors</span>
+&#9474;   &#9500;&#9472;&#9472; <span class="tree-output">plink_pruned.bed/bim/fam</span>
+&#9474;   &#9492;&#9472;&#9472; <span class="tree-output">pca.eigenvec / pca.eigenval</span>
+&#9492;&#9472;&#9472; <span class="tree-folder">5_plots/</span>                  <span class="tree-note"># R-generated figures</span>
+    &#9500;&#9472;&#9472; <span class="tree-output">pca_plot.png</span>
+    &#9492;&#9472;&#9472; <span class="tree-output">tajimad_plot.png</span>
+          </div>
+        </section>
+
+        <section id="dataset" class="mb-5">
+          <h2 class="section-divider">Dataset</h2>
+          <p>The <strong>Arabidopsis thaliana 1001 Genomes Project</strong> sequenced 1,135 natural inbred lines from across the native Eurasian range at ~15x coverage. It is the most comprehensive plant population genomics dataset available and has been used to study local adaptation, selfing, and the genetic architecture of complex traits.</p>
+          <div class="param-table">
+            <table class="table table-striped mb-0">
+              <thead><tr><th>Property</th><th>Value</th></tr></thead>
+              <tbody>
+                <tr><td>Organism</td><td><em>Arabidopsis thaliana</em></td></tr>
+                <tr><td>Accession</td><td>PRJNA273563 / <a href="https://1001genomes.org/data/GMI-MPI/releases/v3.1/" target="_blank">1001genomes.org v3.1</a></td></tr>
+                <tr><td>Sample size</td><td>1,135 natural accessions</td></tr>
+                <tr><td>SNPs (raw)</td><td>~10 million</td></tr>
+                <tr><td>Reference</td><td>TAIR10 (<em>A. thaliana</em> Col-0)</td></tr>
+                <tr><td>Publication</td><td>1001 Genomes Consortium, <em>Cell</em> 2016</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="thumb-rule mt-3"><strong>Why this dataset?</strong> It is biallelic SNP-only, already hard-filtered by the consortium, making it an ideal starting point to learn downstream filtering. The accessions span six geographic groups (Africa, Central Europe, Iberia, Scandinavia, Western Europe, Relict) enabling clean multi-population Fst and PCA demonstrations.</div>
+        </section>
+
+        <section id="step1" class="mb-5">
+          <h2 class="section-divider">Step 1 — Download &amp; Inspect VCF</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash — Download 1001 Genomes VCF</span><button class="btn-copy">Copy</button></div>
+<pre id="s1-download">mkdir -p 0_raw
+cd 0_raw
+
+# Download the 1001 Genomes SNP VCF (all chromosomes, ~1.4 GB compressed)
+wget https://1001genomes.org/data/GMI-MPI/releases/v3.1/1001genomes_snp-short-indel_only_ACGTN.vcf.gz
+wget https://1001genomes.org/data/GMI-MPI/releases/v3.1/1001genomes_snp-short-indel_only_ACGTN.vcf.gz.tbi
+
+# Or download chromosome-by-chromosome for testing (Chr1 only, ~280 MB)
+wget https://1001genomes.org/data/GMI-MPI/releases/v3.1/by_chromosome/GMI-MPI_1001-genomes_chr1.vcf.gz
+
+# Quick inspection
+module load bcftools/1.17
+bcftools stats 1001genomes_snp-short-indel_only_ACGTN.vcf.gz | head -50
+
+# Count variants and samples
+bcftools query -l 1001genomes_snp-short-indel_only_ACGTN.vcf.gz | wc -l   # samples
+bcftools view --no-header 1001genomes_snp-short-indel_only_ACGTN.vcf.gz | wc -l   # variants
+
+# View first few records
+bcftools view -H 1001genomes_snp-short-indel_only_ACGTN.vcf.gz | head -5
+
+cd ..</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s1-download" data-filename="01_download_inspect.sh"><i class="bi bi-download me-1"></i>01_download_inspect.sh</button></div>
+          <div class="cmd-explain">
+            <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> Download and inspection commands decoded</div>
+            <table>
+              <tr><td><span class="cmd-emoji">&#128202;</span>bcftools stats</td><td>Generates a detailed QC report including: number of SNPs, indels, ts/tv ratio, per-sample depth, and allele frequency distribution. Pipe through <code>grep ^SN</code> to get just the summary numbers.</td></tr>
+              <tr><td><span class="cmd-emoji">&#128101;</span>bcftools query -l</td><td>Lists all sample names in the VCF header — one per line. Piping to <code>wc -l</code> gives the sample count. Use this to verify the VCF contains the samples you expect.</td></tr>
+              <tr><td><span class="cmd-emoji">&#128196;</span>.tbi index file</td><td>Tabix index for random-access queries by genomic coordinate. Required for bcftools region queries (<code>-r Chr1:1-1000000</code>). Always download the .tbi alongside the VCF.gz.</td></tr>
+            </table>
+          </div>
+        </section>
+
+        <section id="step2" class="mb-5">
+          <h2 class="section-divider">Step 2 — bcftools QC &amp; Stats</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash — bcftools stats and multiallelic check</span><button class="btn-copy">Copy</button></div>
+<pre id="s2-bcftools">mkdir -p 1_qc
+VCF="0_raw/1001genomes_snp-short-indel_only_ACGTN.vcf.gz"
+
+# Full stats report
+bcftools stats ${VCF} > 1_qc/bcftools_stats.txt
+
+# Extract key summary lines
+grep "^SN" 1_qc/bcftools_stats.txt
+
+# Check for multiallelic sites (more than 2 alleles)
+bcftools view --min-alleles 3 ${VCF} | bcftools stats | grep "^SN"
+
+# Split multiallelic sites into biallelic (required by PLINK/ADMIXTURE)
+bcftools norm \
+    --multiallelics -snps \
+    --output-type z \
+    --output 1_qc/biallelic.vcf.gz \
+    ${VCF}
+bcftools index --tbi 1_qc/biallelic.vcf.gz
+
+# Count SNPs only (no indels) after splitting
+bcftools view --type snps 1_qc/biallelic.vcf.gz | bcftools stats | grep "^SN"
+
+echo "QC complete. Check 1_qc/bcftools_stats.txt"</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s2-bcftools" data-filename="02_bcftools_qc.sh"><i class="bi bi-download me-1"></i>02_bcftools_qc.sh</button></div>
+          <div class="cmd-explain">
+            <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> bcftools normalisation decoded</div>
+            <table>
+              <tr><td><span class="cmd-emoji">&#128296;</span>bcftools norm --multiallelics -snps</td><td>Splits multiallelic SNP records (e.g. A&rarr;C,T at one position) into separate biallelic records (A&rarr;C and A&rarr;T). PLINK and ADMIXTURE require biallelic-only VCFs. The <code>-snps</code> flag processes only SNPs, leaving indels untouched.</td></tr>
+              <tr><td><span class="cmd-emoji">&#128202;</span>ts/tv ratio</td><td>Transition/transversion ratio. Expected ~2.0&ndash;2.1 for whole-genome SNPs. Values far from this (e.g. 1.5) indicate poor filtering or mapping artefacts. Check this in <code>bcftools_stats.txt</code> under <code>TSTV</code>.</td></tr>
+            </table>
+          </div>
+        </section>
+
+        <section id="step3" class="mb-5">
+          <h2 class="section-divider">Step 3 — VCFtools Filtering</h2>
+          <p>Apply quality filters to remove low-confidence sites and samples:</p>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash — VCFtools quality filtering</span><button class="btn-copy">Copy</button></div>
+<pre id="s3-vcftools">mkdir -p 2_filtered
+module load vcftools/0.1.16
+
+VCF="1_qc/biallelic.vcf.gz"
+OUT="2_filtered/filtered"
+
+vcftools \
+    --gzvcf ${VCF} \
+    --remove-indels \
+    --maf 0.05 \
+    --max-missing 0.9 \
+    --minQ 30 \
+    --min-meanDP 5 \
+    --max-meanDP 50 \
+    --minDP 3 \
+    --hwe 0.001 \
+    --recode \
+    --recode-INFO-all \
+    --out ${OUT}
+
+# Compress and index the filtered VCF
+bgzip ${OUT}.recode.vcf
+tabix -p vcf ${OUT}.recode.vcf.gz
+mv ${OUT}.recode.vcf.gz ${OUT}.vcf.gz
+mv ${OUT}.recode.vcf.gz.tbi ${OUT}.vcf.gz.tbi
+
+echo "Variants before filtering: $(bcftools view --no-header 0_raw/1001genomes_snp-short-indel_only_ACGTN.vcf.gz | wc -l)"
+echo "Variants after filtering:  $(bcftools view --no-header ${OUT}.vcf.gz | wc -l)"</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s3-vcftools" data-filename="03_vcftools_filter.sh"><i class="bi bi-download me-1"></i>03_vcftools_filter.sh</button></div>
+          <div class="cmd-explain">
+            <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> VCFtools filter flags decoded</div>
+            <table>
+              <tr><td><span class="cmd-emoji">&#128202;</span>--maf 0.05</td><td>Remove sites where the minor allele frequency is &lt;5%. Singletons and very rare variants are disproportionately affected by genotyping errors. For population structure analyses (PCA, ADMIXTURE) you want common variants that are informative across many individuals.</td></tr>
+              <tr><td><span class="cmd-emoji">&#10060;</span>--max-missing 0.9</td><td>Keep only sites where &ge;90% of individuals have a genotype call. Sites with &gt;10% missing data are unreliable for allele frequency estimates. Counterintuitively, 0.9 means &ldquo;allow up to 10% missing&rdquo; in VCFtools notation.</td></tr>
+              <tr><td><span class="cmd-emoji">&#127919;</span>--minQ 30</td><td>Minimum QUAL score of 30 (Phred-scaled probability that the site is not a variant). Q30 = 0.1% chance the variant call is wrong. Sites below Q30 are likely sequencing or mapping artefacts.</td></tr>
+              <tr><td><span class="cmd-emoji">&#128200;</span>--min-meanDP 5 --max-meanDP 50</td><td>Filter by mean depth across samples. Sites with very low depth (&lt;5x) have unreliable genotype calls. Sites with very high depth (&gt;50x for most organisms) are often in repetitive/collapsed regions and produce false heterozygosity.</td></tr>
+              <tr><td><span class="cmd-emoji">&#129516;</span>--hwe 0.001</td><td>Remove sites that deviate significantly from Hardy-Weinberg equilibrium (p&lt;0.001). In diploid outbreeders, severe HWE deviation indicates genotyping errors (e.g. paralog calling). For selfing species like <em>A. thaliana</em>, skip this filter &mdash; inbreeders naturally violate HWE.</td></tr>
+            </table>
+          </div>
+          <div class="fun-tip"><span class="fun-tip-icon">&#9888;</span><div><strong>A. thaliana is a selfer &mdash; HWE filtering is wrong here!</strong> Arabidopsis thaliana is predominantly self-fertilising, so virtually all accessions are highly homozygous. HWE assumes random mating &mdash; applying it to a selfing species will remove real, biologically valid variants. Remove the <code>--hwe</code> flag for this dataset and any other predominantly selfing/asexual organism.</div></div>
+        </section>
+
+        <section id="step4" class="mb-5">
+          <h2 class="section-divider">Step 4 — Nucleotide Diversity &amp; Tajima&rsquo;s D</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash — Per-window diversity statistics</span><button class="btn-copy">Copy</button></div>
+<pre id="s4-diversity">mkdir -p 3_diversity
+VCF="2_filtered/filtered.vcf.gz"
+
+# Nucleotide diversity (pi) in 10 kb windows
+vcftools \
+    --gzvcf ${VCF} \
+    --window-pi 10000 \
+    --window-pi-step 5000 \
+    --out 3_diversity/pi
+
+# Tajima's D in 10 kb windows
+vcftools \
+    --gzvcf ${VCF} \
+    --TajimaD 10000 \
+    --out 3_diversity/tajimaD
+
+# Watterson's theta (per site)
+vcftools \
+    --gzvcf ${VCF} \
+    --window-pi 10000 \
+    --out 3_diversity/theta
+
+# Quick summary statistics
+echo "=== Tajima's D summary ==="
+awk 'NR>1 {sum+=$4; n++; if($4>max || NR==2) max=$4; if($4<min || NR==2) min=$4} END {print "Mean:", sum/n, "Min:", min, "Max:", max}' 3_diversity/tajimaD.Tajima.D
+
+echo "=== Pi summary ==="
+awk 'NR>1 && $5!="nan" {sum+=$5; n++} END {print "Mean pi:", sum/n}' 3_diversity/pi.windowed.pi</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s4-diversity" data-filename="04_diversity_stats.sh"><i class="bi bi-download me-1"></i>04_diversity_stats.sh</button></div>
+          <div class="cmd-explain">
+            <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> Diversity statistics decoded</div>
+            <table>
+              <tr><td><span class="cmd-emoji">&#127801;</span>--window-pi 10000 --window-pi-step 5000</td><td>Computes nucleotide diversity (&pi;) in sliding 10 kb windows stepping 5 kb at a time (50% overlap). Outputs <code>.windowed.pi</code> with columns: CHROM, BIN_START, BIN_END, N_VARIANTS, PI. Higher &pi; = more variation = likely neutral or balancing selection region.</td></tr>
+              <tr><td><span class="cmd-emoji">&#128202;</span>--TajimaD 10000</td><td>Computes Tajima&rsquo;s D in non-overlapping 10 kb windows. Positive D = excess of intermediate-frequency alleles (balancing selection or population bottleneck). Negative D = excess of rare alleles (population expansion or purifying/positive selection sweeping rare alleles to fixation).</td></tr>
+            </table>
+          </div>
+          <div class="fun-tip"><span class="fun-tip-icon">&#129516;</span><div><strong>Interpreting Tajima&rsquo;s D in A. thaliana:</strong> The genome-wide mean D for Arabidopsis is around &minus;1 due to its predominantly selfing mating system and recent range expansion out of Central Asia. Regions with strongly positive D (e.g. disease resistance genes) stand out as candidates for balancing selection.</div></div>
+        </section>
+
+        <section id="step5" class="mb-5">
+          <h2 class="section-divider">Step 5 — Fst Between Populations</h2>
+          <p>Compute pairwise Fst between geographic groups. You need a population map file (two-column: sample_name, population):</p>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash — Windowed Fst between geographic groups</span><button class="btn-copy">Copy</button></div>
+<pre id="s5-fst">VCF="2_filtered/filtered.vcf.gz"
+
+# Create population lists from the 1001 Genomes metadata
+# Download metadata: https://1001genomes.org/accessions.html
+# Columns: accession_id, country, group (Admixed/Central Europe/Germany/...)
+
+# Example: extract Scandinavian vs. Iberian accession IDs
+# (adjust based on your downloaded metadata file)
+awk -F'\t' '$3=="Scandinavia" {print $1}' metadata_1001g.txt > pop_Scandinavia.txt
+awk -F'\t' '$3=="Iberia"      {print $1}' metadata_1001g.txt > pop_Iberia.txt
+
+echo "Scandinavia N=$(wc -l < pop_Scandinavia.txt)"
+echo "Iberia      N=$(wc -l < pop_Iberia.txt)"
+
+# Calculate windowed Fst (Weir & Cockerham 1984)
+vcftools \
+    --gzvcf ${VCF} \
+    --weir-fst-pop pop_Scandinavia.txt \
+    --weir-fst-pop pop_Iberia.txt \
+    --fst-window-size 50000 \
+    --fst-window-step 25000 \
+    --out 3_diversity/fst_Scand_vs_Iberia
+
+# Check mean weighted Fst (reported at the end of the log)
+tail -5 3_diversity/fst_Scand_vs_Iberia.log
+
+# Identify top Fst windows (candidate regions for local adaptation)
+sort -k5 -rn 3_diversity/fst_Scand_vs_Iberia.windowed.weir.fst | head -20</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s5-fst" data-filename="05_fst.sh"><i class="bi bi-download me-1"></i>05_fst.sh</button></div>
+          <div class="cmd-explain">
+            <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> Fst calculation decoded</div>
+            <table>
+              <tr><td><span class="cmd-emoji">&#127758;</span>--weir-fst-pop</td><td>Specifies a population file for Fst calculation. Provide two <code>--weir-fst-pop</code> flags for pairwise Fst, or three+ for multi-population comparison. VCFtools uses the Weir &amp; Cockerham (1984) estimator, which corrects for unequal sample sizes between populations.</td></tr>
+              <tr><td><span class="cmd-emoji">&#128202;</span>--fst-window-size 50000 --fst-window-step 25000</td><td>50 kb sliding windows stepping 25 kb. Larger windows give smoother, more stable estimates but may mask narrow sweeps. For fine-mapping locally adapted regions, use 10&ndash;20 kb windows. The output column <code>WEIGHTED_FST</code> is the variance-weighted Fst &mdash; use this for ranking windows, not <code>MEAN_FST</code>.</td></tr>
+            </table>
+          </div>
+        </section>
+
+        <section id="step6" class="mb-5">
+          <h2 class="section-divider">Step 6 — LD Pruning &amp; PLINK PCA</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash — PLINK 2.0 LD pruning and PCA</span><button class="btn-copy">Copy</button></div>
+<pre id="s6-pca">mkdir -p 4_pca
+module load plink2/2.0
+
+VCF="2_filtered/filtered.vcf.gz"
+
+# Step 1: Convert VCF to PLINK binary format
+plink2 \
+    --vcf ${VCF} \
+    --make-bed \
+    --out 4_pca/plink_all \
+    --allow-extra-chr \
+    --set-all-var-ids '@_#_$r_$a' \
+    --new-id-max-allele-len 10 truncate
+
+# Step 2: LD pruning — remove correlated SNPs
+# Window: 50 SNPs, step: 10 SNPs, r^2 threshold: 0.1
+plink2 \
+    --bfile 4_pca/plink_all \
+    --indep-pairwise 50 10 0.1 \
+    --allow-extra-chr \
+    --out 4_pca/ld_prune
+
+echo "SNPs before pruning: $(wc -l < 4_pca/plink_all.bim)"
+echo "SNPs after pruning:  $(wc -l < 4_pca/ld_prune.prune.in)"
+
+# Step 3: Extract pruned SNP set
+plink2 \
+    --bfile 4_pca/plink_all \
+    --extract 4_pca/ld_prune.prune.in \
+    --make-bed \
+    --allow-extra-chr \
+    --out 4_pca/plink_pruned
+
+# Step 4: Run PCA (first 20 PCs)
+plink2 \
+    --bfile 4_pca/plink_pruned \
+    --pca 20 \
+    --allow-extra-chr \
+    --out 4_pca/pca
+
+echo "PCA complete. Files: 4_pca/pca.eigenvec and 4_pca/pca.eigenval"</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s6-pca" data-filename="06_plink_pca.sh"><i class="bi bi-download me-1"></i>06_plink_pca.sh</button></div>
+          <div class="cmd-explain">
+            <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> PLINK 2.0 PCA flags decoded</div>
+            <table>
+              <tr><td><span class="cmd-emoji">&#128296;</span>--indep-pairwise 50 10 0.1</td><td>LD pruning: scan SNPs in windows of 50, shift 10 SNPs at a time, remove one SNP from each pair with r&sup2; &gt; 0.1. Produces <code>.prune.in</code> (keep) and <code>.prune.out</code> (remove) lists. Strict pruning (r&sup2; &lt; 0.1) is appropriate for PCA and ADMIXTURE to ensure each SNP is independent.</td></tr>
+              <tr><td><span class="cmd-emoji">&#127758;</span>--allow-extra-chr</td><td>Required when your VCF uses non-numeric chromosome names (e.g. Chr1, Chr2 for <em>A. thaliana</em>) or chloroplast/mitochondria chromosomes. Without this flag, PLINK refuses to process non-standard chromosome codes.</td></tr>
+              <tr><td><span class="cmd-emoji">&#128202;</span>--pca 20</td><td>Compute the first 20 principal components. For most population datasets, PCs 1&ndash;5 capture the major population structure; higher PCs may reflect finer-scale structure or technical artefacts. Output: <code>.eigenvec</code> (PC scores per individual) and <code>.eigenval</code> (variance explained per PC).</td></tr>
+            </table>
+          </div>
+        </section>
+
+        <section id="step7" class="mb-5">
+          <h2 class="section-divider">Step 7 — Visualise PCA in R</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R — PCA plot coloured by geographic group</span><button class="btn-copy">Copy</button></div>
+<pre id="s7-rplot">library(ggplot2)
+library(tidyverse)
+
+# Load PCA results
+pca <- read.table("4_pca/pca.eigenvec", header=FALSE)
+eigenval <- read.table("4_pca/pca.eigenval", header=FALSE)
+
+# Name columns
+colnames(pca) <- c("FID", "IID", paste0("PC", 1:20))
+
+# Calculate % variance explained
+pct_var <- round(eigenval$V1 / sum(eigenval$V1) * 100, 1)
+cat("PC1:", pct_var[1], "%\nPC2:", pct_var[2], "%\n")
+
+# Load metadata (geographic group)
+meta <- read.table("metadata_1001g.txt", header=TRUE, sep="\t") %>%
+    rename(IID = accession_id)
+
+# Merge
+pca_meta <- left_join(pca, meta, by="IID")
+
+# Plot PC1 vs PC2
+ggplot(pca_meta, aes(x=PC1, y=PC2, color=group)) +
+    geom_point(alpha=0.7, size=1.5) +
+    labs(
+        x = paste0("PC1 (", pct_var[1], "%)"),
+        y = paste0("PC2 (", pct_var[2], "%)"),
+        title = "A. thaliana 1001 Genomes — PCA",
+        color = "Geographic group"
+    ) +
+    theme_bw(base_size=13) +
+    theme(legend.position="right") +
+    scale_color_brewer(palette="Set1")
+
+ggsave("5_plots/pca_plot.png", width=9, height=7, dpi=150)
+
+# Plot Tajima's D across the genome
+tajima <- read.table("3_diversity/tajimaD.Tajima.D", header=TRUE)
+tajima <- tajima[tajima$TajimaD != "NaN", ]
+tajima$TajimaD <- as.numeric(tajima$TajimaD)
+
+ggplot(tajima, aes(x=BIN_START/1e6, y=TajimaD, color=TajimaD)) +
+    geom_point(size=0.4, alpha=0.6) +
+    facet_wrap(~CHROM, scales="free_x") +
+    scale_color_gradient2(low="blue", mid="grey70", high="red", midpoint=0) +
+    geom_hline(yintercept=0, linetype="dashed", color="black") +
+    labs(x="Position (Mb)", y="Tajima's D",
+         title="Tajima's D across A. thaliana genome (10 kb windows)") +
+    theme_bw(base_size=11) +
+    theme(legend.position="none")
+
+ggsave("5_plots/tajimad_plot.png", width=14, height=8, dpi=150)</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s7-rplot" data-filename="07_visualise_pca.R"><i class="bi bi-download me-1"></i>07_visualise_pca.R</button></div>
+          <div class="cmd-explain">
+            <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> R visualisation decoded</div>
+            <table>
+              <tr><td><span class="cmd-emoji">&#128202;</span>eigenval / sum * 100</td><td>Converts raw eigenvalues to percentage variance explained per PC. Always label your PCA axes with variance explained &mdash; reviewers will ask for this. PC1 explaining &gt;10% is typical for structured populations.</td></tr>
+              <tr><td><span class="cmd-emoji">&#127752;</span>scale_color_gradient2(midpoint=0)</td><td>Diverging colour scale for Tajima&rsquo;s D: blue = negative (expansion/positive selection), grey = neutral, red = positive (balancing selection/bottleneck). The genome-wide mean is plotted as a dashed line for reference.</td></tr>
+            </table>
+          </div>
+          <div class="fun-tip"><span class="fun-tip-icon">&#127776;</span><div><strong>Expected PCA result:</strong> For the 1001 Genomes data you should see PC1 separating African relict accessions from Eurasian accessions, and PC2 separating Scandinavian from Iberian/Western European accessions. This matches the known colonisation history of <em>A. thaliana</em> out of Central Asia into Europe after the last glacial maximum.</div></div>
+        </section>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="container mb-5">
+  <div class="d-flex justify-content-between">
+    <a href="index.html" class="btn btn-outline-secondary rounded-pill px-4"><i class="bi bi-grid-3x3-gap me-2"></i>All Tutorials</a>
+    <a href="popgen-admixture-population-structure.html" class="btn btn-primary rounded-pill px-4">ADMIXTURE Population Structure <i class="bi bi-arrow-right ms-2"></i></a>
+  </div>
+</div>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-lg-6"><h5 class="text-white fw-bold mb-3"><span style="color:#ff9933;">Indian</span><span style="color:var(--ieb-primary);">Elucid</span><span style="color:var(--ieb-accent);">Biology</span></h5><p class="small">Free, interactive bioinformatics tutorials. Open source and community-driven.</p></div>
+      <div class="col-lg-6 text-lg-end"><p class="small mb-1">Founded by <strong>Ankush Sharma</strong></p><div class="d-flex gap-3 justify-content-lg-end"><a href="https://github.com/ank-man" target="_blank" class="text-white fs-5"><i class="bi bi-github"></i></a><a href="https://www.linkedin.com/in/ankush-sharma-290307/" target="_blank" class="text-white fs-5"><i class="bi bi-linkedin"></i></a><a href="mailto:mr.ank2999@gmail.com" class="text-white fs-5"><i class="bi bi-envelope"></i></a></div></div>
+    </div>
+    <hr class="border-secondary mt-4 mb-3">
+    <p class="text-center small mb-0">&copy; 2025 IndianElucidBiology &mdash; Made with <span style="color:#e25555;">&#9829;</span> for the bioinformatics community.</p>
+  </div>
+</footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/main.js"></script>
+</body>
+</html>

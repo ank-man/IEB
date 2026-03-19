@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Differential Expression: DESeq2 &amp; edgeR Deep Dive | IndianElucidBiology</title>
+  <meta name="description" content="Master DESeq2 and edgeR for RNA-seq differential expression analysis. Covers design matrices, contrasts, multi-factor designs, LRT vs Wald tests, batch correction with limma, and publication-quality figures.">
+  <meta name="keywords" content="DESeq2, edgeR, differential expression, RNA-seq, limma, voom, design matrix, contrasts, volcano plot, MA plot, batch correction, tximport, R Bioconductor">
+  <link rel="canonical" href="https://indianelucidbiology.github.io/tutorials/deseq2-edger-differential-expression.html">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="../css/style.css" rel="stylesheet">
+</head>
+<body>
+<div class="progress-tracker"></div>
+
+<nav class="navbar navbar-expand-lg fixed-top">
+  <div class="container">
+    <a class="navbar-brand" href="../index.html">
+      <span class="brand-indian">Indian</span><span class="brand-elucid">Elucid</span><span class="brand-biology">Biology</span>
+    </a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="mainNav">
+      <ul class="navbar-nav ms-auto me-3">
+        <li class="nav-item"><a class="nav-link" href="../index.html">Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="index.html">Tutorial Library</a></li>
+        <li class="nav-item"><a class="nav-link" href="rnaseq-de-novo-trinity-deseq2.html"><i class="bi bi-arrow-left me-1"></i>De Novo Trinity</a></li>
+        <li class="nav-item"><a class="nav-link" href="chipseq-macs2-motif-analysis.html">ChIP-seq<i class="bi bi-arrow-right ms-1"></i></a></li>
+      </ul>
+      <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode">&#9790;</button>
+    </div>
+  </div>
+</nav>
+
+<section class="tutorial-hero">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-lg-8">
+        <nav aria-label="breadcrumb">
+          <ol class="breadcrumb mb-3" style="--bs-breadcrumb-divider-color:rgba(255,255,255,0.5);">
+            <li class="breadcrumb-item"><a href="../index.html" class="text-white-50 text-decoration-none">Home</a></li>
+            <li class="breadcrumb-item"><a href="index.html" class="text-white-50 text-decoration-none">Tutorials</a></li>
+            <li class="breadcrumb-item active text-white">DESeq2 &amp; edgeR Deep Dive</li>
+          </ol>
+        </nav>
+        <h1 class="display-5 fw-bold text-white mb-3">Differential Expression: DESeq2 &amp; edgeR Deep Dive</h1>
+        <p class="lead text-white-50 mb-4">
+          Design matrices &middot; Wald vs LRT tests &middot; multi-factor designs &middot; contrasts &middot; batch correction &middot; limma-voom &middot; GSEA &middot; clusterProfiler enrichment
+        </p>
+        <div class="d-flex gap-3 flex-wrap">
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-clock me-1"></i> ~120 min</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-bar-chart me-1"></i> Intermediate</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-terminal me-1"></i> R</span>
+        </div>
+      </div>
+      <div class="col-lg-4 text-center d-none d-lg-block">
+        <img src="../img/Byte3.png" alt="Byte" class="img-fluid" style="max-height:230px;filter:drop-shadow(0 10px 30px rgba(0,0,0,0.4));">
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="container py-5">
+  <div class="row">
+    <div class="col-lg-3 d-none d-lg-block">
+      <div class="toc-sidebar">
+        <h6 class="fw-bold text-muted text-uppercase small mb-3">On this page</h6>
+        <nav class="nav flex-column">
+          <a class="nav-link" href="#overview">Overview</a>
+          <a class="nav-link" href="#dataset">Dataset</a>
+          <a class="nav-link" href="#step1">1. Load Counts &amp; QC</a>
+          <a class="nav-link" href="#step2">2. Simple Two-Group DESeq2</a>
+          <a class="nav-link" href="#step3">3. Multi-Factor Design + Batch</a>
+          <a class="nav-link" href="#step4">4. LRT for Multi-level Factors</a>
+          <a class="nav-link" href="#step5">5. edgeR Quasi-likelihood</a>
+          <a class="nav-link" href="#step6">6. GSEA with fgsea</a>
+          <a class="nav-link" href="#step7">7. Publication Figures</a>
+        </nav>
+      </div>
+    </div>
+
+    <div class="col-lg-9">
+      <div class="tutorial-content">
+
+<section id="overview" class="mb-5">
+  <h2 class="section-divider">Overview</h2>
+  <p>DESeq2 and edgeR are the two most widely used tools for RNA-seq differential expression analysis. Both use the negative binomial distribution to model count data, but differ in their normalisation and dispersion estimation strategies. This tutorial covers both tools deeply &mdash; design matrices, multi-factor experiments, batch correction, LRT testing, and downstream enrichment.</p>
+  <div class="byte-callout">
+    <img src="../img/Byte1.png" alt="Byte">
+    <div>
+      <strong>DESeq2 vs edgeR vs limma-voom — when to use which?</strong>
+      <ul class="mb-0 mt-1 small">
+        <li><strong>DESeq2:</strong> Best for most bulk RNA-seq. Excellent for small sample sizes (n=2 or 3 per group). Robust dispersion shrinkage via empirical Bayes.</li>
+        <li><strong>edgeR (QLF):</strong> Best when you have many groups or complex designs. Quasi-likelihood F-test is well-calibrated for false positive control.</li>
+        <li><strong>limma-voom:</strong> Best for large n (&gt;20 per group) or for microarray data. Very fast. Best for complex linear models and arbitrary contrasts.</li>
+        <li><strong>Rule of thumb:</strong> Run DESeq2 as primary, edgeR as confirmation. Genes called DE by both = high confidence.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="dataset" class="mb-5">
+  <h2 class="section-divider">Dataset</h2>
+  <p>We use the <strong>airway</strong> Bioconductor dataset — a well-validated human airway smooth muscle RNA-seq experiment testing dexamethasone (steroid) treatment across 4 cell lines. This is the canonical teaching dataset used in the DESeq2 vignette.</p>
+  <div class="param-table">
+    <table class="table table-striped mb-0">
+      <thead><tr><th>Property</th><th>Value</th></tr></thead>
+      <tbody>
+        <tr><td>Organism</td><td><em>Homo sapiens</em> — airway smooth muscle cells</td></tr>
+        <tr><td>Treatment</td><td>Dexamethasone (dex) vs untreated (untrt) &times; 4 cell lines</td></tr>
+        <tr><td>Design</td><td>Paired: same 4 cell lines treated and untreated (multi-factor: ~cell_line + treatment)</td></tr>
+        <tr><td>Accession</td><td><a href="https://www.ncbi.nlm.nih.gov/bioproject/PRJNA229998" target="_blank">PRJNA229998</a> — Himes et al. 2014 <em>PLOS ONE</em></td></tr>
+        <tr><td>Installation</td><td><code>BiocManager::install("airway")</code></td></tr>
+        <tr><td>Why this dataset</td><td>Well-known true positives (e.g. CRISPLD2), can validate your pipeline against published results</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="step1" class="mb-5">
+  <h2 class="section-divider">Step 1 — Load Counts &amp; Exploratory QC</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>R — Load airway data, PCA, sample distance heatmap</span><button class="btn-copy">Copy</button></div>
+<pre id="s1-load">######################################################################
+## STEP 1: Load the airway dataset and perform exploratory QC
+## Always explore your data before running DE — look for:
+##   1. Outlier samples (PCA, sample distance heatmap)
+##   2. Batch effects (do samples cluster by batch before treatment?)
+##   3. Library size variation (should be <3x between samples)
+######################################################################
+
+## Load required packages
+library(DESeq2)           # differential expression
+library(airway)           # example RNA-seq dataset
+library(ggplot2)          # plotting
+library(pheatmap)         # heatmaps
+library(RColorBrewer)     # colour palettes
+library(tidyverse)        # data manipulation
+
+## --- Load the airway dataset ---
+data(airway)   # loads a SummarizedExperiment object
+## This contains:
+##   assay(airway)     = raw gene count matrix (63,677 genes × 8 samples)
+##   colData(airway)   = sample metadata (cell line, treatment, etc.)
+##   rowData(airway)   = gene annotation (Ensembl IDs)
+
+## Inspect sample metadata
+colData(airway)
+## Columns: SampleName, cell (cell line), dex (treatment: trt/untrt), albut, Run, avgLength, Experiment, Sample, BioSample
+
+## --- Check library sizes ---
+## barplot of total counts per sample (should be within ~3x of each other)
+lib_sizes <- colSums(assay(airway))
+barplot(lib_sizes/1e6,
+        main="Library sizes (million reads)",
+        ylab="Millions of reads",
+        las=2, col="steelblue")
+abline(h=mean(lib_sizes/1e6), lty=2, col="red")
+
+## --- Build DESeq2 object from SummarizedExperiment ---
+## ~cell + dex : model with cell line as blocking factor, dex as treatment
+## This accounts for paired structure (same 4 cell lines in both conditions)
+dds <- DESeqDataSet(airway, design = ~ cell + dex)
+
+## Set untreated as reference level
+## (fold-change direction = trt / untrt = drug effect)
+dds$dex <- relevel(dds$dex, ref = "untrt")
+
+## --- Pre-filter: keep genes with >= 10 counts in at least 2 samples ---
+## More aggressive filter = fewer tests = lower multiple testing burden
+## Rule: require count >= 10 in at least (smallest group size) samples
+keep <- rowSums(counts(dds) >= 10) >= 2
+dds  <- dds[keep, ]
+cat("Genes after filtering:", nrow(dds), "\n")
+
+## --- Variance-stabilising transformation for QC ---
+## vst() : fast, homoscedastic transformation
+##   blind=TRUE : transformation ignores the design (for QC purposes only)
+##   blind=FALSE: uses design for dispersion estimation (for downstream use)
+vsd <- vst(dds, blind=TRUE)
+
+## --- PCA plot ---
+## plotPCA: shows how samples cluster in PC1/PC2 space
+## intgroup : colour/shape samples by these metadata columns
+p_pca <- plotPCA(vsd, intgroup=c("cell","dex"))
+p_pca + theme_bw() +
+    ggtitle("PCA: airway samples (coloured by cell line, shape by treatment)") +
+    theme(legend.position="bottom")
+ggsave("pca_airway.png", width=8, height=6)
+
+## --- Sample-to-sample distance heatmap ---
+## Euclidean distance between all sample pairs in VST-space
+## Samples should cluster by condition AND cell line
+sampleDists <- dist(t(assay(vsd)))   # dist() on transposed matrix = sample distances
+sampleDistMatrix <- as.matrix(sampleDists)
+rownames(sampleDistMatrix) <- paste(vsd$dex, vsd$cell, sep="-")
+colors <- colorRampPalette(rev(brewer.pal(9,"Blues")))(255)
+pheatmap(sampleDistMatrix,
+         clustering_distance_rows=sampleDists,
+         clustering_distance_cols=sampleDists,
+         col=colors,
+         main="Sample-to-sample distances (VST)")
+## If any sample clusters with the wrong group — investigate!
+## Could indicate sample swap, contamination, or failed library prep</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s1-load" data-filename="01_load_qc.R"><i class="bi bi-download me-1"></i>01_load_qc.R</button></div>
+  <div class="cmd-explain">
+    <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> QC concepts decoded</div>
+    <table>
+      <tr><td><span class="cmd-emoji">&#128200;</span>PCA interpretation</td><td>PC1 should capture the largest source of variation in your data. In a clean experiment, that should be your biological variable of interest (treatment). If PC1 separates by batch or sequencing run instead, you have a batch effect that must be corrected in the design matrix before DE testing.</td></tr>
+      <tr><td><span class="cmd-emoji">&#127797;</span>vst() vs rlog()</td><td>Both are DESeq2 transformations that produce homoscedastic data suitable for PCA/clustering. <code>vst()</code> is much faster (recommended for &gt;30 samples). <code>rlog()</code> is more accurate for small datasets (&lt;30 samples) but can take hours for large datasets. Both are for QC only — never use them as input to DESeq2 DE testing.</td></tr>
+    </table>
+  </div>
+</section>
+
+<section id="step2" class="mb-5">
+  <h2 class="section-divider">Step 2 — Simple Two-Group DESeq2</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>R — DESeq2 Wald test, MA plot, result exploration</span><button class="btn-copy">Copy</button></div>
+<pre id="s2-deseq2">######################################################################
+## STEP 2: Run DESeq2 with the Wald test (default) for two-group comparison
+## The Wald test: for each gene, it tests H0: log2FC = 0 vs H1: log2FC != 0
+## using a Wald statistic = estimate / standard error
+######################################################################
+
+## --- Run the full DESeq2 pipeline ---
+## DESeq() does three steps in one call:
+##   1. estimateSizeFactors() : normalise for library size differences
+##      (uses the "median of ratios" method — robust to outliers and asymmetry)
+##   2. estimateDispersions() : estimate per-gene dispersion with shrinkage
+##      (shrinks dispersions toward a fitted trend using empirical Bayes)
+##   3. nbinomWaldTest()       : fit NB GLM + Wald test for each gene
+dds <- DESeq(dds)
+
+## --- Extract results for dex (trt vs untrt) ---
+## contrast: c("factor", "numerator", "denominator")
+##   fold-change = numerator / denominator
+res_wald <- results(
+    dds,
+    contrast       = c("dex", "trt", "untrt"),
+    alpha          = 0.05,       # FDR threshold (used for independent filtering)
+    lfcThreshold   = 0,          # test log2FC != 0 (no minimum FC required)
+    independentFiltering = TRUE  # remove low-mean genes before multiple testing
+)
+summary(res_wald)
+
+## --- Apply log2FC shrinkage ---
+## apeglm is the best method: adaptive shrinkage calibrated for each gene
+## coef: the coefficient name (check resultsNames(dds) for exact name)
+resultsNames(dds)   # view all available coefficient names
+res_shrunk <- lfcShrink(dds, coef="dex_trt_vs_untrt", type="apeglm")
+
+## --- MA plot ---
+## MA plot: log2FC (y-axis) vs mean expression (x-axis)
+## Points should be symmetrically distributed around y=0 for most genes
+## Blue points = significant (padj < 0.05)
+plotMA(res_shrunk, ylim=c(-5,5),
+       main="MA plot: dex trt vs untrt (apeglm shrinkage)")
+
+## --- Top significant genes ---
+top_genes <- as.data.frame(res_shrunk) %>%
+    rownames_to_column("gene_id") %>%
+    filter(!is.na(padj)) %>%
+    arrange(padj) %>%
+    head(20)
+
+print(top_genes[, c("gene_id","baseMean","log2FoldChange","padj")])
+## CRISPLD2 should be one of the top hits — this is the landmark positive control
+## for the dex response in this dataset
+
+## --- Write full results ---
+res_df <- as.data.frame(res_shrunk) %>%
+    rownames_to_column("gene_id") %>%
+    arrange(padj)
+write.csv(res_df, "DESeq2_dex_results.csv", row.names=FALSE)
+
+## --- Counts plot for CRISPLD2 ---
+## plotCounts: shows normalised counts per sample for one gene
+## Useful for validating top hits visually
+plotCounts(dds, gene="ENSG00000103196",   # CRISPLD2 Ensembl ID
+           intgroup=c("dex","cell"),
+           main="CRISPLD2 normalised counts")</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s2-deseq2" data-filename="02_deseq2_wald.R"><i class="bi bi-download me-1"></i>02_deseq2_wald.R</button></div>
+  <div class="cmd-explain">
+    <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> DESeq2 statistics decoded</div>
+    <table>
+      <tr><td><span class="cmd-emoji">&#128202;</span>Median-of-ratios normalisation</td><td>DESeq2 calculates a &ldquo;size factor&rdquo; for each sample by computing the geometric mean of each gene across all samples, then finding the median ratio of each sample&rsquo;s counts to that geometric mean. This method is robust to highly expressed outlier genes and asymmetric DE. Never manually divide by library size before giving data to DESeq2 — it does its own normalisation.</td></tr>
+      <tr><td><span class="cmd-emoji">&#127919;</span>Independent filtering</td><td>DESeq2 automatically removes genes with very low mean counts before applying BH FDR correction. This is principled — low-count genes have nearly zero statistical power, and including them in the multiple testing correction wastes &ldquo;budget.&rdquo; Removing them increases power to detect true DE among well-expressed genes. The mean-count threshold is chosen automatically to maximise the number of genes passing padj &lt; 0.05.</td></tr>
+    </table>
+  </div>
+</section>
+
+<section id="step3" class="mb-5">
+  <h2 class="section-divider">Step 3 — Multi-Factor Design &amp; Batch Correction</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>R — Paired design, interaction terms, batch removal with limma removeBatchEffect</span><button class="btn-copy">Copy</button></div>
+<pre id="s3-multifactor">######################################################################
+## STEP 3: Multi-factor experimental designs
+## The airway experiment is PAIRED: 4 cell lines × 2 treatments = 8 samples
+## Adding cell line to the design REMOVES cell line variation, increasing
+## sensitivity for detecting the treatment effect.
+##
+## NEVER do: analysis treating paired samples as independent replicates
+## ALWAYS do: include the pairing variable in your design formula
+######################################################################
+
+## --- Design 1: Simple (WRONG for paired data) ---
+## ~ dex : ignores cell line variation
+## Cell-to-cell variation inflates residual variance → loses power
+dds_simple <- DESeqDataSet(airway, design = ~ dex)
+dds_simple$dex <- relevel(dds_simple$dex, ref = "untrt")
+
+## --- Design 2: Paired (CORRECT) ---
+## ~ cell + dex : accounts for cell line, tests dex within each cell line
+## This is equivalent to a paired t-test (or repeated measures ANOVA)
+dds_paired <- DESeqDataSet(airway, design = ~ cell + dex)
+dds_paired$dex <- relevel(dds_paired$dex, ref = "untrt")
+
+## --- Design 3: Interaction (test if drug effect varies by cell line) ---
+## ~ cell + dex + cell:dex
+## The interaction term cell:dex tests: "is the drug effect different in each cell line?"
+## Requires more samples to have power — with n=1 per cell:treatment combination here
+## this is a saturated model (0 degrees of freedom for error) — NOT recommended for small n
+dds_interact <- DESeqDataSet(airway, design = ~ cell * dex)
+
+## Run DE on the paired design
+dds_paired <- dds_paired[rowSums(counts(dds_paired) >= 10) >= 2, ]
+dds_paired$dex <- relevel(dds_paired$dex, ref = "untrt")
+dds_paired <- DESeq(dds_paired)
+res_paired <- lfcShrink(dds_paired, coef="dex_trt_vs_untrt", type="apeglm")
+
+## Compare number of significant genes: paired vs simple design
+cat("Significant genes (paired design):  ",
+    sum(res_paired$padj < 0.05, na.rm=TRUE), "\n")
+## Paired design should give substantially more significant genes
+## because cell line variation has been removed from the residuals
+
+## --- Batch correction for VISUALISATION (not for DE testing) ---
+## limma::removeBatchEffect removes batch from the VST matrix for PCA/heatmaps
+## IMPORTANT: use the batch-corrected matrix ONLY for visualisation
+## NEVER use it as input to DESeq2/edgeR — they correct for batch via design matrix
+library(limma)
+
+vsd_paired <- vst(dds_paired, blind=FALSE)
+## Remove cell-line effect from expression matrix (for plots only)
+mat_corrected <- removeBatchEffect(
+    assay(vsd_paired),
+    batch = vsd_paired$cell   # the batch variable to remove
+)
+
+## PCA on batch-corrected data: should now show clean treatment separation
+pca_corrected <- prcomp(t(mat_corrected))
+pca_df <- data.frame(
+    PC1 = pca_corrected$x[,1],
+    PC2 = pca_corrected$x[,2],
+    dex  = vsd_paired$dex,
+    cell = vsd_paired$cell
+)
+ggplot(pca_df, aes(PC1, PC2, color=dex, shape=cell, label=cell)) +
+    geom_point(size=5) +
+    geom_text(nudge_y=1, size=3) +
+    labs(title="PCA after cell-line batch correction (visualisation only)") +
+    theme_bw()
+ggsave("pca_batch_corrected.png", width=7, height=5)</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s3-multifactor" data-filename="03_multifactor_design.R"><i class="bi bi-download me-1"></i>03_multifactor_design.R</button></div>
+  <div class="fun-tip"><span class="fun-tip-icon">&#129504;</span><div><strong>Design matrix golden rule:</strong> Every source of systematic variation you know about should be in the design matrix. Cell line, batch, sex, age, tissue — all go in as covariates before your variable of interest. If you don&rsquo;t know about a batch effect but suspect one, run SVA (surrogate variable analysis) to estimate hidden covariates automatically.</div></div>
+</section>
+
+<section id="step4" class="mb-5">
+  <h2 class="section-divider">Step 4 — LRT for Multi-level Factors</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>R — Likelihood Ratio Test: find genes that change across any time point</span><button class="btn-copy">Copy</button></div>
+<pre id="s4-lrt">######################################################################
+## STEP 4: Likelihood Ratio Test (LRT) for multi-level factors
+## The Wald test compares exactly TWO groups (e.g. trt vs untrt).
+## The LRT tests whether INCLUDING a factor improves model fit at all.
+## Use LRT when you have:
+##   - Time series (0h, 2h, 6h, 24h) — which genes change ACROSS time?
+##   - Multiple treatments (drug A, drug B, control) — any drug effect?
+##   - Cell types (3+ groups) — any gene varies between cell types?
+######################################################################
+
+## Create a fake time-series example using the airway data
+## (adding a simulated "time" covariate for illustration)
+dds_lrt <- dds_paired
+
+## --- LRT: test if the dex factor improves model fit ---
+## Full model:    ~ cell + dex
+## Reduced model: ~ cell  (no treatment effect)
+## LRT compares: does adding "dex" to the model significantly improve fit?
+dds_lrt <- DESeq(
+    dds_lrt,
+    test = "LRT",          # use Likelihood Ratio Test instead of Wald
+    reduced = ~ cell       # reduced model: same formula minus the variable of interest
+)
+
+res_lrt <- results(dds_lrt)
+summary(res_lrt)
+
+## --- LRT output interpretation ---
+## padj < 0.05 = this gene's expression is significantly influenced by dex
+## The LRT p-value does NOT tell you the direction or magnitude of change
+## To get directionality for LRT hits, use the Wald test results:
+## Sign of log2FC in Wald = direction; LRT padj = significance of the overall effect
+
+## --- Example: time-course analysis with LRT ---
+## Imagine 4 time points: 0h, 2h, 6h, 24h (3 replicates each)
+## You want genes that change at ANY time point (not just 24h vs 0h)
+##
+## Full model:    ~ replicate + time
+## Reduced model: ~ replicate
+##
+## LRT finds all genes with a time effect.
+## Then: for each significant gene, plot its trajectory across time points
+## to understand WHEN it changes (peak at 2h? gradual increase? transient?)
+
+## Example pattern clustering for LRT significant genes:
+## Extract normalised counts for LRT-significant genes
+lrt_genes <- rownames(res_lrt)[which(res_lrt$padj < 0.05 & !is.na(res_lrt$padj))]
+cat("Genes with significant LRT (dex effect):", length(lrt_genes), "\n")
+
+## Cross-check: Wald and LRT should agree on the gene list
+## Genes in LRT but not Wald: may have non-monotonic responses (up then down)
+## Genes in Wald but not LRT: very rare; indicates a numerical difference</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s4-lrt" data-filename="04_lrt_test.R"><i class="bi bi-download me-1"></i>04_lrt_test.R</button></div>
+  <div class="cmd-explain">
+    <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> LRT vs Wald decoded</div>
+    <table>
+      <tr><td><span class="cmd-emoji">&#128200;</span>Wald test</td><td>Best for two-group comparisons. Tests H0: log2FC = 0. Reports a p-value per gene for that specific contrast. You can also set <code>lfcThreshold = 1</code> to test H0: |log2FC| &le; 1 — this guarantees all significant genes have at least 2-fold change, reducing false positives from highly precise but biologically trivial differences.</td></tr>
+      <tr><td><span class="cmd-emoji">&#127919;</span>LRT</td><td>Best for three or more levels, time series, or any case where you want genes that respond to a factor in any way. The LRT p-value only tells you significance — not direction. Always follow up LRT hits by plotting expression profiles across conditions to understand the pattern.</td></tr>
+    </table>
+  </div>
+</section>
+
+<section id="step5" class="mb-5">
+  <h2 class="section-divider">Step 5 — edgeR Quasi-likelihood F-test</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>R — edgeR QLF pipeline: same data, compare results with DESeq2</span><button class="btn-copy">Copy</button></div>
+<pre id="s5-edger">######################################################################
+## STEP 5: Run edgeR quasi-likelihood F-test on the same airway data
+## edgeR QL F-test is the most statistically rigorous edgeR method:
+##   - Quasi-likelihood accounts for extra-Poisson variation (dispersion)
+##   - F-test is better calibrated than the LRT for small sample sizes
+## Then: compare the edgeR and DESeq2 gene lists (intersection = high confidence)
+######################################################################
+
+library(edgeR)
+
+## --- Build DGEList object ---
+## DGEList: edgeR's core data structure
+## counts : raw count matrix (same as used for DESeq2)
+## group  : treatment group for each sample (for simple comparisons)
+counts_mat <- counts(airway)
+group       <- airway$dex   # "trt" or "untrt"
+y <- DGEList(counts = counts_mat, group = group)
+
+## --- Filter lowly expressed genes ---
+## filterByExpr: edgeR's built-in filter
+## Keeps genes with CPM >= 10/LibrarySize_in_millions in at least min.count samples
+## This is equivalent to ~10 counts in all samples in the smallest group
+keep <- filterByExpr(y)
+y    <- y[keep, , keep.lib.sizes=FALSE]
+cat("Genes after edgeR filter:", nrow(y), "\n")
+
+## --- TMM normalisation ---
+## TMM (Trimmed Mean of M-values): edgeR's normalisation
+## Similar goal to DESeq2's median-of-ratios; robust to asymmetric DE
+## calcNormFactors stores normalisation factors in y$samples$norm.factors
+y <- calcNormFactors(y, method = "TMM")
+
+## --- Design matrix: paired design (cell line + treatment) ---
+## model.matrix(): creates the design matrix for a linear model
+## ~ cell + dex equivalent to DESeq2 design = ~ cell + dex
+design <- model.matrix(~ cell + dex, data = as.data.frame(colData(airway)))
+design
+
+## --- Estimate dispersions ---
+## estimateDisp(): estimates common, trended, and tagwise dispersions
+## design: must pass design matrix to account for experimental factors
+y <- estimateDisp(y, design)
+
+## --- Fit quasi-likelihood negative binomial GLM ---
+## glmQLFit: fits the quasi-likelihood model to each gene
+## Quasi-likelihood accounts for additional overdispersion beyond NB
+fit <- glmQLFit(y, design)
+
+## --- QL F-test for the dex coefficient ---
+## glmQLFTest: tests the "dextrt" coefficient (treatment effect)
+## coef: which coefficient to test (use colnames(design) to identify)
+colnames(design)   # find the dex treatment coefficient name
+qlf <- glmQLFTest(fit, coef = "dextrt")
+
+## --- Extract top results ---
+top_edger <- topTags(qlf, n = Inf)$table  # n=Inf = all genes
+top_edger <- rownames_to_column(top_edger, "gene_id")
+write.csv(top_edger, "edgeR_dex_results.csv", row.names=FALSE)
+
+## --- Compare DESeq2 vs edgeR significant gene lists ---
+deseq2_sig <- res_df %>% filter(!is.na(padj), padj < 0.05) %>% pull(gene_id)
+edger_sig  <- top_edger %>% filter(FDR < 0.05) %>% pull(gene_id)
+
+cat("DESeq2 significant:", length(deseq2_sig), "\n")
+cat("edgeR significant: ", length(edger_sig),  "\n")
+cat("In both (high confidence):", length(intersect(deseq2_sig, edger_sig)), "\n")
+cat("DESeq2 only:", length(setdiff(deseq2_sig, edger_sig)), "\n")
+cat("edgeR only: ", length(setdiff(edger_sig,  deseq2_sig)), "\n")
+
+## Expect ~80-90% overlap between the two methods for well-powered experiments</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s5-edger" data-filename="05_edger_qlf.R"><i class="bi bi-download me-1"></i>05_edger_qlf.R</button></div>
+</section>
+
+<section id="step6" class="mb-5">
+  <h2 class="section-divider">Step 6 — GSEA with fgsea</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>R — Gene Set Enrichment Analysis with fgsea + MSigDB</span><button class="btn-copy">Copy</button></div>
+<pre id="s6-gsea">######################################################################
+## STEP 6: Gene Set Enrichment Analysis (GSEA) with fgsea
+## GSEA tests whether a predefined gene set (e.g. a KEGG pathway, GO term)
+## is enriched at the TOP or BOTTOM of your ranked gene list.
+## Unlike ORA (over-representation analysis), GSEA uses ALL genes ranked
+## by fold-change or Wald statistic — no arbitrary p-value cutoff needed.
+######################################################################
+
+library(fgsea)       # fast GSEA implementation
+library(msigdbr)     # MSigDB gene sets in R
+
+## --- Create a ranked gene list ---
+## Rank by: sign(log2FC) * -log10(pvalue)  = signed stat
+## Genes at the top = most upregulated
+## Genes at the bottom = most downregulated
+## Genes in the middle = no change
+ranked_genes <- res_df %>%
+    filter(!is.na(pvalue)) %>%
+    mutate(
+        ## Convert Ensembl IDs to gene symbols for pathway databases
+        ## (in real analysis, use biomaRt or org.Hs.eg.db for ID conversion)
+        rank_stat = sign(log2FoldChange) * -log10(pvalue)
+    ) %>%
+    arrange(desc(rank_stat))
+
+## Create named vector: name = gene_id, value = rank statistic
+ranks <- setNames(ranked_genes$rank_stat, ranked_genes$gene_id)
+
+## --- Load MSigDB gene sets ---
+## msigdbr: provides curated gene sets from the Molecular Signatures Database
+## species = "Homo sapiens" : use human gene sets
+## category = "H" : Hallmark gene sets (50 well-curated, non-overlapping pathways)
+## Other categories: "C2" = curated (KEGG, Reactome), "C5" = GO terms
+msig_h <- msigdbr(species="Homo sapiens", category="H")
+
+## Convert to list format required by fgsea
+## Each element: pathway name → vector of gene IDs in that pathway
+pathway_list <- split(msig_h$ensembl_gene, msig_h$gs_name)
+
+## --- Run fgsea ---
+## fgsea: fast preranked GSEA (Subramanian et al. 2005 method)
+## pathways  : list of gene sets
+## stats     : named vector of per-gene ranking statistics
+## minSize   : minimum gene set size to test (filter tiny gene sets)
+## maxSize   : maximum gene set size (filter very large sets — GSEA is unstable for huge sets)
+## nperm     : number of permutations for p-value estimation (1000 is fast; use 10000 for publication)
+set.seed(42)
+fgsea_res <- fgsea(
+    pathways = pathway_list,
+    stats    = ranks,
+    minSize  = 15,
+    maxSize  = 500,
+    nperm    = 1000
+)
+
+## --- View results ---
+## NES > 0: pathway is enriched among upregulated genes (activated by dex)
+## NES < 0: pathway is enriched among downregulated genes (suppressed by dex)
+fgsea_res %>%
+    filter(padj < 0.05) %>%
+    arrange(NES) %>%
+    dplyr::select(pathway, NES, padj, size) %>%
+    print()
+
+## --- GSEA enrichment plot for top pathway ---
+## plotEnrichment: shows the running enrichment score across the ranked list
+top_pathway <- fgsea_res %>% filter(padj < 0.05) %>% arrange(padj) %>% head(1) %>% pull(pathway)
+plotEnrichment(pathway_list[[top_pathway]], ranks) +
+    labs(title=top_pathway, subtitle="GSEA enrichment score")
+ggsave("gsea_top_pathway.png", width=8, height=5)
+
+write.csv(as.data.frame(fgsea_res), "GSEA_Hallmark_results.csv", row.names=FALSE)</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s6-gsea" data-filename="06_gsea_fgsea.R"><i class="bi bi-download me-1"></i>06_gsea_fgsea.R</button></div>
+  <div class="fun-tip"><span class="fun-tip-icon">&#128161;</span><div><strong>GSEA vs ORA:</strong> Over-representation analysis (ORA, like clusterProfiler enrichGO) tests if DE genes are enriched in a pathway. It requires an arbitrary cutoff (padj &lt; 0.05). GSEA uses ALL genes ranked by their test statistic and finds pathways enriched at either extreme. GSEA is more sensitive for subtle but coordinated pathway changes and avoids cutoff sensitivity. Use both and see where they agree.</div></div>
+</section>
+
+<section id="step7" class="mb-5">
+  <h2 class="section-divider">Step 7 — Publication-Quality Figures</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>R — Volcano plot, heatmap, and GSEA dotplot for publication</span><button class="btn-copy">Copy</button></div>
+<pre id="s7-figs">######################################################################
+## STEP 7: Create publication-quality figures
+## These are the three figures most commonly required for DE manuscripts:
+##   1. Volcano plot: overview of all genes, highlights significant ones
+##   2. Heatmap: expression of top DE genes across samples
+##   3. GSEA dotplot: top enriched pathways with NES and significance
+######################################################################
+
+library(ggplot2); library(ggrepel); library(pheatmap); library(tidyverse)
+
+## --- Figure 1: Volcano plot ---
+vol_data <- as.data.frame(res_shrunk) %>%
+    rownames_to_column("gene_id") %>%
+    filter(!is.na(padj)) %>%
+    mutate(
+        sig   = padj < 0.05 & abs(log2FoldChange) > 1,
+        color = case_when(
+            padj < 0.05 & log2FoldChange >  1 ~ "Up",
+            padj < 0.05 & log2FoldChange < -1 ~ "Down",
+            TRUE ~ "NS"
+        ),
+        label = ifelse(sig & rank(padj) <= 15, gene_id, NA)
+    )
+
+ggplot(vol_data, aes(log2FoldChange, -log10(padj), color=color)) +
+    geom_point(aes(size=sig), alpha=0.6) +
+    geom_hline(yintercept=-log10(0.05), linetype=2, color="grey50") +
+    geom_vline(xintercept=c(-1,1), linetype=2, color="grey50") +
+    geom_text_repel(aes(label=label), size=3, na.rm=TRUE, max.overlaps=30) +
+    scale_color_manual(values=c("Up"="#d73027","Down"="#4575b4","NS"="#d3d3d3")) +
+    scale_size_manual(values=c("TRUE"=1.2,"FALSE"=0.5)) +
+    labs(x="log2 Fold Change (trt vs untrt)",
+         y="-log10 adjusted p-value",
+         title="Dexamethasone response: airway smooth muscle") +
+    theme_bw(base_size=13) + theme(legend.position="none")
+ggsave("volcano_dex.png", width=9, height=7, dpi=300)
+
+## --- Figure 2: Heatmap of top 40 DE genes ---
+top40 <- as.data.frame(res_shrunk) %>%
+    rownames_to_column("gene") %>% filter(!is.na(padj), padj < 0.05) %>%
+    arrange(padj) %>% head(40) %>% pull(gene)
+
+mat <- assay(vsd)[top40, ]
+mat_z <- t(scale(t(mat)))   # z-score per gene
+ann  <- data.frame(Treatment=airway$dex, Cell=airway$cell,
+                   row.names=colnames(mat_z))
+ann_colors <- list(
+    Treatment = c(trt="firebrick", untrt="steelblue"),
+    Cell      = setNames(brewer.pal(4,"Set1"), levels(factor(airway$cell)))
+)
+pheatmap(mat_z, annotation_col=ann, annotation_colors=ann_colors,
+         show_rownames=TRUE, show_colnames=FALSE,
+         color=colorRampPalette(rev(brewer.pal(9,"RdBu")))(100),
+         main="Top 40 DE genes: dexamethasone response",
+         filename="heatmap_top40_dex.png", width=8, height=10)</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s7-figs" data-filename="07_publication_figures.R"><i class="bi bi-download me-1"></i>07_publication_figures.R</button></div>
+</section>
+
+<section class="mb-5">
+  <div class="d-flex justify-content-between">
+    <a href="rnaseq-de-novo-trinity-deseq2.html" class="btn btn-outline-secondary rounded-pill px-4"><i class="bi bi-arrow-left me-2"></i>De Novo Trinity</a>
+    <a href="chipseq-macs2-motif-analysis.html" class="btn btn-primary rounded-pill px-4">ChIP-seq Analysis <i class="bi bi-arrow-right ms-2"></i></a>
+  </div>
+</section>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-lg-6"><h5 class="text-white fw-bold mb-3"><span style="color:#ff9933;">Indian</span><span style="color:var(--ieb-primary);">Elucid</span><span style="color:var(--ieb-accent);">Biology</span></h5><p class="small">Free, interactive bioinformatics tutorials. Open source and community-driven.</p></div>
+      <div class="col-lg-6 text-lg-end"><p class="small mb-1">Founded by <strong>Ankush Sharma</strong></p><div class="d-flex gap-3 justify-content-lg-end"><a href="https://github.com/ank-man" target="_blank" class="text-white fs-5"><i class="bi bi-github"></i></a><a href="https://www.linkedin.com/in/ankush-sharma-290307/" target="_blank" class="text-white fs-5"><i class="bi bi-linkedin"></i></a><a href="mailto:mr.ank2999@gmail.com" class="text-white fs-5"><i class="bi bi-envelope"></i></a></div></div>
+    </div>
+    <hr class="border-secondary mt-4 mb-3">
+    <p class="text-center small mb-0">&copy; 2025 IndianElucidBiology &mdash; Made with <span style="color:#e25555;">&#9829;</span> for the bioinformatics community.</p>
+  </div>
+</footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fst &amp; Selective Sweep Detection: SweeD, XP-EHH, iHS | IndianElucidBiology</title>
+  <meta name="description" content="Detect signatures of natural selection using windowed Fst, SweeD composite likelihood ratio sweeps, and extended haplotype homozygosity (XP-EHH, iHS) with the rehh R package. Uses maize domestication data (Hufford et al. 2012).">
+  <meta name="keywords" content="selective sweep, Fst, SweeD, XP-EHH, iHS, rehh, EHH, haplotype, domestication, positive selection, population genomics, maize, Zea mays">
+  <link rel="canonical" href="https://indianelucidbiology.github.io/tutorials/popgen-fst-selective-sweeps.html">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="../css/style.css" rel="stylesheet">
+</head>
+<body>
+<div class="progress-tracker"></div>
+
+<!-- =====================================================================
+     NAVBAR — fixed top bar with Home, Tutorial Library, prev/next links
+     ===================================================================== -->
+<nav class="navbar navbar-expand-lg fixed-top">
+  <div class="container">
+    <a class="navbar-brand" href="../index.html">
+      <span class="brand-indian">Indian</span><span class="brand-elucid">Elucid</span><span class="brand-biology">Biology</span>
+    </a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="mainNav">
+      <ul class="navbar-nav ms-auto me-3">
+        <li class="nav-item"><a class="nav-link" href="../index.html">Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="index.html">Tutorial Library</a></li>
+        <li class="nav-item"><a class="nav-link" href="popgen-psmc-demographic-history.html"><i class="bi bi-arrow-left me-1"></i>PSMC</a></li>
+        <li class="nav-item"><a class="nav-link" href="popgen-abba-baba-introgression.html">ABBA-BABA<i class="bi bi-arrow-right ms-1"></i></a></li>
+      </ul>
+      <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode">&#9790;</button>
+    </div>
+  </div>
+</nav>
+
+<!-- =====================================================================
+     HERO — page title, badges, Byte image
+     ===================================================================== -->
+<section class="tutorial-hero">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-lg-8">
+        <nav aria-label="breadcrumb">
+          <ol class="breadcrumb mb-3" style="--bs-breadcrumb-divider-color:rgba(255,255,255,0.5);">
+            <li class="breadcrumb-item"><a href="../index.html" class="text-white-50 text-decoration-none">Home</a></li>
+            <li class="breadcrumb-item"><a href="index.html" class="text-white-50 text-decoration-none">Tutorials</a></li>
+            <li class="breadcrumb-item active text-white">Fst &amp; Selective Sweeps</li>
+          </ol>
+        </nav>
+        <h1 class="display-5 fw-bold text-white mb-3">Fst &amp; Selective Sweep Detection</h1>
+        <p class="lead text-white-50 mb-4">
+          Windowed Fst between populations &middot; Tajima&rsquo;s D &amp; &pi; neutrality tests &middot;
+          SweeD composite likelihood sweeps &middot; XP-EHH &amp; iHS haplotype statistics with rehh
+        </p>
+        <div class="d-flex gap-3 flex-wrap">
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-clock me-1"></i> ~120 min</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-bar-chart me-1"></i> Advanced</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-terminal me-1"></i> Bash / R</span>
+        </div>
+      </div>
+      <div class="col-lg-4 text-center d-none d-lg-block">
+        <img src="../img/Byte3.png" alt="Byte" class="img-fluid" style="max-height:230px;filter:drop-shadow(0 10px 30px rgba(0,0,0,0.4));">
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =====================================================================
+     MAIN CONTENT
+     ===================================================================== -->
+<div class="container py-5">
+  <div class="row">
+
+    <!-- TOC sidebar -->
+    <div class="col-lg-3 d-none d-lg-block">
+      <div class="toc-sidebar">
+        <h6 class="fw-bold text-muted text-uppercase small mb-3">On this page</h6>
+        <nav class="nav flex-column">
+          <a class="nav-link" href="#overview">Overview</a>
+          <a class="nav-link" href="#dirstructure">Directory Structure</a>
+          <a class="nav-link" href="#dataset">Dataset</a>
+          <a class="nav-link" href="#step1">1. Download &amp; Prepare VCF</a>
+          <a class="nav-link" href="#step2">2. Windowed Fst</a>
+          <a class="nav-link" href="#step3">3. Diversity Stats (Pi, Tajima&rsquo;s D)</a>
+          <a class="nav-link" href="#step4">4. SweeD — CLR Sweeps</a>
+          <a class="nav-link" href="#step5">5. XP-EHH &amp; iHS (rehh)</a>
+          <a class="nav-link" href="#step6">6. Combine &amp; Visualise</a>
+        </nav>
+      </div>
+    </div>
+
+    <!-- Tutorial body -->
+    <div class="col-lg-9">
+      <div class="tutorial-content">
+
+<!-- ------------------------------------------------------------------ -->
+<!-- OVERVIEW                                                             -->
+<!-- ------------------------------------------------------------------ -->
+<section id="overview" class="mb-5">
+  <h2 class="section-divider">Overview</h2>
+  <p>Selective sweeps leave characteristic genomic footprints: reduced diversity, skewed allele frequencies, and long identical haplotypes surrounding the selected locus. No single statistic catches all sweeps — a hard sweep (one allele fixed rapidly) looks different from a soft sweep (multiple haplotypes selected simultaneously) or a partial sweep (still in progress). This tutorial teaches you a multi-layered approach combining three complementary methods:</p>
+  <div class="param-table">
+    <table class="table table-striped mb-0">
+      <thead><tr><th>Method</th><th>Detects</th><th>Time scale</th><th>Needs phased data?</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Windowed Fst</strong></td><td>Differentiation between populations</td><td>Any</td><td>No</td></tr>
+        <tr><td><strong>Tajima&rsquo;s D / &pi;</strong></td><td>Allele frequency skews, reduced diversity</td><td>Ancient–recent</td><td>No</td></tr>
+        <tr><td><strong>SweeD (CLR)</strong></td><td>Hard sweeps — site frequency spectrum distortion</td><td>Recent–ancient</td><td>No</td></tr>
+        <tr><td><strong>XP-EHH / iHS</strong></td><td>Incomplete sweeps — extended haplotype homozygosity</td><td>Very recent</td><td>Yes</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="byte-callout">
+    <img src="../img/Byte1.png" alt="Byte">
+    <div><strong>Dataset:</strong> Maize domestication from teosinte (<em>Zea mays</em> ssp. <em>parviglumis</em>) is one of the best-characterised examples of artificial selection in plants. Hufford et al. 2012 sequenced 75 maize landrace + 26 teosinte accessions at ~30&times; coverage and identified hundreds of domestication sweep regions including the iconic <em>tb1</em> (teosinte branched 1) and <em>su1</em> (sugary 1) loci.</div>
+  </div>
+</section>
+
+<!-- ------------------------------------------------------------------ -->
+<!-- DIRECTORY STRUCTURE                                                  -->
+<!-- ------------------------------------------------------------------ -->
+<section id="dirstructure" class="mb-5">
+  <h2 class="section-divider">Ideal Directory Structure</h2>
+  <div class="dir-tree">
+    <div class="dir-tree-header"><i class="bi bi-folder2-open"></i> popgen_sweeps_maize/</div>
+<span class="tree-folder">popgen_sweeps_maize/</span>
+&#9500;&#9472;&#9472; <span class="tree-folder tree-active">0_raw/</span>              <span class="tree-note"># raw VCF from PRJNA178613</span>
+&#9500;&#9472;&#9472; <span class="tree-folder">1_filtered/</span>         <span class="tree-note"># VCFtools-filtered biallelic SNPs</span>
+&#9500;&#9472;&#9472; <span class="tree-folder">2_popfiles/</span>         <span class="tree-note"># text files listing sample IDs per population</span>
+&#9474;   &#9500;&#9472;&#9472; <span class="tree-file">maize.txt</span>
+&#9474;   &#9492;&#9472;&#9472; <span class="tree-file">teosinte.txt</span>
+&#9500;&#9472;&#9472; <span class="tree-folder">3_fst/</span>              <span class="tree-note"># windowed Fst output</span>
+&#9500;&#9472;&#9472; <span class="tree-folder">4_diversity/</span>        <span class="tree-note"># pi and Tajima's D windows</span>
+&#9500;&#9472;&#9472; <span class="tree-folder">5_sweed/</span>            <span class="tree-note"># SweeD CLR output per chromosome</span>
+&#9500;&#9472;&#9472; <span class="tree-folder">6_rehh/</span>             <span class="tree-note"># rehh haplotype input + XP-EHH/iHS output</span>
+&#9492;&#9472;&#9472; <span class="tree-folder">7_plots/</span>            <span class="tree-note"># all R figures</span>
+    &#9500;&#9472;&#9472; <span class="tree-output">manhattan_fst.png</span>
+    &#9500;&#9472;&#9472; <span class="tree-output">sweed_clr.png</span>
+    &#9492;&#9472;&#9472; <span class="tree-output">xpehh_ihs.png</span>
+  </div>
+</section>
+
+<!-- ------------------------------------------------------------------ -->
+<!-- DATASET                                                              -->
+<!-- ------------------------------------------------------------------ -->
+<section id="dataset" class="mb-5">
+  <h2 class="section-divider">Dataset</h2>
+  <p>The <strong>maize domestication dataset</strong> from Hufford et al. 2012 (<em>Nature Genetics</em>) is the landmark study of maize population genomics. It compared domesticated maize landraces vs. their wild ancestor teosinte, enabling direct measurement of the genomic footprint of domestication selection.</p>
+  <div class="param-table">
+    <table class="table table-striped mb-0">
+      <thead><tr><th>Property</th><th>Value</th></tr></thead>
+      <tbody>
+        <tr><td>Organism</td><td><em>Zea mays</em> ssp. <em>mays</em> (maize) vs. ssp. <em>parviglumis</em> (teosinte)</td></tr>
+        <tr><td>Accession</td><td>PRJNA178613 (SRA)</td></tr>
+        <tr><td>Samples</td><td>75 maize landraces + 26 teosinte accessions</td></tr>
+        <tr><td>Reference</td><td>B73 RefGen_v4 (GCF_902167145.1)</td></tr>
+        <tr><td>Notable sweep loci</td><td><em>tb1</em> (chr1), <em>su1</em> (chr4), <em>bt2</em> (chr4)</td></tr>
+        <tr><td>Publication</td><td>Hufford et al. 2012, <em>Nature Genetics</em></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ------------------------------------------------------------------ -->
+<!-- STEP 1 — DOWNLOAD & FILTER                                          -->
+<!-- ------------------------------------------------------------------ -->
+<section id="step1" class="mb-5">
+  <h2 class="section-divider">Step 1 — Download &amp; Prepare VCF</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash — Download maize/teosinte VCF and filter</span><button class="btn-copy">Copy</button></div>
+<pre id="s1-download">######################################################################
+## STEP 1: Download and filter the maize/teosinte SNP dataset
+## Goal: get a clean biallelic SNP-only VCF ready for analysis
+######################################################################
+
+## --- Create output directories ---
+mkdir -p 0_raw 1_filtered 2_popfiles 3_fst 4_diversity 5_sweed 6_rehh 7_plots
+
+## --- Load required software modules ---
+## (Adjust module names to match your HPC environment)
+module load sra-toolkit   # for downloading from NCBI SRA
+module load bcftools/1.17 # for VCF manipulation
+module load vcftools/0.1.16 # for filtering and population statistics
+
+## --- Download the raw VCF from NCBI (pre-called SNPs from the original paper) ---
+## This downloads the final SNP VCF directly (not the raw FASTQ reads)
+## File size is approximately 2 GB compressed
+wget -P 0_raw/ \
+  https://de.cyverse.org/dl/d/0A080C3D-C932-48A4-B73E-D49D4BC2EE93/ZeaGBSv2.7_20171204_AGPv4_maf005_max0.1miss.vcf.gz
+
+## If the above link is unavailable, download raw reads from SRA and call variants:
+## prefetch --option-file sra_accessions.txt  (see GATK tutorial for variant calling)
+
+## --- Index the VCF so bcftools can query by region ---
+bcftools index --tbi 0_raw/ZeaGBSv2.7_20171204_AGPv4_maf005_max0.1miss.vcf.gz
+
+## --- Filter: keep only biallelic SNPs with MAF>5% and <10% missing ---
+## --remove-indels   : remove insertion/deletion variants (SNPs only)
+## --maf 0.05        : remove sites where minor allele frequency < 5%
+## --max-missing 0.9 : remove sites where >10% of samples lack a genotype
+## --recode          : write output in VCF format
+## --out             : prefix for output files
+vcftools \
+    --gzvcf 0_raw/ZeaGBSv2.7_20171204_AGPv4_maf005_max0.1miss.vcf.gz \
+    --remove-indels \
+    --maf 0.05 \
+    --max-missing 0.9 \
+    --recode \
+    --out 1_filtered/maize_filtered
+
+## --- Compress and index the filtered VCF ---
+## bgzip: block-compressed gzip (required for tabix random access)
+## tabix: creates .tbi index for fast coordinate-based queries
+bgzip 1_filtered/maize_filtered.recode.vcf
+tabix -p vcf 1_filtered/maize_filtered.recode.vcf.gz
+mv 1_filtered/maize_filtered.recode.vcf.gz 1_filtered/maize_filtered.vcf.gz
+mv 1_filtered/maize_filtered.recode.vcf.gz.tbi 1_filtered/maize_filtered.vcf.gz.tbi
+
+## --- Create population ID files ---
+## These are simple text files — one sample name per line per population
+## Sample names must exactly match the VCF header sample IDs
+## Get the full sample list from the VCF header first:
+bcftools query -l 1_filtered/maize_filtered.vcf.gz > 2_popfiles/all_samples.txt
+
+## Then manually separate into maize and teosinte based on metadata
+## from the original publication (Supplementary Table 1, Hufford 2012)
+## Example: first 75 samples = maize, last 26 = teosinte
+head -75 2_popfiles/all_samples.txt > 2_popfiles/maize.txt
+tail -26 2_popfiles/all_samples.txt > 2_popfiles/teosinte.txt
+
+echo "===== Dataset ready ====="
+echo "Maize samples:    $(wc -l < 2_popfiles/maize.txt)"
+echo "Teosinte samples: $(wc -l < 2_popfiles/teosinte.txt)"
+echo "Total SNPs:       $(bcftools view --no-header 1_filtered/maize_filtered.vcf.gz | wc -l)"</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s1-download" data-filename="01_download_prepare.sh"><i class="bi bi-download me-1"></i>01_download_prepare.sh</button></div>
+  <div class="cmd-explain">
+    <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> Data preparation decoded</div>
+    <table>
+      <tr><td><span class="cmd-emoji">&#128296;</span>bgzip vs gzip</td><td><code>bgzip</code> creates block-compressed files that <code>tabix</code> can index for random-access by chromosome:position. Regular <code>gzip</code> cannot be indexed this way. Always use <code>bgzip</code> for VCFs you plan to query with bcftools or tabix.</td></tr>
+      <tr><td><span class="cmd-emoji">&#128196;</span>Population ID files</td><td>Simple one-column text files with sample IDs matching the VCF header exactly (case-sensitive). VCFtools uses these files to split samples into groups for per-population statistics. Getting sample assignment wrong silently produces incorrect Fst values &mdash; always double-check.</td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- ------------------------------------------------------------------ -->
+<!-- STEP 2 — WINDOWED FST                                               -->
+<!-- ------------------------------------------------------------------ -->
+<section id="step2" class="mb-5">
+  <h2 class="section-divider">Step 2 — Windowed Fst</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash — Weir &amp; Cockerham windowed Fst (maize vs teosinte)</span><button class="btn-copy">Copy</button></div>
+<pre id="s2-fst">######################################################################
+## STEP 2: Calculate windowed Fst between maize and teosinte
+## Fst measures how different two populations are at each genomic region
+## High Fst = one population has a very different allele frequency there
+##   = possible evidence of selection favouring different alleles
+######################################################################
+
+VCF="1_filtered/maize_filtered.vcf.gz"   # filtered VCF from Step 1
+POP1="2_popfiles/maize.txt"              # file listing maize sample IDs
+POP2="2_popfiles/teosinte.txt"           # file listing teosinte sample IDs
+
+## --- Calculate windowed Fst ---
+## --weir-fst-pop : specify one population file per flag (need at least 2)
+## --fst-window-size 50000  : each window spans 50,000 base pairs (50 kb)
+## --fst-window-step 25000  : windows slide every 25,000 bp (50% overlap)
+##   → overlapping windows give smoother genome-wide signal
+## --out : prefix for output files (.windowed.weir.fst will be created)
+vcftools \
+    --gzvcf ${VCF} \
+    --weir-fst-pop ${POP1} \
+    --weir-fst-pop ${POP2} \
+    --fst-window-size 50000 \
+    --fst-window-step 25000 \
+    --out 3_fst/maize_vs_teo
+
+## --- View the output ---
+## Columns: CHROM, BIN_START, BIN_END, N_VARIANTS (SNPs in window),
+##          WEIGHTED_FST (use this!), MEAN_FST
+head 3_fst/maize_vs_teo.windowed.weir.fst
+
+## --- Extract top 1% highest-Fst windows (candidate sweep regions) ---
+## Sort by column 5 (WEIGHTED_FST) in reverse order, skip header
+## Calculate 99th percentile cutoff with awk first
+CUTOFF=$(awk 'NR>1 {print $5}' 3_fst/maize_vs_teo.windowed.weir.fst | \
+         sort -n | \
+         awk 'BEGIN{n=0} {vals[n++]=$1} END{print vals[int(n*0.99)]}')
+
+echo "Top 1% Fst cutoff: ${CUTOFF}"
+
+## Extract windows above the cutoff
+awk -v cut="${CUTOFF}" 'NR==1 || $5 >= cut' \
+    3_fst/maize_vs_teo.windowed.weir.fst \
+    > 3_fst/top1pct_fst_windows.txt
+
+echo "High-Fst windows: $(wc -l < 3_fst/top1pct_fst_windows.txt)"</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s2-fst" data-filename="02_windowed_fst.sh"><i class="bi bi-download me-1"></i>02_windowed_fst.sh</button></div>
+  <div class="cmd-explain">
+    <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> Windowed Fst parameters decoded</div>
+    <table>
+      <tr><td><span class="cmd-emoji">&#127919;</span>WEIGHTED_FST vs MEAN_FST</td><td><code>WEIGHTED_FST</code> weights each SNP&rsquo;s contribution by its variance — this is the Weir &amp; Cockerham estimator and is the correct value to use for ranking windows. <code>MEAN_FST</code> is the simple arithmetic mean and can be biased when sample sizes differ between populations.</td></tr>
+      <tr><td><span class="cmd-emoji">&#128200;</span>Top 1% cutoff</td><td>Using an empirical percentile threshold (top 1% or 5%) is the standard approach for detecting outlier windows. Avoid using a fixed absolute cutoff (e.g. Fst &gt; 0.5) — the appropriate threshold depends on your organism&rsquo;s baseline differentiation level.</td></tr>
+      <tr><td><span class="cmd-emoji">&#128101;</span>Window size choice</td><td>50 kb windows are standard for maize (~2.4 Gb genome, high recombination). For organisms with lower recombination rates, use larger windows (100&ndash;200 kb). Smaller windows (10&ndash;20 kb) increase resolution but produce noisier per-window estimates.</td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- ------------------------------------------------------------------ -->
+<!-- STEP 3 — DIVERSITY STATS                                            -->
+<!-- ------------------------------------------------------------------ -->
+<section id="step3" class="mb-5">
+  <h2 class="section-divider">Step 3 — Diversity Statistics: &pi; and Tajima&rsquo;s D</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash — Per-population pi and Tajima's D in sliding windows</span><button class="btn-copy">Copy</button></div>
+<pre id="s3-diversity">######################################################################
+## STEP 3: Calculate nucleotide diversity (pi) and Tajima's D
+## These statistics measure how "variable" the genome is within
+## each population in each window:
+##   pi      = average pairwise differences per site (more = more diverse)
+##   Tajima's D = negative during sweeps (excess of rare alleles)
+######################################################################
+
+VCF="1_filtered/maize_filtered.vcf.gz"
+
+## --- Calculate pi for maize only ---
+## --keep : restrict analysis to samples in this file (maize only)
+## --window-pi 50000 : sliding 50 kb windows
+## --window-pi-step 25000 : 25 kb step (50% overlap with previous window)
+vcftools \
+    --gzvcf ${VCF} \
+    --keep 2_popfiles/maize.txt \
+    --window-pi 50000 \
+    --window-pi-step 25000 \
+    --out 4_diversity/pi_maize
+
+## --- Calculate pi for teosinte only ---
+vcftools \
+    --gzvcf ${VCF} \
+    --keep 2_popfiles/teosinte.txt \
+    --window-pi 50000 \
+    --window-pi-step 25000 \
+    --out 4_diversity/pi_teosinte
+
+## --- Calculate Tajima's D for maize ---
+## --TajimaD 50000 : non-overlapping 50 kb windows
+## Output file: .Tajima.D  (columns: CHROM, BIN_START, N_SNPS, TajimaD)
+vcftools \
+    --gzvcf ${VCF} \
+    --keep 2_popfiles/maize.txt \
+    --TajimaD 50000 \
+    --out 4_diversity/tajD_maize
+
+## --- Calculate Tajima's D for teosinte ---
+vcftools \
+    --gzvcf ${VCF} \
+    --keep 2_popfiles/teosinte.txt \
+    --TajimaD 50000 \
+    --out 4_diversity/tajD_teosinte
+
+## --- Quick genome-wide summaries ---
+echo "=== Maize mean pi ==="
+awk 'NR>1 && $5!="nan" {sum+=$5; n++} END {printf "%.6f\n", sum/n}' \
+    4_diversity/pi_maize.windowed.pi
+
+echo "=== Teosinte mean pi ==="
+awk 'NR>1 && $5!="nan" {sum+=$5; n++} END {printf "%.6f\n", sum/n}' \
+    4_diversity/pi_teosinte.windowed.pi
+
+echo "=== Maize mean Tajima's D ==="
+awk 'NR>1 && $4!="NaN" {sum+=$4; n++} END {printf "%.4f\n", sum/n}' \
+    4_diversity/tajD_maize.Tajima.D</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s3-diversity" data-filename="03_diversity_stats.sh"><i class="bi bi-download me-1"></i>03_diversity_stats.sh</button></div>
+  <div class="cmd-explain">
+    <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> Diversity statistics decoded</div>
+    <table>
+      <tr><td><span class="cmd-emoji">&#127801;</span>pi (nucleotide diversity)</td><td>Average number of pairwise differences per base pair between two randomly sampled sequences. Expect maize &pi; &lt; teosinte &pi; genome-wide because domestication caused a population bottleneck, reducing diversity. At sweep loci, maize &pi; drops even lower than the genome-wide bottleneck reduction.</td></tr>
+      <tr><td><span class="cmd-emoji">&#128202;</span>Tajima&rsquo;s D during a sweep</td><td>Under a selective sweep, rare alleles accumulate around the selected locus (hitchhiked variants are young and thus rare). This pushes Tajima&rsquo;s D strongly negative. Maize domestication sweeps should show D &lt; &minus;2 in affected regions, while teosinte in the same regions shows D near zero.</td></tr>
+    </table>
+  </div>
+  <div class="fun-tip"><span class="fun-tip-icon">&#127807;</span><div><strong>Expected result for maize:</strong> Genome-wide, maize &pi; &asymp; 0.007 and teosinte &pi; &asymp; 0.011 — maize has ~36% less diversity than teosinte due to the domestication bottleneck. At the <em>tb1</em> locus on chr1, maize &pi; drops to nearly zero, confirming a hard sweep at this key domestication gene.</div></div>
+</section>
+
+<!-- ------------------------------------------------------------------ -->
+<!-- STEP 4 — SWEED CLR SWEEPS                                           -->
+<!-- ------------------------------------------------------------------ -->
+<section id="step4" class="mb-5">
+  <h2 class="section-divider">Step 4 — SweeD Composite Likelihood Ratio Sweeps</h2>
+  <p>SweeD (Pavlidis et al. 2013) scans the site frequency spectrum (SFS) for the signature of a selective sweep — an excess of low-frequency variants flanking a high-frequency derived allele.</p>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash — Convert VCF to SweeD format and run genome-wide scan</span><button class="btn-copy">Copy</button></div>
+<pre id="s4-sweed">######################################################################
+## STEP 4: Run SweeD to detect selective sweeps via the CLR (Composite
+## Likelihood Ratio) statistic.
+## SweeD compares the observed site frequency spectrum (SFS) at each
+## position to what we would expect under a neutral model.
+## High CLR = SFS looks like a sweep happened here.
+######################################################################
+
+module load vcftools/0.1.16
+## SweeD is typically compiled from source: https://github.com/alachins/sweed
+
+## --- Extract maize samples only into a separate VCF ---
+## SweeD analyses one population at a time
+vcftools \
+    --gzvcf 1_filtered/maize_filtered.vcf.gz \
+    --keep 2_popfiles/maize.txt \   # only maize samples
+    --recode \
+    --out 5_sweed/maize_only
+
+bgzip 5_sweed/maize_only.recode.vcf
+tabix -p vcf 5_sweed/maize_only.recode.vcf.gz
+mv 5_sweed/maize_only.recode.vcf.gz 5_sweed/maize_only.vcf.gz
+mv 5_sweed/maize_only.recode.vcf.gz.tbi 5_sweed/maize_only.vcf.gz.tbi
+
+## --- Run SweeD on each chromosome ---
+## -name     : output file prefix
+## -input    : input VCF
+## -grid 2000 : evaluate CLR at 2000 equally spaced grid points per chromosome
+##   (more grid points = finer resolution but slower)
+## -maf 0.05  : ignore sites with minor allele frequency below 5%
+## -folded    : use folded SFS (when ancestral allele is unknown)
+##   (unfolded is more powerful if you know the outgroup/ancestral state)
+## -pop 1     : analyse population 1 (maize is the only population here)
+for CHR in 1 2 3 4 5 6 7 8 9 10; do
+    echo "Running SweeD on chromosome ${CHR}..."
+    SweeD \
+        -name chr${CHR}_maize \
+        -input 5_sweed/maize_only.vcf.gz \
+        -region chr${CHR} \
+        -grid 2000 \
+        -maf 0.05 \
+        -folded \
+        -pop 1 \
+        -output 5_sweed/
+    echo "  Done: 5_sweed/SweeD_Report.chr${CHR}_maize"
+done
+
+## --- Concatenate all chromosomes into one file ---
+## Header is only in the first file; tail -n +2 skips it for subsequent files
+head -1 5_sweed/SweeD_Report.chr1_maize > 5_sweed/sweed_all_chr.txt
+for CHR in 1 2 3 4 5 6 7 8 9 10; do
+    tail -n +2 5_sweed/SweeD_Report.chr${CHR}_maize >> 5_sweed/sweed_all_chr.txt
+done
+
+## --- Find top 0.1% CLR positions (candidate sweep sites) ---
+CUTOFF=$(awk 'NR>1 {print $3}' 5_sweed/sweed_all_chr.txt | \
+         sort -n | \
+         awk 'BEGIN{n=0} {vals[n++]=$1} END{print vals[int(n*0.999)]}')
+echo "Top 0.1% CLR cutoff: ${CUTOFF}"
+
+awk -v cut="${CUTOFF}" 'NR==1 || $3 >= cut' \
+    5_sweed/sweed_all_chr.txt > 5_sweed/top_clr_sites.txt
+wc -l 5_sweed/top_clr_sites.txt</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s4-sweed" data-filename="04_sweed_clr.sh"><i class="bi bi-download me-1"></i>04_sweed_clr.sh</button></div>
+  <div class="cmd-explain">
+    <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> SweeD parameters decoded</div>
+    <table>
+      <tr><td><span class="cmd-emoji">&#128200;</span>-grid 2000</td><td>Number of candidate sweep positions to evaluate per chromosome. SweeD places 2,000 equally spaced points and calculates the CLR at each. For a maize chromosome (~300 Mb), this gives ~150 kb resolution. Increase to 5,000&ndash;10,000 for fine-mapping after an initial scan identifies candidates.</td></tr>
+      <tr><td><span class="cmd-emoji">&#127752;</span>-folded vs unfolded SFS</td><td>The SFS can be folded (ignoring which allele is ancestral) or unfolded (polarised using an outgroup). Unfolded SFS is more powerful but requires an outgroup to assign ancestral states. For maize, use teosinte as outgroup for an unfolded analysis. Use <code>-folded</code> when no reliable outgroup is available.</td></tr>
+      <tr><td><span class="cmd-emoji">&#127919;</span>CLR threshold</td><td>The CLR statistic has no fixed threshold &mdash; always use an empirical percentile (top 1% or 0.1%). The absolute CLR value depends on sample size and SNP density. A CLR that is significant in one dataset cannot be compared to another dataset with different samples.</td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- ------------------------------------------------------------------ -->
+<!-- STEP 5 — XP-EHH & iHS                                              -->
+<!-- ------------------------------------------------------------------ -->
+<section id="step5" class="mb-5">
+  <h2 class="section-divider">Step 5 — XP-EHH &amp; iHS with rehh</h2>
+  <p>Extended haplotype homozygosity (EHH) statistics detect incomplete sweeps where a selected haplotype is still increasing in frequency. They require <strong>phased</strong> genotype data.</p>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash — Phase VCF with BEAGLE (required for rehh)</span><button class="btn-copy">Copy</button></div>
+<pre id="s5-phase">######################################################################
+## STEP 5a: Phase genotypes with BEAGLE 5.4
+## XP-EHH and iHS require phased haplotypes — each individual's two
+## chromosomes must be assigned (e.g. "A|G" not "A/G")
+## BEAGLE 5.4 performs statistical phasing using haplotype patterns
+######################################################################
+
+module load java/17    # BEAGLE runs as a Java .jar file
+## Download BEAGLE 5.4: https://faculty.washington.edu/browning/beagle/beagle.html
+
+BEAGLE="beagle.22Jul22.46e.jar"   # path to BEAGLE .jar file
+VCF="1_filtered/maize_filtered.vcf.gz"
+
+## --- Phase each chromosome separately (faster and uses less memory) ---
+for CHR in 1 2 3 4 5 6 7 8 9 10; do
+    echo "Phasing chromosome ${CHR}..."
+
+    ## gt       : input VCF with unphased genotypes (GT field must be present)
+    ## out      : output file prefix (creates .vcf.gz automatically)
+    ## chrom    : only phase this chromosome (speeds up phasing)
+    ## nthreads : number of CPU threads to use
+    ## ne       : effective population size estimate for the phasing model
+    ##   (for maize: ~1,000,000 based on population history)
+    java -Xmx16g -jar ${BEAGLE} \
+        gt=${VCF} \
+        out=6_rehh/phased_chr${CHR} \
+        chrom=chr${CHR} \
+        nthreads=8 \
+        ne=1000000
+
+    echo "  Done: 6_rehh/phased_chr${CHR}.vcf.gz"
+done</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s5-phase" data-filename="05a_phase_beagle.sh"><i class="bi bi-download me-1"></i>05a_phase_beagle.sh</button></div>
+  <div class="cmd-explain">
+    <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> BEAGLE phasing parameters decoded</div>
+    <table>
+      <tr><td><span class="cmd-emoji">&#128101;</span>ne (effective population size)</td><td>BEAGLE uses a Li-Stephens haplotype model that needs an estimate of Ne. For humans: ~10,000&ndash;20,000. For maize: ~500,000&ndash;1,000,000 (larger due to recent population growth after domestication). Getting Ne very wrong affects phasing accuracy but BEAGLE is robust to 2&ndash;5x errors.</td></tr>
+      <tr><td><span class="cmd-emoji">&#127968;</span>-Xmx16g</td><td>Java memory allocation: 16 GB maximum heap. Phasing large chromosomes (&gt;50k SNPs) can require 8&ndash;32 GB RAM. If BEAGLE crashes with OutOfMemoryError, increase this value.</td></tr>
+    </table>
+  </div>
+
+  <div class="code-block-wrapper mt-4">
+    <div class="code-block-header"><span>R — XP-EHH and iHS with rehh package</span><button class="btn-copy">Copy</button></div>
+<pre id="s5-rehh">######################################################################
+## STEP 5b: Calculate XP-EHH and iHS using the rehh R package
+## XP-EHH = Cross-Population Extended Haplotype Homozygosity
+##   Compares haplotype homozygosity BETWEEN two populations
+##   High XP-EHH in maize vs teosinte = maize has longer shared haplotypes
+##   = evidence that a maize haplotype was under positive selection
+## iHS = integrated Haplotype Score (within-population)
+##   Compares derived vs ancestral haplotype lengths WITHIN one population
+##   High |iHS| = one haplotype is much longer than expected = recent sweep
+######################################################################
+
+library(rehh)       # haplotype-based selection scan package
+library(tidyverse)  # data manipulation and plotting
+library(ggplot2)
+
+## ---- Process one chromosome at a time (here: chromosome 1) --------
+CHR <- "chr1"
+
+## --- Step 1: Read phased VCF into rehh haplotype format ---
+## data2haplohh() converts a phased VCF into rehh's internal format
+## allele_coding = "01": encode alleles as 0 (ref) and 1 (alt)
+## min_maf = 0.05: skip sites with minor allele freq < 5% (too rare to phase well)
+## max_missing = 0.1: allow up to 10% missing genotypes
+hap_maize <- data2haplohh(
+    hap_file  = paste0("6_rehh/phased_", CHR, ".vcf.gz"),
+    vcf_reader = "data.table",           # fast reader for large files
+    allele_coding = "01",
+    min_maf = 0.05,
+    max_missing = 0.1,
+    haplotype_columns = 1:150,           # columns 1-150 = maize samples (2 haplotypes each)
+    verbose = TRUE
+)
+
+hap_teosinte <- data2haplohh(
+    hap_file  = paste0("6_rehh/phased_", CHR, ".vcf.gz"),
+    vcf_reader = "data.table",
+    allele_coding = "01",
+    min_maf = 0.05,
+    max_missing = 0.1,
+    haplotype_columns = 151:202,         # columns 151-202 = teosinte samples
+    verbose = TRUE
+)
+
+## --- Step 2: Calculate iHS (within-population, maize only) ---
+## scan_hh(): computes EHH and iHH (integrated EHH) at each SNP
+scan_maize <- scan_hh(
+    hap_maize,
+    polarized = FALSE   # unpolarized: no ancestral allele assignment needed
+)
+
+## ihh2ihs(): converts iHH values to the standardised iHS score
+## Standardisation removes the correlation between iHS and allele frequency
+ihs_result <- ihh2ihs(
+    scan_maize,
+    freqbin = 0.025     # bin SNPs by frequency in 2.5% bins for standardisation
+)
+
+## --- Step 3: Calculate XP-EHH (cross-population, maize vs teosinte) ---
+## scan_hh() for each population separately, then ies2xpehh()
+scan_teosinte <- scan_hh(hap_teosinte, polarized = FALSE)
+
+xpehh_result <- ies2xpehh(
+    scan_pop1 = scan_maize,       # "test" population (domesticated)
+    scan_pop2 = scan_teosinte,    # "reference" population (wild)
+    popname1 = "maize",
+    popname2 = "teosinte",
+    include_freq = TRUE           # include allele frequency in output
+)
+
+## --- Step 4: Save results ---
+write.csv(ihs_result$ihs,   "6_rehh/ihs_chr1_maize.csv",   row.names=FALSE)
+write.csv(xpehh_result,     "6_rehh/xpehh_chr1.csv",       row.names=FALSE)
+
+cat("iHS SNPs with |iHS| > 2:  ", sum(abs(ihs_result$ihs$IHS) > 2, na.rm=TRUE), "\n")
+cat("XP-EHH SNPs > 2:          ", sum(xpehh_result$XPEHH > 2, na.rm=TRUE), "\n")</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s5-rehh" data-filename="05b_rehh_xpehh.R"><i class="bi bi-download me-1"></i>05b_rehh_xpehh.R</button></div>
+  <div class="cmd-explain">
+    <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> rehh XP-EHH and iHS decoded</div>
+    <table>
+      <tr><td><span class="cmd-emoji">&#127775;</span>iHS (integrated Haplotype Score)</td><td>Compares the area under the EHH decay curve for the derived vs ancestral allele at each SNP. If the derived allele is under positive selection, it rises to high frequency before EHH has decayed — giving a longer haplotype. |iHS| &gt; 2 (2 standard deviations) is typically used as a significance threshold.</td></tr>
+      <tr><td><span class="cmd-emoji">&#127758;</span>XP-EHH (Cross-Population EHH)</td><td>Compares how fast haplotype homozygosity decays in population 1 vs population 2 moving away from each SNP. If population 1 (maize) has a much longer haplotype than population 2 (teosinte) at a locus, it suggests selection drove that haplotype to high frequency specifically in maize after the split. Positive XP-EHH = evidence of sweep in maize.</td></tr>
+      <tr><td><span class="cmd-emoji">&#128202;</span>freqbin = 0.025</td><td>iHS is frequency-dependent — rarer alleles naturally have longer haplotypes. Standardisation by frequency bins removes this confounding effect. SNPs are grouped into 2.5% frequency bins and iHS is Z-score normalised within each bin.</td></tr>
+    </table>
+  </div>
+  <div class="fun-tip"><span class="fun-tip-icon">&#127807;</span><div><strong>tb1 is the golden standard:</strong> The <em>tb1</em> locus on chr1 (~265 Mb in B73v4 coordinates) should show strongly positive XP-EHH in maize vs teosinte, strongly negative Tajima&rsquo;s D in maize, high Fst, and high SweeD CLR. If your pipeline produces a peak at <em>tb1</em>, your analysis is working correctly.</div></div>
+</section>
+
+<!-- ------------------------------------------------------------------ -->
+<!-- STEP 6 — COMBINE & VISUALISE                                        -->
+<!-- ------------------------------------------------------------------ -->
+<section id="step6" class="mb-5">
+  <h2 class="section-divider">Step 6 — Combine &amp; Visualise in R</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>R — Multi-panel Manhattan plot of all sweep statistics</span><button class="btn-copy">Copy</button></div>
+<pre id="s6-plot">######################################################################
+## STEP 6: Create a 4-panel genome-wide Manhattan plot showing:
+##   Panel 1: Windowed Fst (maize vs teosinte)
+##   Panel 2: Pi ratio (teosinte pi / maize pi) — enriched at sweeps
+##   Panel 3: SweeD CLR statistic
+##   Panel 4: XP-EHH statistic
+## All panels share the same x-axis (genomic position)
+######################################################################
+
+library(tidyverse)
+library(ggplot2)
+library(patchwork)      # combines multiple ggplots into one figure
+
+## ---- Load data -------------------------------------------------------
+
+## Fst results
+fst <- read.table("3_fst/maize_vs_teo.windowed.weir.fst", header=TRUE) %>%
+    rename(chrom=CHROM, pos=BIN_START, fst=WEIGHTED_FST) %>%
+    filter(fst >= 0)    # remove negative Fst estimates (set to 0 in practice)
+
+## Pi results — calculate pi ratio (teosinte/maize) as a sweep indicator
+pi_maize <- read.table("4_diversity/pi_maize.windowed.pi", header=TRUE) %>%
+    select(CHROM, BIN_START, PI) %>% rename(pi_maize=PI)
+pi_teo   <- read.table("4_diversity/pi_teosinte.windowed.pi", header=TRUE) %>%
+    select(CHROM, BIN_START, PI) %>% rename(pi_teo=PI)
+
+pi_ratio <- left_join(pi_maize, pi_teo, by=c("CHROM","BIN_START")) %>%
+    mutate(pi_ratio = pi_teo / (pi_maize + 1e-8)) %>%   # add tiny value to avoid divide-by-zero
+    rename(chrom=CHROM, pos=BIN_START)
+
+## SweeD CLR
+sweed <- read.table("5_sweed/sweed_all_chr.txt", header=TRUE) %>%
+    rename(chrom=Position, pos=Chromosome, clr=Likelihood)
+
+## XP-EHH (chr1 only here — repeat for all chromosomes in practice)
+xpehh <- read.csv("6_rehh/xpehh_chr1.csv") %>%
+    rename(pos=POSITION, xpehh=XPEHH) %>%
+    mutate(chrom="chr1")
+
+## ---- Helper function: standard Manhattan plot theme -----------------
+manhattan_theme <- function() {
+    theme_bw(base_size=11) +
+    theme(
+        panel.grid.minor = element_blank(),
+        panel.grid.major.x = element_blank(),
+        axis.text.x = element_text(angle=45, hjust=1, size=8)
+    )
+}
+
+## ---- Panel 1: Fst ---------------------------------------------------
+p1 <- ggplot(fst, aes(x=pos/1e6, y=fst)) +
+    geom_point(size=0.3, alpha=0.5, color="steelblue") +
+    geom_hline(yintercept=quantile(fst$fst, 0.99), color="red", linetype="dashed") +
+    facet_grid(~chrom, scales="free_x", space="free_x") +
+    labs(y="Fst", x=NULL, title="Maize vs Teosinte — Sweep Statistics") +
+    manhattan_theme()
+
+## ---- Panel 2: Pi ratio ----------------------------------------------
+p2 <- ggplot(pi_ratio, aes(x=pos/1e6, y=pi_ratio)) +
+    geom_point(size=0.3, alpha=0.5, color="forestgreen") +
+    geom_hline(yintercept=quantile(pi_ratio$pi_ratio, 0.99, na.rm=TRUE),
+               color="red", linetype="dashed") +
+    facet_grid(~chrom, scales="free_x", space="free_x") +
+    labs(y="Pi ratio\n(teo/maize)", x=NULL) +
+    manhattan_theme()
+
+## ---- Panel 3: SweeD CLR ---------------------------------------------
+p3 <- ggplot(sweed, aes(x=pos/1e6, y=clr)) +
+    geom_point(size=0.3, alpha=0.5, color="darkorange") +
+    geom_hline(yintercept=quantile(sweed$clr, 0.999, na.rm=TRUE),
+               color="red", linetype="dashed") +
+    facet_grid(~chrom, scales="free_x", space="free_x") +
+    labs(y="SweeD CLR", x=NULL) +
+    manhattan_theme()
+
+## ---- Panel 4: XP-EHH (chr1) ----------------------------------------
+p4 <- ggplot(xpehh, aes(x=pos/1e6, y=xpehh)) +
+    geom_point(size=0.4, alpha=0.6, color="purple") +
+    geom_hline(yintercept=2, color="red", linetype="dashed") +
+    labs(y="XP-EHH\n(maize vs teo)", x="Position (Mb) — Chr1") +
+    theme_bw(base_size=11)
+
+## ---- Combine with patchwork -----------------------------------------
+## p1 / p2 / p3 = stack panels vertically
+final_plot <- p1 / p2 / p3 / p4 +
+    plot_layout(heights=c(2,2,2,1.5))   # relative panel heights
+
+ggsave("7_plots/manhattan_sweep_stats.png", final_plot,
+       width=20, height=14, dpi=150)</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s6-plot" data-filename="06_visualise_sweeps.R"><i class="bi bi-download me-1"></i>06_visualise_sweeps.R</button></div>
+  <div class="cmd-explain">
+    <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> Visualisation decoded</div>
+    <table>
+      <tr><td><span class="cmd-emoji">&#128200;</span>Pi ratio (teo/maize)</td><td>Dividing teosinte &pi; by maize &pi; amplifies the signal at sweep loci. At a sweep, maize &pi; drops to near zero while teosinte &pi; stays normal, making the ratio very large. This is a simple but powerful complementary statistic to Fst.</td></tr>
+      <tr><td><span class="cmd-emoji">&#127919;</span>patchwork panel layout</td><td>The <code>patchwork</code> package stacks ggplots vertically with <code>/</code> operators. <code>plot_layout(heights=)</code> controls relative panel heights. Aligning all panels to the same chromosomal x-axis allows easy visual identification of genomic regions where multiple statistics co-localise &mdash; these are the most convincing sweep candidates.</td></tr>
+    </table>
+  </div>
+  <div class="fun-tip"><span class="fun-tip-icon">&#128300;</span><div><strong>The convergence rule:</strong> A genuine selective sweep will show high signal in <em>multiple</em> statistics simultaneously — high Fst, high pi ratio, high CLR, and high XP-EHH all pointing to the same genomic location. A false positive typically appears in only one or two statistics. Always require at least 2&ndash;3 statistics to converge before calling a locus as a sweep candidate.</div></div>
+</section>
+
+<!-- Navigation buttons between popgen tutorials -->
+<section class="mb-5">
+  <div class="d-flex justify-content-between">
+    <a href="popgen-psmc-demographic-history.html" class="btn btn-outline-secondary rounded-pill px-4">
+      <i class="bi bi-arrow-left me-2"></i>PSMC &amp; Demographic History
+    </a>
+    <a href="popgen-abba-baba-introgression.html" class="btn btn-primary rounded-pill px-4">
+      ABBA-BABA &amp; Introgression <i class="bi bi-arrow-right ms-2"></i>
+    </a>
+  </div>
+</section>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-lg-6"><h5 class="text-white fw-bold mb-3"><span style="color:#ff9933;">Indian</span><span style="color:var(--ieb-primary);">Elucid</span><span style="color:var(--ieb-accent);">Biology</span></h5><p class="small">Free, interactive bioinformatics tutorials. Open source and community-driven.</p></div>
+      <div class="col-lg-6 text-lg-end"><p class="small mb-1">Founded by <strong>Ankush Sharma</strong></p><div class="d-flex gap-3 justify-content-lg-end"><a href="https://github.com/ank-man" target="_blank" class="text-white fs-5"><i class="bi bi-github"></i></a><a href="https://www.linkedin.com/in/ankush-sharma-290307/" target="_blank" class="text-white fs-5"><i class="bi bi-linkedin"></i></a><a href="mailto:mr.ank2999@gmail.com" class="text-white fs-5"><i class="bi bi-envelope"></i></a></div></div>
+    </div>
+    <hr class="border-secondary mt-4 mb-3">
+    <p class="text-center small mb-0">&copy; 2025 IndianElucidBiology &mdash; Made with <span style="color:#e25555;">&#9829;</span> for the bioinformatics community.</p>
+  </div>
+</footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/main.js"></script>
+</body>
+</html>

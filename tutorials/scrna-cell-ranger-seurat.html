@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Single-Cell RNA-seq: Cell Ranger + Seurat | IndianElucidBiology</title>
+  <meta name="description" content="10x Chromium single-cell RNA-seq tutorial using Ciona robusta tunicate dataset (SRR8111691-4). Cell Ranger alignment, Seurat QC, normalization, clustering, marker gene identification, and UMAP visualization.">
+  <link rel="canonical" href="https://indianelucidbiology.github.io/tutorials/scrna-cell-ranger-seurat.html">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="../css/style.css" rel="stylesheet">
+</head>
+<body>
+<div class="progress-tracker"></div>
+<nav class="navbar navbar-expand-lg fixed-top">
+  <div class="container">
+    <a class="navbar-brand" href="../index.html"><span class="brand-indian">Indian</span><span class="brand-elucid">Elucid</span><span class="brand-biology">Biology</span></a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav"><span class="navbar-toggler-icon"></span></button>
+    <div class="collapse navbar-collapse" id="mainNav">
+      <ul class="navbar-nav ms-auto me-3">
+        <li class="nav-item"><a class="nav-link" href="../index.html">Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="index.html">Tutorial Library</a></li>
+      </ul>
+      <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode">&#9790;</button>
+    </div>
+  </div>
+</nav>
+
+<section class="tutorial-hero">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-lg-8">
+        <nav aria-label="breadcrumb"><ol class="breadcrumb mb-3" style="--bs-breadcrumb-divider-color:rgba(255,255,255,0.5);"><li class="breadcrumb-item"><a href="../index.html" class="text-white-50 text-decoration-none">Home</a></li><li class="breadcrumb-item"><a href="index.html" class="text-white-50 text-decoration-none">Tutorials</a></li><li class="breadcrumb-item active text-white">scRNA-seq</li></ol></nav>
+        <h1 class="display-5 fw-bold text-white mb-3">Single-Cell RNA-seq: Cell Ranger &amp; Seurat</h1>
+        <p class="lead text-white-50 mb-4">Process 10x Chromium scRNA-seq data from the <em>Ciona robusta</em> tunicate using Cell Ranger for alignment and UMI counting, then Seurat for QC, normalization, clustering, and UMAP visualization.</p>
+        <div class="d-flex gap-3 flex-wrap">
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-clock me-1"></i>~150 min</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-database me-1"></i>SRR8111691–4</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-bar-chart me-1"></i>Advanced</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-terminal me-1"></i>Bash + R</span>
+        </div>
+      </div>
+      <div class="col-lg-4 text-center d-none d-lg-block">
+        <img src="../img/Byte3.png" alt="Byte" class="img-fluid" style="max-height:220px;filter:drop-shadow(0 10px 30px rgba(0,0,0,0.4));">
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="container py-5">
+  <div class="row">
+    <div class="col-lg-3 d-none d-lg-block">
+      <div class="toc-sidebar">
+        <h6 class="fw-bold text-muted text-uppercase small mb-3">On this page</h6>
+        <nav class="nav flex-column">
+          <a class="nav-link" href="#overview">Overview</a>
+          <a class="nav-link" href="#dataset">Dataset</a>
+          <a class="nav-link" href="#step1">1. Install Cell Ranger</a>
+          <a class="nav-link" href="#step2">2. Get Data &amp; Genome</a>
+          <a class="nav-link" href="#step3">3. Prepare Reference</a>
+          <a class="nav-link" href="#step4">4. Cell Ranger Count</a>
+          <a class="nav-link" href="#step5">5. Load into Seurat</a>
+          <a class="nav-link" href="#step6">6. QC &amp; Filtering</a>
+          <a class="nav-link" href="#step7">7. Normalize &amp; Scale</a>
+          <a class="nav-link" href="#step8">8. Cluster &amp; UMAP</a>
+          <a class="nav-link" href="#step9">9. Marker Genes</a>
+          <a class="nav-link" href="#errors">Troubleshooting</a>
+        </nav>
+      </div>
+    </div>
+    <div class="col-lg-9">
+      <div class="tutorial-content">
+
+        <section id="overview" class="mb-5">
+          <h2 class="section-divider">Overview</h2>
+          <p>10x Chromium scRNA-seq captures the transcriptome of thousands of individual cells in a single experiment. Each cell gets a unique barcode; each mRNA molecule gets a unique molecular identifier (UMI). The Cell Ranger pipeline handles the low-level processing, producing a sparse gene × cell count matrix that feeds into Seurat for downstream analysis.</p>
+          <div class="row g-3 mb-4">
+            <div class="col-md-6">
+              <div class="p-3 rounded-3 h-100" style="background:rgba(32,201,151,0.08);border:1px solid rgba(32,201,151,0.2)">
+                <h6 class="fw-bold"><i class="bi bi-hdd me-2 text-success"></i>Cell Ranger (HPC/Bash)</h6>
+                <ul class="small mb-0">
+                  <li>BCL → FASTQ demultiplexing</li>
+                  <li>STAR alignment (internal)</li>
+                  <li>Cell barcode detection (EmptyDrops)</li>
+                  <li>UMI counting per cell per gene</li>
+                  <li>Output: <code>filtered_feature_bc_matrix/</code></li>
+                </ul>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="p-3 rounded-3 h-100" style="background:rgba(111,66,193,0.08);border:1px solid rgba(111,66,193,0.2)">
+                <h6 class="fw-bold"><i class="bi bi-bar-chart me-2" style="color:#6f42c1"></i>Seurat (R)</h6>
+                <ul class="small mb-0">
+                  <li>QC metrics (nCount, nFeature, %mito)</li>
+                  <li>Normalization (NormalizeData / SCTransform)</li>
+                  <li>Highly variable gene selection</li>
+                  <li>PCA → UMAP/t-SNE</li>
+                  <li>Clustering + marker gene detection</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <div class="byte-callout">
+            <img src="../img/Byte1.png" alt="Byte">
+            <div><strong>About this dataset:</strong> <em>Ciona robusta</em> (also known as <em>C. intestinalis</em> type A) is a marine tunicate chordate — the closest invertebrate relative of vertebrates. This scRNA-seq experiment profiled whole-larval transcriptomes at single-cell resolution. Dataset from SRA (SRR8111691–SRR8111694), original tutorial by Rick Masonbrink (Iowa State University GIF).</div>
+          </div>
+        </section>
+
+        <section id="dirstructure" class="mb-5">
+          <h2 class="section-divider">Ideal Directory Structure</h2>
+          <p>Cell Ranger creates a complex output directory tree. The only folder you need for downstream Seurat analysis is <code>filtered_feature_bc_matrix/</code> — but keep the full output for QC and provenance.</p>
+          <div class="dir-tree">
+            <div class="dir-tree-header"><i class="bi bi-folder2-open"></i> scrna_ciona_project/</div>
+<span class="tree-folder">scrna_ciona_project/</span>
+&#9500;&#9472;&#9472; <span class="tree-folder tree-active">reads/</span>                    <span class="tree-note"># renamed FASTQ files (Cell Ranger naming)</span>
+&#9474;   &#9500;&#9472;&#9472; <span class="tree-file">CRobusta_S1_L001_R1_001.fastq.gz</span>  <span class="tree-note"># barcode+UMI (28bp)</span>
+&#9474;   &#9492;&#9472;&#9472; <span class="tree-file">CRobusta_S1_L001_R2_001.fastq.gz</span>  <span class="tree-note"># cDNA (91bp)</span>
+&#9500;&#9472;&#9472; <span class="tree-folder">genome/</span>                   <span class="tree-note"># reference FASTA + GTF</span>
+&#9500;&#9472;&#9472; <span class="tree-folder">C_robusta/</span>                <span class="tree-note"># Cell Ranger reference index (cellranger mkref)</span>
+&#9500;&#9472;&#9472; <span class="tree-folder">CRobusta_run/</span>             <span class="tree-note"># Cell Ranger count output</span>
+&#9474;   &#9492;&#9472;&#9472; <span class="tree-folder">outs/</span>
+&#9474;       &#9500;&#9472;&#9472; <span class="tree-output">web_summary.html</span>      <span class="tree-note"># interactive QC report (open in browser!)</span>
+&#9474;       &#9500;&#9472;&#9472; <span class="tree-output">metrics_summary.csv</span>
+&#9474;       &#9492;&#9472;&#9472; <span class="tree-folder">filtered_feature_bc_matrix/</span>  <span class="tree-note"># Seurat input</span>
+&#9474;           &#9500;&#9472;&#9472; <span class="tree-output">barcodes.tsv.gz</span>
+&#9474;           &#9500;&#9472;&#9472; <span class="tree-output">features.tsv.gz</span>
+&#9474;           &#9492;&#9472;&#9472; <span class="tree-output">matrix.mtx.gz</span>
+&#9492;&#9472;&#9472; <span class="tree-folder">seurat_analysis/</span>          <span class="tree-note"># all R outputs</span>
+    &#9500;&#9472;&#9472; <span class="tree-output">seurat_obj.rds</span>        <span class="tree-note"># checkpoint: save after each major step</span>
+    &#9500;&#9472;&#9472; <span class="tree-output">umap_clusters.png</span>
+    &#9492;&#9472;&#9472; <span class="tree-output">marker_genes.csv</span>
+          </div>
+          <div class="fun-tip"><span class="fun-tip-icon">&#128196;</span><div><strong>filtered vs raw matrix:</strong> Cell Ranger produces both <code>filtered_feature_bc_matrix/</code> (cells only, EmptyDrops-filtered) and <code>raw_feature_bc_matrix/</code> (all barcodes including empty droplets). Always use <code>filtered</code> for standard Seurat analysis. Use <code>raw</code> only if you want to run your own cell-calling algorithm (e.g. DropUtils).</div></div>
+        </section>
+
+        <section id="dataset" class="mb-5">
+          <h2 class="section-divider">Dataset</h2>
+          <div class="param-table">
+            <table class="table table-striped mb-0">
+              <thead><tr><th>Run ID</th><th>Description</th><th>Read type</th></tr></thead>
+              <tbody>
+                <tr><td>SRR8111691</td><td>C. robusta scRNA-seq rep 1</td><td>R1 = barcode+UMI (28 bp), R2 = cDNA (91 bp)</td></tr>
+                <tr><td>SRR8111692</td><td>C. robusta scRNA-seq rep 2</td><td>R1 = barcode+UMI (28 bp), R2 = cDNA (91 bp)</td></tr>
+                <tr><td>SRR8111693</td><td>C. robusta scRNA-seq rep 3</td><td>R1 = barcode+UMI (28 bp), R2 = cDNA (91 bp)</td></tr>
+                <tr><td>SRR8111694</td><td>C. robusta scRNA-seq rep 4</td><td>R1 = barcode+UMI (28 bp), R2 = cDNA (91 bp)</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="thumb-rule mt-3"><strong>10x read structure:</strong> Read 1 (R1) contains the 16 bp cell barcode + 12 bp UMI = 28 bp total. Read 2 (R2) is the actual cDNA sequence. Cell Ranger knows this structure automatically — do NOT trim R1.</div>
+        </section>
+
+        <section id="step1" class="mb-5">
+          <h2 class="section-divider">Step 1 — Install Cell Ranger</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash — Cell Ranger installation (no root required)</span><button class="btn-copy">Copy</button></div>
+<pre id="s1-cr-install"># Cell Ranger is a self-contained binary — no compilation needed
+# Download from 10x Genomics (free registration required):
+# https://support.10xgenomics.com/single-cell-gene-expression/software/downloads/latest
+
+wget "https://cf.10xgenomics.com/releases/cell-exp/cellranger-8.0.1.tar.gz"
+tar -zxvf cellranger-8.0.1.tar.gz
+
+# Add to PATH
+export PATH="$(pwd)/cellranger-8.0.1:${PATH}"
+
+# Verify
+cellranger --version
+# cellranger cellranger-8.0.1
+
+# Note: Only dependency is bcl2fastq for BCL conversion
+# (not needed if you already have FASTQ files)
+# If on HPC: module load bcl2fastq2</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s1-cr-install" data-filename="01_install_cellranger.sh"><i class="bi bi-download me-1"></i>01_install_cellranger.sh</button></div>
+        </section>
+
+        <section id="step2" class="mb-5">
+          <h2 class="section-divider">Step 2 — Get Reads and Genome</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash — Download SRA reads and C. robusta genome</span><button class="btn-copy">Copy</button></div>
+<pre id="s2-cr-data">mkdir -p reads genome
+
+# Download reads from SRA
+module load sra-toolkit
+
+for SRR in SRR8111691 SRR8111692 SRR8111693 SRR8111694; do
+    echo "Downloading: ${SRR}"
+    fastq-dump \
+        --split-files \
+        --origfmt \
+        --gzip \
+        --outdir reads/ \
+        ${SRR}
+    echo "  Done: reads/${SRR}_1.fastq.gz (barcode+UMI)"
+    echo "       reads/${SRR}_2.fastq.gz (cDNA)"
+done
+
+# Cell Ranger expects files named with a specific convention:
+# {SAMPLE}_S{n}_L{lane}_R{1/2}_001.fastq.gz
+# Rename files to match Cell Ranger naming convention
+cd reads
+for SRR in SRR8111691 SRR8111692 SRR8111693 SRR8111694; do
+    N=$((${N:-0}+1))
+    mv ${SRR}_1.fastq.gz CRobusta_S${N}_L001_R1_001.fastq.gz
+    mv ${SRR}_2.fastq.gz CRobusta_S${N}_L001_R2_001.fastq.gz
+done
+cd ..
+
+# Download C. robusta (KH assembly) genome from NCBI
+cd genome
+wget ftp://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/224/145/GCF_000224145.3_KH/GCF_000224145.3_KH_genomic.fna.gz
+wget ftp://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/224/145/GCF_000224145.3_KH/GCF_000224145.3_KH_genomic.gff.gz
+gunzip *.gz
+cd ..</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s2-cr-data" data-filename="02_download_data.sh"><i class="bi bi-download me-1"></i>02_download_data.sh</button></div>
+          <div class="cmd-explain">
+            <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> Data download and renaming decoded</div>
+            <table>
+              <tr><td><span class="cmd-emoji">&#128230;</span>fastq-dump --split-files</td><td>Downloads reads from SRA and splits into separate R1 and R2 files. <code>--origfmt</code> preserves original read names. <code>--gzip</code> compresses output. For newer SRA toolkit, prefer <code>fasterq-dump --split-files</code> which is ~10x faster.</td></tr>
+              <tr><td><span class="cmd-emoji">&#127991;</span>Cell Ranger naming convention</td><td>Cell Ranger requires FASTQ files named as <code>{SAMPLE}_S{n}_L{lane}_R{1/2}_001.fastq.gz</code>. This is the Illumina bcl2fastq naming convention. <code>S1</code> = sample number, <code>L001</code> = lane. If your files don't match this pattern exactly, <code>cellranger count</code> will fail to find them.</td></tr>
+              <tr><td><span class="cmd-emoji">&#128196;</span>R1 = barcode+UMI (28 bp)</td><td>In 10x v3 chemistry: first 16 bp = cell barcode, next 12 bp = UMI = 28 bp total. Cell Ranger knows this structure automatically via the chemistry flag. <strong>Do NOT trim R1</strong> — removing barcode/UMI bases will destroy cell-level information.</td></tr>
+            </table>
+          </div>
+        </section>
+
+        <section id="step3" class="mb-5">
+          <h2 class="section-divider">Step 3 — Build Cell Ranger Reference</h2>
+          <p>Cell Ranger cannot use GFF3 directly — it needs GTF format. Convert with genometools, then build the reference index:</p>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash — GFF3 → GTF conversion and Cell Ranger mkref</span><button class="btn-copy">Copy</button></div>
+<pre id="s3-cr-ref">module load genometools
+# or: conda install -c bioconda genometools
+
+GFF="genome/GCF_000224145.3_KH_genomic.gff"
+GENOME="genome/GCF_000224145.3_KH_genomic.fna"
+
+# Convert GFF3 to GTF
+# Note: gt skips non-standard feature types (pseudogenes, snoRNAs etc.)
+# This is fine — Cell Ranger needs gene/exon features
+gt gff3_to_gtf ${GFF} > genome/GCF_000224145.3_KH_genomic.gtf
+
+echo "GTF lines:"
+wc -l genome/GCF_000224145.3_KH_genomic.gtf
+
+# Filter GTF to only well-supported gene types (optional but recommended)
+cellranger mkgtf \
+    genome/GCF_000224145.3_KH_genomic.gtf \
+    genome/GCF_000224145.3_KH_genomic.filtered.gtf \
+    --attribute=gene_biotype:protein_coding
+
+# Build Cell Ranger reference genome index
+# This takes ~30 min and uses ~16 GB RAM
+cellranger mkref \
+    --genome=C_robusta \
+    --fasta=${GENOME} \
+    --genes=genome/GCF_000224145.3_KH_genomic.filtered.gtf \
+    --ref-version=3.0.0
+
+echo "Reference built: C_robusta/"
+ls C_robusta/</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s3-cr-ref" data-filename="03_build_reference.sh"><i class="bi bi-download me-1"></i>03_build_reference.sh</button></div>
+          <div class="cmd-explain">
+            <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> Cell Ranger mkref commands decoded</div>
+            <table>
+              <tr><td><span class="cmd-emoji">&#128260;</span>gt gff3_to_gtf</td><td>Converts GFF3 to GTF format. Cell Ranger requires GTF (Gene Transfer Format), not GFF3. The key difference: GTF uses <code>gene_id</code> and <code>transcript_id</code> attributes in a specific format that Cell Ranger parses to build the gene-to-exon map.</td></tr>
+              <tr><td><span class="cmd-emoji">&#128296;</span>cellranger mkgtf --attribute=gene_biotype:protein_coding</td><td>Filters the GTF to keep only protein-coding genes. This is optional but recommended: non-coding RNAs, pseudogenes, and repetitive elements can inflate read mapping rates and contaminate cell type assignments.</td></tr>
+              <tr><td><span class="cmd-emoji">&#127968;</span>cellranger mkref --genome --fasta --genes</td><td>Builds a STAR genome index + Gene annotation index optimized for Cell Ranger. Takes ~30 min and ~16 GB RAM. The output directory (here: <code>C_robusta/</code>) is reused for all samples from the same species — build once, use many times.</td></tr>
+            </table>
+          </div>
+          <div class="thumb-rule mt-3"><strong>GTF gene_id must be unique.</strong> Cell Ranger uses <code>gene_id</code> from the GTF as the gene name in the count matrix. Whatever is in the <code>ID=</code> field of your GFF column 9 becomes the gene name. For NCBI GFFs, gene IDs often look like <code>gene1</code>, <code>gene2</code> — consider renaming chromosome-specific prefixes to make them descriptive.</div>
+        </section>
+
+        <section id="step4" class="mb-5">
+          <h2 class="section-divider">Step 4 — Cell Ranger Count</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash — Cell Ranger count (SLURM)</span><button class="btn-copy">Copy</button></div>
+<pre id="s4-cr-count">#!/bin/bash
+#SBATCH -N 1
+#SBATCH --ntasks-per-node=16
+#SBATCH --time=24:00:00
+#SBATCH --job-name=cellranger_count
+#SBATCH --mem=128G
+#SBATCH --output=cellranger.%j.out
+
+export PATH="$(pwd)/cellranger-8.0.1:${PATH}"
+
+cellranger count \
+    --id=CRobusta_run \
+    --transcriptome=C_robusta \
+    --fastqs=reads/ \
+    --sample=CRobusta \
+    --localcores=16 \
+    --localmem=120 \
+    --expect-cells=3000
+
+# Key output directory:
+# CRobusta_run/outs/filtered_feature_bc_matrix/
+#   - barcodes.tsv.gz    (cell barcodes)
+#   - features.tsv.gz    (gene IDs)
+#   - matrix.mtx.gz      (UMI count matrix in sparse format)
+#
+# CRobusta_run/outs/web_summary.html  -- interactive QC report
+
+echo "Cell Ranger complete. Results:"
+ls CRobusta_run/outs/
+
+# Quick stats from the summary CSV
+cat CRobusta_run/outs/metrics_summary.csv</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s4-cr-count" data-filename="04_cellranger_count.sh"><i class="bi bi-download me-1"></i>04_cellranger_count.sh</button></div>
+          <div class="cmd-explain">
+            <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> cellranger count flags decoded</div>
+            <table>
+              <tr><td><span class="cmd-emoji">&#128193;</span>--id=CRobusta_run</td><td>Name of the output directory Cell Ranger creates. All outputs go in <code>CRobusta_run/outs/</code>. Choose a descriptive name including sample ID and run date for reproducibility.</td></tr>
+              <tr><td><span class="cmd-emoji">&#128196;</span>--fastqs=reads/</td><td>Path to the directory containing FASTQ files. Cell Ranger scans this directory for files matching the <code>--sample</code> prefix. Can be a comma-separated list of directories if reads are spread across multiple flowcell lanes.</td></tr>
+              <tr><td><span class="cmd-emoji">&#127919;</span>--expect-cells=3000</td><td>Approximate number of cells you expect to recover. This guides Cell Ranger's EmptyDrops cell-calling algorithm. Set to your experimental target (e.g. you loaded 5,000 cells expecting ~3,000 to be captured). Being off by 2x is fine.</td></tr>
+              <tr><td><span class="cmd-emoji">&#128190;</span>--localmem=120</td><td>Maximum RAM in GB for Cell Ranger to use. Set to ~90% of available node memory. Cell Ranger needs ~40&ndash;64 GB for most mammalian genomes. The STAR alignment step is the memory bottleneck.</td></tr>
+            </table>
+          </div>
+          <div class="fun-tip"><span class="fun-tip-icon">&#127760;</span><div><strong>web_summary.html is your QC dashboard.</strong> Open it in any browser immediately after Cell Ranger finishes. Check: (1) estimated cell count matches expectation, (2) &gt;70% reads mapped confidently to genome, (3) &gt;70% reads in cells (not background). If mapping is low, check your reference genome/GTF compatibility.</div></div>
+          <p class="mt-3 small text-muted">Expected Cell Ranger web_summary.html metrics for this dataset:</p>
+          <div class="param-table">
+            <table class="table table-striped mb-0">
+              <thead><tr><th>Metric</th><th>Expected value</th></tr></thead>
+              <tbody>
+                <tr><td>Estimated number of cells</td><td>~2,000–4,000</td></tr>
+                <tr><td>Median genes per cell</td><td>~1,500–2,500</td></tr>
+                <tr><td>Reads mapped confidently to genome</td><td>&gt;70%</td></tr>
+                <tr><td>Sequencing saturation</td><td>~60–80%</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="step5" class="mb-5">
+          <h2 class="section-divider">Step 5 — Load Data into Seurat</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R — Load Cell Ranger output into Seurat</span><button class="btn-copy">Copy</button></div>
+<pre id="s5-seurat-load">library(Seurat)
+library(tidyverse)
+library(patchwork)
+
+# Load the filtered feature-barcode matrix
+# Read10X automatically detects barcodes.tsv.gz, features.tsv.gz, matrix.mtx.gz
+counts <- Read10X(
+    data.dir = "CRobusta_run/outs/filtered_feature_bc_matrix/"
+)
+
+# Create Seurat object
+# min.cells: keep genes detected in at least 3 cells
+# min.features: keep cells with at least 200 genes detected
+seurat_obj <- CreateSeuratObject(
+    counts = counts,
+    project = "CRobusta_scRNAseq",
+    min.cells = 3,
+    min.features = 200
+)
+
+cat("Cells:", ncol(seurat_obj), "\n")
+cat("Genes:", nrow(seurat_obj), "\n")
+cat("Dimensions:", dim(seurat_obj), "\n")
+
+# Quick peek at the data
+head(seurat_obj@meta.data)</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s5-seurat-load" data-filename="05_load_seurat.R"><i class="bi bi-download me-1"></i>05_load_seurat.R</button></div>
+          <div class="cmd-explain">
+            <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> Seurat object creation decoded</div>
+            <table>
+              <tr><td><span class="cmd-emoji">&#128196;</span>Read10X(data.dir=)</td><td>Reads the three files from Cell Ranger output: <code>barcodes.tsv.gz</code> (cell IDs), <code>features.tsv.gz</code> (gene IDs), <code>matrix.mtx.gz</code> (sparse UMI count matrix). Returns a sparse dgCMatrix (rows=genes, cols=cells). Handles gzipped files automatically.</td></tr>
+              <tr><td><span class="cmd-emoji">&#127968;</span>CreateSeuratObject(min.cells=3)</td><td>Creates the Seurat object and applies initial filters. <code>min.cells=3</code> removes genes detected in fewer than 3 cells (likely noise). <code>min.features=200</code> removes barcodes with fewer than 200 genes (likely empty droplets not caught by Cell Ranger).</td></tr>
+              <tr><td><span class="cmd-emoji">&#128202;</span>seurat_obj@meta.data</td><td>The per-cell metadata slot. After creation it contains: <code>nCount_RNA</code> (total UMIs per cell) and <code>nFeature_RNA</code> (unique genes per cell). You add more metadata columns here (percent.mt, sample ID, cluster labels, etc.).</td></tr>
+            </table>
+          </div>
+        </section>
+
+        <section id="step6" class="mb-5">
+          <h2 class="section-divider">Step 6 — QC Metrics &amp; Cell Filtering</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R — QC visualization and filtering</span><button class="btn-copy">Copy</button></div>
+<pre id="s6-seurat-qc">library(Seurat)
+library(ggplot2)
+
+# Calculate mitochondrial gene percentage
+# For C. robusta: mitochondrial genes typically start with "MT-" or "mt-"
+# Check your organism's gene naming convention
+seurat_obj[["percent.mt"]] <- PercentageFeatureSet(
+    seurat_obj,
+    pattern = "^MT-"   # regex for mitochondrial genes
+)
+
+# Visualize QC metrics before filtering
+VlnPlot(seurat_obj,
+        features = c("nFeature_RNA", "nCount_RNA", "percent.mt"),
+        ncol = 3, pt.size = 0.1)
+ggsave("qc_violin_before_filter.png", width=12, height=5)
+
+# Scatter plots: detect doublets (unusually high counts)
+plot1 <- FeatureScatter(seurat_obj, feature1="nCount_RNA", feature2="percent.mt")
+plot2 <- FeatureScatter(seurat_obj, feature1="nCount_RNA", feature2="nFeature_RNA")
+plot1 + plot2
+ggsave("qc_scatter.png", width=12, height=5)
+
+# Filter cells:
+# Remove cells with:
+# - Too few genes (likely empty droplets): nFeature_RNA < 200
+# - Too many genes (likely doublets): nFeature_RNA > 5000
+# - High mitochondrial percentage (dying/damaged cells): percent.mt > 15
+seurat_obj <- subset(seurat_obj,
+    subset = nFeature_RNA > 200 &
+             nFeature_RNA < 5000 &
+             percent.mt < 15
+)
+
+cat("Cells after QC filtering:", ncol(seurat_obj), "\n")
+
+# Re-visualize after filtering
+VlnPlot(seurat_obj,
+        features = c("nFeature_RNA", "nCount_RNA", "percent.mt"),
+        ncol = 3, pt.size = 0.1)
+ggsave("qc_violin_after_filter.png", width=12, height=5)</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s6-seurat-qc" data-filename="06_qc_filtering.R"><i class="bi bi-download me-1"></i>06_qc_filtering.R</button></div>
+          <div class="cmd-explain">
+            <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> Seurat QC parameters decoded</div>
+            <table>
+              <tr><td><span class="cmd-emoji">&#129516;</span>PercentageFeatureSet(pattern="^MT-")</td><td>Calculates the percentage of UMIs from mitochondrial genes for each cell. High %mito (&gt;15&ndash;25%) indicates a dying or damaged cell where the cytoplasm has leaked but the mitochondria (membrane-bound) are retained. These cells have distorted transcriptomes.</td></tr>
+              <tr><td><span class="cmd-emoji">&#127911;</span>VlnPlot(features=c("nFeature_RNA","nCount_RNA","percent.mt"))</td><td>Three violin plots showing per-cell distributions of gene count, UMI count, and % mitochondrial reads. The <strong>visual shapes</strong> tell you where to set cutoffs: a long upper tail on nFeature_RNA suggests doublets; a separate high-mito population indicates dead cells.</td></tr>
+              <tr><td><span class="cmd-emoji">&#128202;</span>FeatureScatter(nCount vs nFeature)</td><td>Scatter plot: real cells show a positive linear relationship between UMI count and gene count. Doublets appear as outliers above the line (two cells captured together have ~2x both metrics). Damaged cells appear below the line (few genes despite many UMIs = transcriptionally restricted).</td></tr>
+              <tr><td><span class="cmd-emoji">&#9986;</span>subset(nFeature_RNA &gt; 200 &amp; &lt; 5000 &amp; percent.mt &lt; 15)</td><td>Applies all three filters simultaneously. These thresholds are starting points only — always adjust based on your violin plots. Overly strict filtering removes real cells; too lenient includes debris that skews clustering.</td></tr>
+            </table>
+          </div>
+          <div class="thumb-rule mt-3"><strong>QC thresholds are dataset-specific.</strong> Always look at the distributions before setting cutoffs. For a typical 10x experiment: nFeature &gt; 200 and &lt; 5000 (adjust upper cutoff based on your median), percent.mt &lt; 10–25% (varies by tissue type). Neurons and muscle cells have high mitochondrial content naturally — do not over-filter.</div>
+        </section>
+
+        <section id="step7" class="mb-5">
+          <h2 class="section-divider">Step 7 — Normalization, HVG Selection, and Scaling</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R — Normalization and feature selection</span><button class="btn-copy">Copy</button></div>
+<pre id="s7-seurat-norm">library(Seurat)
+
+# Standard normalization: normalize to total counts per cell,
+# multiply by scale factor (10,000), log1p transform
+seurat_obj <- NormalizeData(seurat_obj,
+    normalization.method = "LogNormalize",
+    scale.factor = 10000)
+
+# Find highly variable genes (HVGs) — genes that vary the most across cells
+# These drive the biological signal; stable housekeeping genes add noise
+seurat_obj <- FindVariableFeatures(seurat_obj,
+    selection.method = "vst",
+    nfeatures = 2000)   # top 2000 HVGs (standard)
+
+# Visualize top variable genes
+top20 <- head(VariableFeatures(seurat_obj), 20)
+VariableFeaturePlot(seurat_obj) +
+    LabelPoints(plot=VariableFeaturePlot(seurat_obj), points=top20, repel=TRUE)
+ggsave("variable_features.png", width=10, height=6)
+
+# Scale data (required for PCA)
+# Regress out sources of technical variation
+seurat_obj <- ScaleData(seurat_obj,
+    features = rownames(seurat_obj),
+    vars.to.regress = c("nCount_RNA", "percent.mt"))
+
+cat("Data normalized, HVGs identified, and scaled.\n")</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s7-seurat-norm" data-filename="07_normalization_scaling.R"><i class="bi bi-download me-1"></i>07_normalization_scaling.R</button></div>
+          <div class="cmd-explain">
+            <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> Normalization and HVG selection decoded</div>
+            <table>
+              <tr><td><span class="cmd-emoji">&#128200;</span>NormalizeData(scale.factor=10000)</td><td>Divides each cell's UMI counts by that cell's total UMI count, multiplies by 10,000 (to get counts-per-ten-thousand, like CPM), then takes log1p. This corrects for differences in sequencing depth between cells. After normalization, each cell's total expression sums to the same value.</td></tr>
+              <tr><td><span class="cmd-emoji">&#127775;</span>FindVariableFeatures(nfeatures=2000)</td><td>Identifies the 2,000 most variable genes using the VST (variance-stabilizing transformation) method. These genes drive biological differences between cell types. Using all ~20,000+ genes adds noise from stable housekeeping genes and dramatically increases compute time.</td></tr>
+              <tr><td><span class="cmd-emoji">&#9878;</span>ScaleData(vars.to.regress=c("nCount_RNA","percent.mt"))</td><td>Z-score normalizes each gene (mean=0, variance=1) across cells, and optionally regresses out confounders. Regressing <code>percent.mt</code> removes variation due to cell damage. Regressing <code>nCount_RNA</code> removes sequencing depth effects that survived log-normalization. Required input for PCA.</td></tr>
+            </table>
+          </div>
+          <div class="fun-tip"><span class="fun-tip-icon">&#127860;</span><div><strong>NormalizeData vs SCTransform:</strong> <code>NormalizeData</code> + <code>FindVariableFeatures</code> + <code>ScaleData</code> is the classic Seurat v2/v3 workflow. <code>SCTransform()</code> (newer) does all three steps in one using regularized negative binomial regression — generally gives better results for datasets with highly variable sequencing depth across cells. Both approaches are widely used.</div></div>
+        </section>
+
+        <section id="step8" class="mb-5">
+          <h2 class="section-divider">Step 8 — Dimensionality Reduction, Clustering &amp; UMAP</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R — PCA, UMAP, and Louvain clustering</span><button class="btn-copy">Copy</button></div>
+<pre id="s8-seurat-cluster">library(Seurat)
+
+# PCA on HVGs
+seurat_obj <- RunPCA(seurat_obj,
+    features = VariableFeatures(seurat_obj),
+    npcs = 50)
+
+# Elbow plot to choose the number of PCs to use for downstream steps
+ElbowPlot(seurat_obj, ndims=50)
+ggsave("pca_elbow_plot.png", width=8, height=5)
+# Choose PCs where the curve flattens (typically PC 10-20)
+NUM_PCS <- 20
+
+# Build k-nearest neighbor graph on selected PCs
+seurat_obj <- FindNeighbors(seurat_obj,
+    dims = 1:NUM_PCS,
+    k.param = 20)
+
+# Louvain clustering (resolution controls granularity)
+# Higher resolution = more/smaller clusters
+# Start with 0.5 and adjust based on biology
+seurat_obj <- FindClusters(seurat_obj,
+    resolution = 0.5)
+
+cat("Number of clusters:", nlevels(Idents(seurat_obj)), "\n")
+table(Idents(seurat_obj))
+
+# UMAP for visualization
+seurat_obj <- RunUMAP(seurat_obj,
+    dims = 1:NUM_PCS,
+    min.dist = 0.3,
+    spread = 1.0)
+
+# Plot UMAP
+DimPlot(seurat_obj, reduction="umap", label=TRUE, pt.size=0.5) +
+    NoLegend() +
+    ggtitle("C. robusta scRNA-seq — Louvain clusters")
+ggsave("umap_clusters.png", width=8, height=7)
+
+# Plot QC metrics on UMAP
+FeaturePlot(seurat_obj,
+    features = c("nCount_RNA", "nFeature_RNA", "percent.mt"),
+    ncol = 3)
+ggsave("umap_qc_features.png", width=15, height=5)</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s8-seurat-cluster" data-filename="08_clustering_umap.R"><i class="bi bi-download me-1"></i>08_clustering_umap.R</button></div>
+          <div class="cmd-explain">
+            <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> PCA, clustering, and UMAP decoded</div>
+            <table>
+              <tr><td><span class="cmd-emoji">&#128202;</span>RunPCA(npcs=50)</td><td>Runs Principal Component Analysis on the scaled HVG matrix. Each PC captures a dimension of transcriptional variation. The first few PCs usually represent major biological signals (cell type, cell cycle stage). PCs beyond ~20&ndash;30 typically capture noise.</td></tr>
+              <tr><td><span class="cmd-emoji">&#128200;</span>ElbowPlot + NUM_PCS=20</td><td>The elbow plot shows variance explained per PC. Choose the &ldquo;elbow&rdquo; — where the curve flattens. Including too few PCs misses biological variation; too many adds noise to clustering. Typical choices: 10&ndash;30 PCs depending on dataset complexity.</td></tr>
+              <tr><td><span class="cmd-emoji">&#128101;</span>FindNeighbors(dims=1:20)</td><td>Builds a k-nearest-neighbor (KNN) graph in PC space. Each cell is connected to its 20 most similar cells. This graph is the input for Louvain clustering. The <code>dims</code> here must match the PCs you selected from the elbow plot.</td></tr>
+              <tr><td><span class="cmd-emoji">&#127919;</span>FindClusters(resolution=0.5)</td><td>Applies the Louvain algorithm to the KNN graph to find communities (clusters). <strong>Resolution</strong> controls granularity: 0.1&ndash;0.3 = fewer large clusters (broad cell types), 0.8&ndash;2.0 = many small clusters (fine subtypes). Always try multiple resolutions and compare with known markers.</td></tr>
+              <tr><td><span class="cmd-emoji">&#127757;</span>RunUMAP(min.dist=0.3)</td><td>Reduces the PCA embedding to 2D for visualization. <code>min.dist</code> controls how tightly cells within a cluster are packed: lower = tighter clusters with more empty space between them. UMAP preserves local structure (cells within a cluster) but global distances between clusters are not meaningful.</td></tr>
+            </table>
+          </div>
+          <div class="fun-tip"><span class="fun-tip-icon">&#127919;</span><div><strong>UMAP is for visualization only!</strong> Distances between clusters on a UMAP plot are not quantitatively meaningful — two clusters far apart on UMAP might be transcriptionally more similar than two clusters that appear close. Use UMAP to show cluster structure and gene expression patterns, but base statistical conclusions on the actual cluster assignments and marker gene analysis.</div></div>
+        </section>
+
+        <section id="step9" class="mb-5">
+          <h2 class="section-divider">Step 9 — Marker Gene Identification &amp; Cell Type Annotation</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R — FindAllMarkers + DotPlot annotation</span><button class="btn-copy">Copy</button></div>
+<pre id="s9-markers">library(Seurat)
+library(ggplot2)
+library(dplyr)
+
+# Find marker genes for each cluster vs all other clusters
+# test.use = "wilcox" (fast, recommended default)
+# only.pos = TRUE: only return upregulated markers per cluster
+all_markers <- FindAllMarkers(seurat_obj,
+    only.pos = TRUE,
+    min.pct = 0.25,         # gene must be detected in >= 25% of cluster cells
+    logfc.threshold = 0.25, # log2FC threshold for initial screening
+    test.use = "wilcox")
+
+# Keep top 10 markers per cluster by avg_log2FC
+top10 <- all_markers %>%
+    group_by(cluster) %>%
+    slice_max(order_by = avg_log2FC, n = 10)
+
+write.csv(top10, "top10_markers_per_cluster.csv", row.names=FALSE)
+
+# Heatmap of top 5 markers per cluster
+top5 <- all_markers %>%
+    group_by(cluster) %>%
+    slice_max(order_by = avg_log2FC, n = 5)
+DoHeatmap(seurat_obj,
+    features = top5$gene,
+    size = 3) +
+    theme(axis.text.y = element_text(size=6))
+ggsave("marker_heatmap.png", width=14, height=10)
+
+# DotPlot of known C. robusta tissue markers
+# (from Cao et al. 2019 and other published C. robusta cell atlases)
+known_markers <- c(
+    "Ci-Hox3",    # neural
+    "Ci-Otx",     # anterior neural plate
+    "Ci-Mesp",    # mesoderm
+    "Ci-Epi1",    # epidermis
+    "Ci-Myl",     # muscle
+    "Ci-Noto"     # notochord
+)
+known_in_data <- known_markers[known_markers %in% rownames(seurat_obj)]
+
+if (length(known_in_data) > 0) {
+    DotPlot(seurat_obj, features = known_in_data) +
+        RotatedAxis()
+    ggsave("known_marker_dotplot.png", width=10, height=6)
+}
+
+# Rename clusters with biological identities (after literature review)
+# Example based on top markers:
+new.cluster.ids <- c("Epidermis", "Muscle", "Notochord", "Neural",
+                      "Mesoderm", "Endoderm", "Pharynx", "Unknown")
+names(new.cluster.ids) <- levels(seurat_obj)
+seurat_obj <- RenameIdents(seurat_obj, new.cluster.ids)
+
+DimPlot(seurat_obj, reduction="umap", label=TRUE, pt.size=0.5) +
+    ggtitle("C. robusta — Annotated cell types")
+ggsave("umap_annotated.png", width=9, height=7)
+
+saveRDS(seurat_obj, "CRobusta_seurat_final.rds")
+cat("Analysis complete. Final object saved.\n")</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s9-markers" data-filename="09_marker_genes_annotation.R"><i class="bi bi-download me-1"></i>09_marker_genes_annotation.R</button></div>
+        </section>
+
+        <section id="errors" class="mb-5">
+          <h2 class="fw-bold"><i class="bi bi-exclamation-triangle me-2 text-warning"></i>Troubleshooting</h2>
+          <div class="error-box">
+            <h6>Cell Ranger: "No input FASTQs found"</h6>
+            <p>Cell Ranger is strict about FASTQ naming. Files must match: <code>{sample}_S{n}_L{lane}_R{1,2}_001.fastq.gz</code>. The <code>--sample</code> flag must match the prefix before <code>_S1_</code>. Verify with <code>ls reads/ | grep CRobusta</code>. If files don't match this pattern, rename them before running.</p>
+          </div>
+          <div class="error-box">
+            <h6>Cell Ranger reports: 0 cells detected</h6>
+            <p>Almost always a barcode mismatch. Cell Ranger uses a whitelist of valid 10x barcodes per chemistry version. Check the chemistry version used during library prep (e.g., v2 vs v3 barcodes are different). Set <code>--chemistry=SC3Pv3</code> explicitly if auto-detection fails.</p>
+          </div>
+          <div class="error-box">
+            <h6>Seurat: too many or too few clusters</h6>
+            <p>Adjust the <code>resolution</code> parameter in <code>FindClusters</code>. Higher resolution (e.g., 1.0) → more clusters. Lower (e.g., 0.1) → fewer clusters. For exploratory analysis, try 0.3, 0.5, and 1.0 and compare UMAP plots. Use <code>clustree</code> package to visualize cluster stability across resolutions.</p>
+          </div>
+          <div class="error-box">
+            <h6>ScaleData runs out of memory on large datasets</h6>
+            <p>Only scale the HVGs (not all genes): <code>ScaleData(seurat_obj, features = VariableFeatures(seurat_obj))</code>. Scaling all genes is only needed for heatmaps. Alternatively use SCTransform instead of NormalizeData + ScaleData — it is faster and more memory-efficient.</p>
+          </div>
+        </section>
+
+        <div class="d-flex justify-content-between mt-4">
+          <a href="wgcna-gene-coexpression-network.html" class="btn btn-outline-secondary rounded-pill px-4"><i class="bi bi-arrow-left me-2"></i>WGCNA</a>
+          <a href="index.html" class="btn btn-primary rounded-pill px-4"><i class="bi bi-grid me-2"></i>Tutorial Library</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-lg-6"><h5 class="text-white fw-bold mb-3"><span style="color:#ff9933;">Indian</span><span style="color:var(--ieb-primary);">Elucid</span><span style="color:var(--ieb-accent);">Biology</span></h5><p class="small">Tutorial adapted from the Bioinformatics Workbook (Iowa State University GIF). Original author: Rick Masonbrink.</p></div>
+      <div class="col-lg-6 text-lg-end"><p class="small mb-1">Founded by <strong>Ankush Sharma</strong></p><div class="d-flex gap-3 justify-content-lg-end"><a href="https://github.com/ank-man" target="_blank" class="text-white fs-5"><i class="bi bi-github"></i></a><a href="https://www.linkedin.com/in/ankush-sharma-290307/" target="_blank" class="text-white fs-5"><i class="bi bi-linkedin"></i></a></div></div>
+    </div>
+    <hr class="border-secondary mt-4 mb-3">
+    <p class="text-center small mb-0">&copy; 2025 IndianElucidBiology. Based on <a href="https://bioinformaticsworkbook.org" class="text-white-50" target="_blank">bioinformaticsworkbook.org</a>.</p>
+  </div>
+</footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/main.js"></script>
+</body>
+</html>

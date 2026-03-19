@@ -1,0 +1,559 @@
+﻿<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Population Genetics: Fst, Pi and Tajima D | IndianElucidBiology</title>
+  <meta name="description" content="Master population genetics statistics: Fst, nucleotide diversity pi, Tajima D, iHS selection scans. Every formula in live interactive spreadsheets. Real data from Rice 3000 Genomes.">
+  <link rel="canonical" href="https://indianelucidbiology.github.io/tutorials/population-genetics-fst-pi-tajimad.html">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="../css/style.css" rel="stylesheet">
+  <link href="../css/live-spreadsheet.css" rel="stylesheet">
+</head>
+<body>
+<div class="progress-tracker"></div>
+<nav class="navbar navbar-expand-lg fixed-top">
+  <div class="container">
+    <a class="navbar-brand" href="../index.html"><span class="brand-indian">Indian</span><span class="brand-elucid">Elucid</span><span class="brand-biology">Biology</span></a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav"><span class="navbar-toggler-icon"></span></button>
+    <div class="collapse navbar-collapse" id="mainNav">
+      <ul class="navbar-nav ms-auto me-3">
+        <li class="nav-item"><a class="nav-link" href="../index.html">Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="index.html">Tutorial Library</a></li>
+        <li class="nav-item"><a class="nav-link" href="haplotype-phasing-tutorial.html">Haplotype Phasing</a></li>
+      </ul>
+      <button class="theme-toggle" onclick="toggleTheme()">&#9790;</button>
+    </div>
+  </div>
+</nav>
+
+<section class="tutorial-hero">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-lg-8">
+        <nav aria-label="breadcrumb"><ol class="breadcrumb mb-3" style="--bs-breadcrumb-divider-color:rgba(255,255,255,0.5);"><li class="breadcrumb-item"><a href="../index.html" class="text-white-50 text-decoration-none">Home</a></li><li class="breadcrumb-item"><a href="index.html" class="text-white-50 text-decoration-none">Tutorials</a></li><li class="breadcrumb-item active text-white">Population Genetics</li></ol></nav>
+        <h1 class="display-5 fw-bold text-white mb-3">Population Genetics Statistics</h1>
+        <p class="lead text-white-50 mb-4">F<sub>ST</sub>, nucleotide diversity (&pi;), Tajima&rsquo;s D, iHS/XP-EHH selection scans &mdash; every formula unboxed with live interactive spreadsheets. Complete vcftools + PLINK + R pipeline on Rice 3000 Genomes.</p>
+        <div class="d-flex gap-3 flex-wrap">
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-clock me-1"></i>~150 min</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-bar-chart me-1"></i>Intermediate-Advanced</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-file-earmark-spreadsheet me-1"></i>Live spreadsheets</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-terminal me-1"></i>vcftools / PLINK / R</span>
+        </div>
+      </div>
+      <div class="col-lg-4 text-center d-none d-lg-block"><img src="../img/Byte2.png" alt="Byte" class="img-fluid" style="max-height:230px;filter:drop-shadow(0 10px 30px rgba(0,0,0,0.4));"></div>
+    </div>
+  </div>
+</section>
+
+<div class="container py-5">
+  <div class="row">
+    <div class="col-lg-3 d-none d-lg-block">
+      <div class="toc-sidebar">
+        <h6 class="fw-bold text-muted text-uppercase small mb-3">On this page</h6>
+        <nav class="nav flex-column">
+          <a class="nav-link" href="#concepts">Core Concepts</a>
+          <a class="nav-link" href="#dataset">Dataset</a>
+          <a class="nav-link" href="#hwe">1. Allele Frequencies &amp; HWE</a>
+          <a class="nav-link" href="#pi">2. Nucleotide Diversity</a>
+          <a class="nav-link" href="#fst">3. F<sub>ST</sub></a>
+          <a class="nav-link" href="#tajima">4. Tajima&rsquo;s D</a>
+          <a class="nav-link" href="#selection">5. iHS / XP-EHH</a>
+          <a class="nav-link" href="#pipeline">6. Full vcftools Pipeline</a>
+          <a class="nav-link" href="#visualise">7. R Visualisation</a>
+          <a class="nav-link" href="#pitfalls">Pitfalls</a>
+        </nav>
+      </div>
+    </div>
+    <div class="col-lg-9">
+      <div class="tutorial-content">
+
+<section id="concepts" class="mb-5">
+  <h2 class="section-divider">Core Concepts</h2>
+  <p>Population genetics statistics answer: <em>"How are allele frequencies distributed across populations, and what evolutionary forces shaped them?"</em> Unlike variant calling, these statistics are computed across many individuals simultaneously and summarised in sliding windows.</p>
+  <div class="param-table">
+    <table class="table table-bordered mb-0">
+      <thead class="table-dark"><tr><th>Statistic</th><th>Measures</th><th>Range</th><th>Biological question answered</th></tr></thead>
+      <tbody>
+        <tr><td><strong>&pi; (pi)</strong></td><td>Mean pairwise nucleotide differences per site</td><td>0-1</td><td>How diverse is this population?</td></tr>
+        <tr><td><strong>F<sub>ST</sub></strong></td><td>Fraction of total variance between populations</td><td>0-1</td><td>How different are two populations genetically?</td></tr>
+        <tr><td><strong>Tajima's D</strong></td><td>Difference between two estimators of theta</td><td>~-3 to +3</td><td>Is this locus evolving neutrally or under selection?</td></tr>
+        <tr><td><strong>iHS</strong></td><td>Extended haplotype homozygosity score</td><td>standardised Z</td><td>Is there a recent selective sweep in this population?</td></tr>
+        <tr><td><strong>XP-EHH</strong></td><td>Cross-population extended haplotype homozygosity</td><td>standardised Z</td><td>Which population shows stronger positive selection?</td></tr>
+        <tr><td><strong>AMOVA Phi_ST</strong></td><td>Hierarchical variance partitioning</td><td>0-1</td><td>What fraction of diversity is between vs within groups?</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="byte-callout mt-4">
+    <img src="../img/Byte1.png" alt="Byte">
+    <div><strong>Always window-average, never interpret single-SNP values.</strong> A single SNP with F<sub>ST</sub>=1.0 is noise. A 50 kb window with mean F<sub>ST</sub>=0.8 is a true signal of differentiation. Always use sliding windows (typically 50 kb or 100-SNP) before interpreting any of these statistics. vcftools computes windowed statistics natively with --window-pi, --TajimaD, --fst-window-size.</div>
+  </div>
+</section>
+
+<section id="dataset" class="mb-5">
+  <h2 class="section-divider">Dataset</h2>
+  <p>We use a subset of the <strong>Rice 3000 Genomes Project (3K-RG)</strong> comparing <em>Oryza sativa</em> subspecies <strong>indica</strong> (IND) vs <strong>japonica</strong> (JAP). These two subspecies diverged ~400,000 years ago and show genome-wide mean F<sub>ST</sub> ~0.35-0.45 -- among the highest in any crop species.</p>
+  <div class="param-table">
+    <table class="table table-sm table-bordered mb-0">
+      <thead><tr><th>Resource</th><th>Description</th><th>Access</th></tr></thead>
+      <tbody>
+        <tr><td>Rice 3K VCF</td><td>3024 rice accessions, chromosome-level SNP VCFs</td><td>PRJEB6180 at EBI / NCBI</td></tr>
+        <tr><td>Population labels</td><td>IND / JAP / admixed classification</td><td>Wang et al. 2018 Nature Genetics Supplementary</td></tr>
+        <tr><td>Reference</td><td>IRGSP-1.0 (Nipponbare)</td><td>rapdb.dna.affrc.go.jp</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="hwe" class="mb-5">
+  <h2 class="section-divider">Step 1 &mdash; Allele Frequencies &amp; Hardy-Weinberg Equilibrium</h2>
+  <p>Before computing any population genetics statistic, you need allele frequencies per population. The Hardy-Weinberg equilibrium (HWE) test tells you whether your population is randomly mating at a locus. Deviations suggest inbreeding, selection, population structure, or genotyping error.</p>
+
+  <div class="formula-explain">
+    <div class="fe-title"><i class="bi bi-calculator"></i> Hardy-Weinberg Equilibrium + Inbreeding Coefficient</div>
+    <div class="fe-equation">p = (2*N_AA + N_AB) / (2*N_total)</div>
+    <div class="fe-equation">Expected heterozygosity (HWE) = 2pq</div>
+    <div class="fe-equation">F_IS = 1 - (observed_Het / expected_Het)</div>
+    <div class="fe-terms">
+      <span class="fe-var">p</span><span class="fe-def">Frequency of allele A = (2 x N_AA + N_AB) / (2 x N_total)</span>
+      <span class="fe-var">q = 1-p</span><span class="fe-def">Frequency of allele B</span>
+      <span class="fe-var">F_IS = 0</span><span class="fe-def">Random mating (HWE). Rice subspecies are highly selfing so F_IS is typically 0.85-0.95.</span>
+      <span class="fe-var">F_IS &lt; 0</span><span class="fe-def">Excess heterozygotes -- outbreeding advantage or genotyping error (false heterozygous calls)</span>
+    </div>
+  </div>
+
+  <div class="live-sheet" data-sheet='{
+    "title": "Live HWE Calculator -- edit genotype counts to see allele frequencies and F_IS",
+    "legend": true,
+    "cols": [
+      {"id":"A","label":"Parameter","desc":"Genotype count or derived statistic"},
+      {"id":"B","label":"Population 1 (IND)","desc":"Edit yellow cells for Population 1"},
+      {"id":"C","label":"Population 2 (JAP)","desc":"Edit yellow cells for Population 2"},
+      {"id":"D","label":"Formula used","desc":"Excel formula"}
+    ],
+    "rows": [
+      {"header":"Observed genotype counts -- edit these:"},
+      {"rowNum":2,"cells":{"A":{"text":"N_AA (homozygous ref)"},"B":{"input":312,"step":1,"min":0},"C":{"input":285,"step":1,"min":0},"D":{"text":"Count from VCF"}}},
+      {"rowNum":3,"cells":{"A":{"text":"N_AB (heterozygous)"},"B":{"input":28,"step":1,"min":0},"C":{"input":31,"step":1,"min":0},"D":{"text":"Count from VCF"}}},
+      {"rowNum":4,"cells":{"A":{"text":"N_BB (homozygous alt)"},"B":{"input":60,"step":1,"min":0},"C":{"input":84,"step":1,"min":0},"D":{"text":"Count from VCF"}}},
+      {"header":"Allele frequency calculations:"},
+      {"rowNum":6,"cells":{"A":{"text":"N_total"},"B":{"formula":"=B2+B3+B4"},"C":{"formula":"=C2+C3+C4"},"D":{"text":"=B2+B3+B4"}}},
+      {"rowNum":7,"cells":{"A":{"text":"p (freq allele A)"},"B":{"formula":"=ROUND((2*B2+B3)/(2*B6),4)"},"C":{"formula":"=ROUND((2*C2+C3)/(2*C6),4)"},"D":{"text":"=(2*N_AA+N_AB)/(2*N)"}}},
+      {"rowNum":8,"cells":{"A":{"text":"q = 1-p (freq allele B)"},"B":{"formula":"=ROUND(1-B7,4)"},"C":{"formula":"=ROUND(1-C7,4)"},"D":{"text":"=1-p"}}},
+      {"header":"HWE expected vs observed:"},
+      {"rowNum":10,"cells":{"A":{"text":"Expected heterozygosity = 2pq"},"B":{"formula":"=ROUND(2*B7*B8,4)"},"C":{"formula":"=ROUND(2*C7*C8,4)"},"D":{"text":"=2*p*q"}}},
+      {"rowNum":11,"cells":{"A":{"text":"Observed heterozygosity = N_AB/N"},"B":{"formula":"=ROUND(B3/B6,4)"},"C":{"formula":"=ROUND(C3/C6,4)"},"D":{"text":"=N_AB/N_total"}}},
+      {"rowNum":12,"cells":{"A":{"text":"F_IS = 1 - (obs_Het / exp_Het)"},"B":{"formula":"=ROUND(1-(B11/B10),4)"},"C":{"formula":"=ROUND(1-(C11/C10),4)"},"D":{"text":"=1-(obs/exp)"}}},
+      {"rowNum":13,"cells":{"A":{"text":"HWE status (0=HWE, 1=mild deviation, 2=inbred)"},"B":{"formula":"=IF(ABS(B12)<0.1,0,IF(ABS(B12)<0.5,1,2))"},"C":{"formula":"=IF(ABS(C12)<0.1,0,IF(ABS(C12)<0.5,1,2))"},"D":{"text":"0=HWE|1=mild|2=strong deviation"}}}
+    ],
+    "colDesc": [
+      {"col":"B7/C7 (p)","desc":"=(2*N_AA + N_AB) / (2*N_total). Each homozygous AA individual contributes 2 copies of allele A; each heterozygote contributes 1. Divide by total allele count (2 x N for diploids)."},
+      {"col":"B12/C12 (F_IS)","desc":"=1 - (observed_heterozygosity / expected_heterozygosity). F_IS near 0: random mating (HWE). F_IS near 1: completely inbred -- expected for RILs or selfing species like rice. F_IS < 0: more heterozygotes than expected, suggesting outbreeding or genotyping error (false het calls in low-depth sequencing)."}
+    ]
+  }'></div>
+</section>
+
+<section id="pi" class="mb-5">
+  <h2 class="section-divider">Step 2 &mdash; Nucleotide Diversity (&pi;)</h2>
+  <p>Nucleotide diversity (&pi;) is the average number of nucleotide differences per site between two randomly drawn sequences. For a biallelic SNP, &pi; = 2pq. For a window, it is the mean 2pq across all sites (including monomorphic sites which contribute 0).</p>
+
+  <div class="formula-explain">
+    <div class="fe-title"><i class="bi bi-calculator"></i> Nucleotide Diversity (per-site and window)</div>
+    <div class="fe-equation">Per biallelic site: pi = 2pq</div>
+    <div class="fe-equation">Window pi = sum(2pq over all S SNPs) / window_length_bp</div>
+    <div class="fe-terms">
+      <span class="fe-var">p, q</span><span class="fe-def">Allele frequencies at the SNP</span>
+      <span class="fe-var">2pq</span><span class="fe-def">Expected heterozygosity -- probability two randomly drawn alleles differ</span>
+      <span class="fe-var">Window length</span><span class="fe-def">Divide by window SIZE not number of SNPs. Windows with fewer SNPs are simply less diverse, not missing data.</span>
+    </div>
+  </div>
+
+  <div class="live-sheet" data-sheet='{
+    "title": "Live Nucleotide Diversity Calculator -- 5-SNP window",
+    "legend": true,
+    "cols": [
+      {"id":"A","label":"SNP","desc":"SNP in the window"},
+      {"id":"B","label":"p (freq allele A)","desc":"Allele frequency -- EDIT"},
+      {"id":"C","label":"q = 1-p","desc":"Alt allele frequency"},
+      {"id":"D","label":"2pq (per-site pi)","desc":"Per-site nucleotide diversity"},
+      {"id":"E","label":"Polymorphic?","desc":"1=SNP, 0=monomorphic"}
+    ],
+    "rows": [
+      {"header":"Edit allele frequencies (5 SNPs in a 1000-bp window):"},
+      {"rowNum":2,"cells":{"A":{"text":"SNP1"},"B":{"input":0.72,"step":0.01,"min":0,"max":1},"C":{"formula":"=ROUND(1-B2,4)"},"D":{"formula":"=ROUND(2*B2*C2,4)"},"E":{"formula":"=IF(B2>0,IF(B2<1,1,0),0)"}}},
+      {"rowNum":3,"cells":{"A":{"text":"SNP2"},"B":{"input":0.45,"step":0.01,"min":0,"max":1},"C":{"formula":"=ROUND(1-B3,4)"},"D":{"formula":"=ROUND(2*B3*C3,4)"},"E":{"formula":"=IF(B3>0,IF(B3<1,1,0),0)"}}},
+      {"rowNum":4,"cells":{"A":{"text":"SNP3"},"B":{"input":0.91,"step":0.01,"min":0,"max":1},"C":{"formula":"=ROUND(1-B4,4)"},"D":{"formula":"=ROUND(2*B4*C4,4)"},"E":{"formula":"=IF(B4>0,IF(B4<1,1,0),0)"}}},
+      {"rowNum":5,"cells":{"A":{"text":"SNP4"},"B":{"input":0.33,"step":0.01,"min":0,"max":1},"C":{"formula":"=ROUND(1-B5,4)"},"D":{"formula":"=ROUND(2*B5*C5,4)"},"E":{"formula":"=IF(B5>0,IF(B5<1,1,0),0)"}}},
+      {"rowNum":6,"cells":{"A":{"text":"SNP5"},"B":{"input":0.60,"step":0.01,"min":0,"max":1},"C":{"formula":"=ROUND(1-B6,4)"},"D":{"formula":"=ROUND(2*B6*C6,4)"},"E":{"formula":"=IF(B6>0,IF(B6<1,1,0),0)"}}},
+      {"header":"Window summary:"},
+      {"rowNum":8,"cells":{"A":{"text":"Window size (bp)"},"B":{"input":1000,"step":100,"min":1},"C":{"text":""},"D":{"text":""},"E":{"text":""}}},
+      {"rowNum":9,"cells":{"A":{"text":"S = number of polymorphic sites"},"B":{"formula":"=E2+E3+E4+E5+E6"},"C":{"text":""},"D":{"text":""},"E":{"text":""}}},
+      {"rowNum":10,"cells":{"A":{"text":"Sum of 2pq (polymorphic sites only)"},"B":{"formula":"=ROUND(D2*E2+D3*E3+D4*E4+D5*E5+D6*E6,5)"},"C":{"text":""},"D":{"text":""},"E":{"text":""}}},
+      {"rowNum":11,"cells":{"A":{"text":"pi = sum(2pq) / window_size"},"B":{"formula":"=ROUND(B10/B8,6)"},"C":{"text":"Per-site nucleotide diversity"},"D":{"text":""},"E":{"text":""}}}
+    ],
+    "colDesc": [
+      {"col":"D (2pq)","desc":"=2*p*(1-p). Maximum diversity occurs at p=q=0.5 where 2pq=0.5. Monomorphic sites contribute 0."},
+      {"col":"B11 (pi)","desc":"=sum(2pq)/window_size. Divide by total window size (not just S) so that windows with fewer SNPs are not artificially lower -- they simply have more monomorphic sites contributing zeros. This is the vcftools --window-pi definition."}
+    ]
+  }'></div>
+</section>
+
+<section id="fst" class="mb-5">
+  <h2 class="section-divider">Step 3 &mdash; F<sub>ST</sub>: Population Differentiation</h2>
+  <p>Weir &amp; Cockerham (1984) F<sub>ST</sub> is the gold standard for measuring genetic differentiation. It ranges 0 (identical allele frequencies) to 1 (fixed for different alleles). The W-C estimator is unbiased with unequal sample sizes, which is why vcftools --weir-fst-pop is preferred over naive approaches.</p>
+
+  <div class="formula-explain">
+    <div class="fe-title"><i class="bi bi-calculator"></i> F_ST (Wright / simplified W-C formula)</div>
+    <div class="fe-equation">H_T = 2 * p_bar * (1 - p_bar)  [total heterozygosity if merged]</div>
+    <div class="fe-equation">H_S = (H_pop1 + H_pop2) / 2   [mean within-population heterozygosity]</div>
+    <div class="fe-equation">F_ST = (H_T - H_S) / H_T</div>
+    <div class="fe-terms">
+      <span class="fe-var">p_bar</span><span class="fe-def">Weighted mean allele frequency across populations = (N1*p1 + N2*p2) / (N1 + N2)</span>
+      <span class="fe-var">F_ST 0-0.05</span><span class="fe-def">Little differentiation</span>
+      <span class="fe-var">F_ST 0.05-0.15</span><span class="fe-def">Moderate differentiation</span>
+      <span class="fe-var">F_ST 0.15-0.25</span><span class="fe-def">Great differentiation</span>
+      <span class="fe-var">F_ST &gt; 0.25</span><span class="fe-def">Very great differentiation (Wright 1978 scale)</span>
+    </div>
+  </div>
+
+  <div class="live-sheet" data-sheet='{
+    "title": "Live F_ST Calculator -- 3 SNPs, 2 populations",
+    "legend": true,
+    "cols": [
+      {"id":"A","label":"Parameter","desc":"SNP or derived value"},
+      {"id":"B","label":"Pop1 (IND)","desc":"Indica -- edit allele freq p"},
+      {"id":"C","label":"Pop2 (JAP)","desc":"Japonica -- edit allele freq p"},
+      {"id":"D","label":"F_ST","desc":"Per-SNP Fst"},
+      {"id":"E","label":"Category","desc":"1=Very great >0.25 | 2=Great >0.15 | 3=Moderate >0.05 | 4=Little"}
+    ],
+    "rows": [
+      {"header":"Sample sizes:"},
+      {"rowNum":2,"cells":{"A":{"text":"N individuals (diploid)"},"B":{"input":400,"step":10,"min":5},"C":{"input":350,"step":10,"min":5},"D":{"text":""},"E":{"text":""}}},
+      {"header":"SNP allele frequencies -- edit p values:"},
+      {"rowNum":4,"cells":{"A":{"text":"SNP1 p (freq allele A)"},"B":{"input":0.82,"step":0.01,"min":0.001,"max":0.999},"C":{"input":0.21,"step":0.01,"min":0.001,"max":0.999},"D":{"formula":"=ROUND(((B2*2*B4*(1-B4)+C2*2*C4*(1-C4))/(B2+C2) - 2*((B2*B4+C2*C4)/(B2+C2))*(1-((B2*B4+C2*C4)/(B2+C2)))) / (2*((B2*B4+C2*C4)/(B2+C2))*(1-((B2*B4+C2*C4)/(B2+C2)))),4)"},"E":{"formula":"=IF(D4>0.25,1,IF(D4>0.15,2,IF(D4>0.05,3,4)))"}}},
+      {"rowNum":5,"cells":{"A":{"text":"SNP2 p (freq allele A)"},"B":{"input":0.55,"step":0.01,"min":0.001,"max":0.999},"C":{"input":0.48,"step":0.01,"min":0.001,"max":0.999},"D":{"formula":"=ROUND(((B2*2*B5*(1-B5)+C2*2*C5*(1-C5))/(B2+C2) - 2*((B2*B5+C2*C5)/(B2+C2))*(1-((B2*B5+C2*C5)/(B2+C2)))) / (2*((B2*B5+C2*C5)/(B2+C2))*(1-((B2*B5+C2*C5)/(B2+C2)))),4)"},"E":{"formula":"=IF(D5>0.25,1,IF(D5>0.15,2,IF(D5>0.05,3,4)))"}}},
+      {"rowNum":6,"cells":{"A":{"text":"SNP3 p (freq allele A)"},"B":{"input":0.14,"step":0.01,"min":0.001,"max":0.999},"C":{"input":0.79,"step":0.01,"min":0.001,"max":0.999},"D":{"formula":"=ROUND(((B2*2*B6*(1-B6)+C2*2*C6*(1-C6))/(B2+C2) - 2*((B2*B6+C2*C6)/(B2+C2))*(1-((B2*B6+C2*C6)/(B2+C2)))) / (2*((B2*B6+C2*C6)/(B2+C2))*(1-((B2*B6+C2*C6)/(B2+C2)))),4)"},"E":{"formula":"=IF(D6>0.25,1,IF(D6>0.15,2,IF(D6>0.05,3,4)))"}}},
+      {"header":"Step-by-step Fst for SNP1:"},
+      {"rowNum":8,"cells":{"A":{"text":"p_bar = weighted mean freq"},"B":{"formula":"=ROUND((B2*B4+C2*C4)/(B2+C2),5)"},"C":{"text":"=(N1*p1+N2*p2)/(N1+N2)"},"D":{"text":""},"E":{"text":""}}},
+      {"rowNum":9,"cells":{"A":{"text":"H_T = 2*p_bar*(1-p_bar)"},"B":{"formula":"=ROUND(2*B8*(1-B8),5)"},"C":{"text":"=2*p_bar*(1-p_bar)"},"D":{"text":""},"E":{"text":""}}},
+      {"rowNum":10,"cells":{"A":{"text":"H_S = (2p1q1 + 2p2q2)/2"},"B":{"formula":"=ROUND((2*B4*(1-B4)+2*C4*(1-C4))/2,5)"},"C":{"text":"=(H_pop1+H_pop2)/2"},"D":{"text":""},"E":{"text":""}}},
+      {"rowNum":11,"cells":{"A":{"text":"F_ST (SNP1) = (H_T - H_S) / H_T"},"B":{"formula":"=ROUND((B9-B10)/B9,5)"},"C":{"text":"=(H_T-H_S)/H_T"},"D":{"text":""},"E":{"formula":"=IF(B11>0.25,1,IF(B11>0.15,2,IF(B11>0.05,3,4)))"}}},
+      {"rowNum":12,"cells":{"A":{"text":"Window mean F_ST (3 SNPs)"},"B":{"formula":"=ROUND((D4+D5+D6)/3,5)"},"C":{"text":"=mean(per-SNP Fst)"},"D":{"text":""},"E":{"formula":"=IF(B12>0.25,1,IF(B12>0.15,2,IF(B12>0.05,3,4)))"}}}
+    ],
+    "colDesc": [
+      {"col":"D4-D6 (per-SNP Fst)","desc":"Full formula: Fst = (H_T - H_S) / H_T where H_T=2*p_bar*(1-p_bar) and H_S=mean within-pop heterozygosity. vcftools --weir-fst-pop implements the exact Weir-Cockerham moment estimator which also corrects for small sample sizes using an nc coefficient."},
+      {"col":"E (Category)","desc":"Wright (1978) scale: 1=Very great (>0.25) | 2=Great (>0.15) | 3=Moderate (>0.05) | 4=Little (<0.05). Rice indica vs japonica genome-wide mean Fst is approximately 0.35-0.45 -- one of the highest values in any crop species."}
+    ]
+  }'></div>
+
+  <div class="fun-tip"><span class="fun-tip-icon">&#128161;</span><div><strong>Negative F<sub>ST</sub> values are normal and expected.</strong> The Weir-Cockerham estimator can produce small negative values (-0.02 to -0.05). This happens when within-population heterozygosity slightly exceeds the expected total heterozygosity due to sampling variance. vcftools sets these to 0 in some outputs, but keep them in window averages to avoid positive bias. Never set negative values to 0 before averaging.</div></div>
+</section>
+
+<section id="tajima" class="mb-5">
+  <h2 class="section-divider">Step 4 &mdash; Tajima&rsquo;s D: The Neutrality Test</h2>
+  <p>Tajima's D (1989) compares two estimators of theta (= 4*Ne*mu): pi (sensitive to intermediate-frequency variants) and Watterson's theta_W (sensitive to all segregating sites equally). Selection or demographic events distort the site-frequency spectrum, causing these two estimates to diverge.</p>
+
+  <div class="formula-explain">
+    <div class="fe-title"><i class="bi bi-calculator"></i> Tajima's D Formula</div>
+    <div class="fe-equation">theta_W = S / a1   where a1 = sum(1/i) for i=1 to n-1</div>
+    <div class="fe-equation">D = (pi - theta_W) / sqrt(Var(pi - theta_W))</div>
+    <div class="fe-terms">
+      <span class="fe-var">S</span><span class="fe-def">Number of segregating (polymorphic) sites in the window</span>
+      <span class="fe-var">n</span><span class="fe-def">Number of haploid sequences (= 2 x diploid individuals)</span>
+      <span class="fe-var">a1</span><span class="fe-def">Harmonic number = 1 + 1/2 + 1/3 + ... + 1/(n-1). Normalises S for sample size.</span>
+      <span class="fe-var">D = 0</span><span class="fe-def">Neutral evolution (theta_W = pi)</span>
+      <span class="fe-var">D &lt; -1.5</span><span class="fe-def">Excess rare variants: selective sweep OR population expansion after bottleneck</span>
+      <span class="fe-var">D &gt; +1.5</span><span class="fe-def">Excess intermediate variants: balancing selection OR population subdivision</span>
+    </div>
+  </div>
+
+  <div class="live-sheet" data-sheet='{
+    "title": "Live Tajima D Calculator -- edit sample size, S (segregating sites), and pi",
+    "legend": true,
+    "cols": [
+      {"id":"A","label":"Parameter","desc":"Input or calculated"},
+      {"id":"B","label":"Value","desc":"Edit yellow cells"},
+      {"id":"C","label":"Formula","desc":"Exact formula"},
+      {"id":"D","label":"Notes","desc":"Interpretation"}
+    ],
+    "rows": [
+      {"header":"Inputs -- edit these:"},
+      {"rowNum":2,"cells":{"A":{"text":"n (haploid sequences = 2 x diploid individuals)"},"B":{"input":100,"step":2,"min":4},"C":{"text":"= 2 * N_individuals"},"D":{"text":"e.g. 50 individuals = 100 haplotypes"}}},
+      {"rowNum":3,"cells":{"A":{"text":"S (segregating sites in window)"},"B":{"input":42,"step":1,"min":1},"C":{"text":"Count of SNPs in window"},"D":{"text":"From vcftools TajimaD output"}}},
+      {"rowNum":4,"cells":{"A":{"text":"pi (nucleotide diversity, per site)"},"B":{"input":0.0048,"step":0.0001,"min":0.00001},"C":{"text":"From step 2 calculator"},"D":{"text":"Typical rice pi ~ 0.003-0.006"}}},
+      {"rowNum":5,"cells":{"A":{"text":"Window size (bp)"},"B":{"input":10000,"step":1000,"min":100},"C":{"text":"Length of analysis window"},"D":{"text":""}}},
+      {"header":"Harmonic numbers:"},
+      {"rowNum":7,"cells":{"A":{"text":"a1 = sum(1/i) approx = ln(n-1) + 0.5772"},"B":{"formula":"=ROUND(LN(B2-1)+0.5772,5)"},"C":{"text":"=LN(n-1)+0.5772"},"D":{"text":"Euler-Mascheroni approx, <0.1% error for n>10"}}},
+      {"rowNum":8,"cells":{"A":{"text":"a2 = sum(1/i^2) approx = pi^2/6 - 1/(n-1)"},"B":{"formula":"=ROUND(1.6449-1/(B2-1),5)"},"C":{"text":"=1.6449 - 1/(n-1)"},"D":{"text":"Used in the variance formula"}}},
+      {"header":"Watterson theta and Tajima D:"},
+      {"rowNum":10,"cells":{"A":{"text":"theta_W = S / (a1 * window_size)"},"B":{"formula":"=ROUND(B3/(B7*B5),6)"},"C":{"text":"=S/(a1*L)"},"D":{"text":"Watterson estimator, per site"}}},
+      {"rowNum":11,"cells":{"A":{"text":"pi - theta_W"},"B":{"formula":"=ROUND(B4-B10,6)"},"C":{"text":"=pi - theta_W"},"D":{"text":"Positive: excess intermediate variants; Negative: excess rare"}}},
+      {"rowNum":12,"cells":{"A":{"text":"e1 (variance component 1)"},"B":{"formula":"=ROUND((B7*(B2+1)/(3*(B2-1))-1/B7)/B7,6)"},"C":{"text":"=(a1*(n+1)/(3*(n-1))-1/a1)/a1"},"D":{"text":"Tajima 1989 eq 38"}}},
+      {"rowNum":13,"cells":{"A":{"text":"e2 (variance component 2)"},"B":{"formula":"=ROUND(B8/(B7*B7)-(2*(B2*B2+B2+3))/(9*B2*(B2-1))/B7,6)"},"C":{"text":"=a2/a1^2 - 2(n^2+n+3)/(9n(n-1))/a1"},"D":{"text":"Tajima 1989 eq 39"}}},
+      {"rowNum":14,"cells":{"A":{"text":"Var = e1*S + e2*S*(S-1)"},"B":{"formula":"=ROUND(B12*B3+B13*B3*(B3-1),8)"},"C":{"text":"=e1*S + e2*S*(S-1)"},"D":{"text":"Tajima 1989 eq 40"}}},
+      {"rowNum":15,"cells":{"A":{"text":"Tajima D = (pi - theta_W) / sqrt(Var)"},"B":{"formula":"=ROUND(B11/SQRT(ABS(B14)),4)"},"C":{"text":"=(pi-theta_W)/SQRT(Var)"},"D":{"text":""}}},
+      {"header":"Interpretation:"},
+      {"rowNum":17,"cells":{"A":{"text":"Signal (0=neutral, 1=positive selection/expansion, 2=balancing)"},"B":{"formula":"=IF(B15<-1.5,1,IF(B15>1.5,2,0))"},"C":{"text":"0=neutral | 1=D<-1.5 | 2=D>+1.5"},"D":{"text":"Always combine with Fst and iHS before concluding selection"}}}
+    ],
+    "colDesc": [
+      {"col":"B7 (a1)","desc":"=LN(n-1)+0.5772. The exact formula is a harmonic sum: 1 + 1/2 + ... + 1/(n-1). This normalises Watterson theta for sample size -- without it, larger samples always show more segregating sites simply because you sampled more lineages."},
+      {"col":"B15 (Tajima D)","desc":"=(pi - theta_W) / sqrt(Var). Under neutral evolution with constant population size, D is approximately between -2 and +2 (95% interval). IMPORTANT: D is sensitive to BOTH selection AND demography. A significant D does not automatically mean selection -- you must model the demographic history first."}
+    ]
+  }'></div>
+
+  <div class="fun-tip"><span class="fun-tip-icon">&#9888;&#65039;</span><div><strong>Tajima's D is NOT a selection-only test.</strong> A negative D could mean a selective sweep OR a population expansion after a bottleneck (both create excess rare variants). Always combine D with F<sub>ST</sub>, iHS/XP-EHH, and demographic modelling (e.g. SMC++ or PSMC for Ne history). The correct interpretation: compute a genome-wide null distribution of D under your demographic model, then flag outlier windows as candidates.</div></div>
+</section>
+
+<section id="selection" class="mb-5">
+  <h2 class="section-divider">Step 5 &mdash; Selection Scans: iHS and XP-EHH</h2>
+  <p>Haplotype-based statistics detect <strong>incomplete selective sweeps</strong> where a beneficial allele carries a long, unusually homozygous haplotype. They are more powerful than F<sub>ST</sub> and Tajima's D for <em>recent</em> sweeps (1,000--25,000 generations ago).</p>
+
+  <div class="param-table">
+    <table class="table table-bordered mb-0">
+      <thead class="table-dark"><tr><th>Statistic</th><th>Measures</th><th>Use when</th><th>Tool</th></tr></thead>
+      <tbody>
+        <tr><td><strong>iHS</strong></td><td>EHH of derived vs ancestral allele within one population</td><td>Sweep within a single population; |iHS| &gt; 2 = top ~5%</td><td>selscan, hapbin</td></tr>
+        <tr><td><strong>XP-EHH</strong></td><td>EHH ratio between two populations for the same allele</td><td>Comparing two populations; positive = sweep in pop1, negative = sweep in pop2</td><td>selscan, rehh (R)</td></tr>
+        <tr><td><strong>nSL</strong></td><td>Number of segregating sites by length (no genetic map needed)</td><td>Non-model organisms without a genetic map</td><td>selscan</td></tr>
+        <tr><td><strong>H12</strong></td><td>Haplotype frequency spectrum over 200-SNP windows</td><td>Both hard sweeps and soft sweeps (multiple haplotypes)</td><td>H12 (Garud et al.)</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="code-block-wrapper mt-4">
+    <div class="code-block-header"><span>Bash -- selscan iHS and XP-EHH pipeline (phased VCF required)</span><button class="btn-copy">Copy</button></div>
+<pre id="s5-selscan">## Requires: selscan v1.3+, phased VCF (see haplotype-phasing tutorial)
+## Population files: one sample ID per line
+
+## --- Extract per-population phased VCFs ---
+for POP in IND JAP; do
+  bcftools view --samples-file ${POP}_samples.txt \
+    --phased --min-ac 1:minor chr04_phased.vcf.gz | \
+    bcftools filter -e 'AF<0.01 || AF>0.99' | \
+    bgzip -c > chr04_${POP}_phased.vcf.gz
+  tabix -p vcf chr04_${POP}_phased.vcf.gz
+done
+
+## --- iHS within each population ---
+## selscan needs a genetic map file: SNP_ID Chr pos_bp pos_cM
+selscan --ihs \
+  --vcf chr04_IND_phased.vcf.gz \
+  --map chr04_genetic_map.txt \
+  --out chr04_IND_ihs \
+  --threads 8
+
+## Normalise by allele frequency bins (REQUIRED before interpretation)
+norm --ihs --bins 100 --files chr04_IND_ihs.ihs.out
+## Output: .ihs.out.100bins.norm -- |iHS| > 2 = candidate sweep
+
+## --- XP-EHH between populations ---
+selscan --xpehh \
+  --vcf chr04_IND_phased.vcf.gz \
+  --vcf-ref chr04_JAP_phased.vcf.gz \
+  --map chr04_genetic_map.txt \
+  --out chr04_IND_vs_JAP_xpehh \
+  --threads 8
+
+norm --xpehh --bins 100 --files chr04_IND_vs_JAP_xpehh.xpehh.out
+## Positive XP-EHH = selection in IND; negative = selection in JAP
+
+## --- Alternative: rehh R package (no command-line selscan needed) ---
+## library(rehh)
+## hh <- data2haplohh(hap_file="chr04_IND.hap", map_file="chr04.map")
+## res_ihs <- scan_hh(hh)
+## ihs <- ihh2ihs(res_ihs)
+## freqbinplot(ihs)  ## diagnostic plot</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s5-selscan" data-filename="05_ihs_xpehh.sh"><i class="bi bi-download me-1"></i>05_ihs_xpehh.sh</button></div>
+</section>
+
+<section id="pipeline" class="mb-5">
+  <h2 class="section-divider">Step 6 &mdash; Full vcftools Pipeline</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash -- Complete population genetics pipeline</span><button class="btn-copy">Copy</button></div>
+<pre id="s6-vcft">## ================================================================
+## Full population genetics pipeline using vcftools + PLINK2
+## Dataset: Rice 3K chr04, indica vs japonica
+## ================================================================
+
+VCF="rice3k_chr04.vcf.gz"
+
+## Step A: Filter VCF
+vcftools --gzvcf ${VCF} \
+  --remove-indels --maf 0.05 --max-missing 0.8 \
+  --min-alleles 2 --max-alleles 2 --minDP 5 \
+  --recode --stdout | bgzip -c > rice_filtered.vcf.gz
+tabix -p vcf rice_filtered.vcf.gz
+
+## Step B: Nucleotide diversity (50 kb windows, 10 kb step)
+for POP in ind jap; do
+  vcftools --gzvcf rice_filtered.vcf.gz \
+    --keep ${POP}_pops.txt \
+    --window-pi 50000 --window-pi-step 10000 \
+    --out ${POP}_pi
+done
+
+## Step C: Tajima's D (50 kb non-overlapping windows)
+for POP in ind jap; do
+  vcftools --gzvcf rice_filtered.vcf.gz \
+    --keep ${POP}_pops.txt \
+    --TajimaD 50000 \
+    --out ${POP}_tajima
+done
+## Only interpret windows with N_SNPS >= 5
+
+## Step D: Weir-Cockerham Fst
+vcftools --gzvcf rice_filtered.vcf.gz \
+  --weir-fst-pop ind_pops.txt \
+  --weir-fst-pop jap_pops.txt \
+  --fst-window-size 50000 --fst-window-step 10000 \
+  --out ind_vs_jap_fst
+## Genome-wide mean and weighted Fst printed to stdout
+
+## Step E: LD pruning + PCA
+plink2 --vcf rice_filtered.vcf.gz \
+  --allow-extra-chr --double-id \
+  --maf 0.05 --geno 0.05 \
+  --indep-pairwise 50 10 0.2 \
+  --out rice_ldpruned
+
+plink2 --vcf rice_filtered.vcf.gz \
+  --allow-extra-chr --double-id \
+  --extract rice_ldpruned.prune.in \
+  --pca 10 --out rice_pca
+## rice_pca.eigenvec = PC scores; rice_pca.eigenval = variance explained
+
+## Step F: Admixture (population structure, K=2 to K=6)
+## Requires ADMIXTURE v1.3
+plink2 --vcf rice_filtered.vcf.gz \
+  --allow-extra-chr --double-id \
+  --extract rice_ldpruned.prune.in \
+  --make-bed --out rice_pruned
+
+for K in 2 3 4 5 6; do
+  admixture --cv rice_pruned.bed ${K} | tee log${K}.out
+done
+## CV error: grep "CV error" log*.out | sort -k3,3n  ==> choose K with min CV</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s6-vcft" data-filename="06_popgen_pipeline.sh"><i class="bi bi-download me-1"></i>06_popgen_pipeline.sh</button></div>
+</section>
+
+<section id="visualise" class="mb-5">
+  <h2 class="section-divider">Step 7 &mdash; R Visualisation</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>R -- Fst Manhattan, pi comparison, Tajima D, PCA, ADMIXTURE barplot</span><button class="btn-copy">Copy</button></div>
+<pre id="s7-r">library(ggplot2); library(dplyr); library(tidyr)
+
+## 1. Fst Manhattan plot
+fst <- read.table("ind_vs_jap_fst.windowed.weir.fst", header=TRUE, sep="\t")
+fst$MEAN_FST[fst$MEAN_FST < 0] <- 0  ## set negative to 0 for display only
+fst99 <- quantile(fst$MEAN_FST, 0.99, na.rm=TRUE)
+ggplot(fst, aes(BIN_START/1e6, MEAN_FST, colour=MEAN_FST >= fst99)) +
+  geom_point(size=0.5, alpha=0.7) +
+  geom_hline(yintercept=fst99, linetype="dashed", colour="red") +
+  scale_colour_manual(values=c("FALSE"="#6baed6","TRUE"="#e31a1c"), guide=FALSE) +
+  facet_grid(.~CHROM, scales="free_x", space="free_x") +
+  labs(x="Position (Mb)", y="Fst", title="Indica vs Japonica -- 50 kb window Fst") +
+  theme_minimal(base_size=10)
+ggsave("fst_manhattan.png", width=14, height=4, dpi=200)
+
+## 2. Pi comparison
+pi_ind <- read.table("ind_pi.windowed.pi", header=TRUE); pi_ind$POP <- "Indica"
+pi_jap <- read.table("jap_pi.windowed.pi", header=TRUE); pi_jap$POP <- "Japonica"
+pi_all <- bind_rows(pi_ind, pi_jap)
+ggplot(pi_all, aes(CHROM, PI, fill=POP)) +
+  geom_boxplot(outlier.size=0.3, outlier.alpha=0.3) +
+  scale_fill_manual(values=c("Indica"="#fc8d62","Japonica"="#8da0cb")) +
+  labs(x="Chromosome", y="pi (per site)", title="Nucleotide diversity -- 50 kb windows") +
+  theme_bw(base_size=11)
+ggsave("pi_comparison.png", width=10, height=5, dpi=200)
+
+## 3. Tajima D genome-wide
+td <- read.table("ind_tajima.Tajima.D", header=TRUE)
+td <- td[td$N_SNPS >= 5, ]
+ggplot(td, aes(TajimaD)) +
+  geom_histogram(binwidth=0.1, fill="#4dac26", colour="white") +
+  geom_vline(xintercept=c(-2,2), linetype="dotted", colour="red") +
+  labs(x="Tajima D", y="Count (windows)", title="Tajima D distribution -- Indica",
+       subtitle="Red lines = +-2 (approx 5% tails)") +
+  theme_bw(base_size=11)
+ggsave("tajimad_distribution.png", width=6, height=4, dpi=200)
+
+## 4. PCA
+pca_vecs <- read.table("rice_pca.eigenvec", header=FALSE)
+pca_vals <- read.table("rice_pca.eigenval", header=FALSE)
+ind_ids  <- scan("ind_pops.txt", what="", quiet=TRUE)
+pca_vecs$POP <- ifelse(pca_vecs$V1 %in% ind_ids, "Indica", "Japonica")
+pct  <- round(pca_vals$V1/sum(pca_vals$V1)*100,1)
+ggplot(pca_vecs, aes(V3, V4, colour=POP)) +
+  geom_point(size=2, alpha=0.7) +
+  scale_colour_manual(values=c("Indica"="#fc8d62","Japonica"="#8da0cb")) +
+  labs(x=paste0("PC1 (",pct[1],"%)"), y=paste0("PC2 (",pct[2],"%)"),
+       colour="Subspecies", title="PCA -- population structure") +
+  theme_bw(base_size=12)
+ggsave("pca_structure.png", width=7, height=6, dpi=200)
+
+## 5. ADMIXTURE barplot (K=3)
+Q3 <- read.table("rice_pruned.3.Q")
+pop_labels <- read.table("ind_pops.txt")$V1
+Q3$POP <- ifelse(rownames(Q3) %in% pop_labels, "Indica", "Japonica")
+Q3_long <- Q3 %>% mutate(ID=row_number()) %>%
+  pivot_longer(cols=starts_with("V"), names_to="Ancestry", values_to="Proportion")
+ggplot(Q3_long, aes(ID, Proportion, fill=Ancestry)) +
+  geom_bar(stat="identity", width=1) +
+  facet_grid(.~Q3$POP[Q3_long$ID], scales="free_x", space="free_x") +
+  scale_fill_brewer(palette="Set1") +
+  labs(x="Individual", y="Ancestry proportion", title="ADMIXTURE K=3") +
+  theme_minimal(base_size=10) +
+  theme(axis.text.x=element_blank(), strip.text=element_text(face="bold"))
+ggsave("admixture_K3.png", width=12, height=3, dpi=200)</pre>
+  </div>
+  <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s7-r" data-filename="07_popgen_visualise.R"><i class="bi bi-download me-1"></i>07_popgen_visualise.R</button></div>
+</section>
+
+<section id="pitfalls" class="mb-5">
+  <h2 class="section-divider">Common Pitfalls</h2>
+  <div class="param-table">
+    <table class="table table-bordered mb-0">
+      <thead class="table-dark"><tr><th>Problem</th><th>Symptom</th><th>Fix</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Unequal sample sizes inflate Fst</strong></td><td>Fst always higher for the smaller population</td><td>Use Weir-Cockerham (vcftools --weir-fst-pop). W-C is sample-size corrected. Or downsample with vcftools --max-indv.</td></tr>
+        <tr><td><strong>Missing data biases pi and Tajima D</strong></td><td>Windows with many missing genotypes show artificially low pi</td><td>Filter with --max-missing 0.9 before computing stats. Exclude windows with fewer than 5 informative SNPs.</td></tr>
+        <tr><td><strong>Related individuals inflate F_IS</strong></td><td>Excess homozygosity even in outcrossing species</td><td>Remove relatives (KING kinship > 0.125 = 2nd degree) with plink2 --king-cutoff before all analyses.</td></tr>
+        <tr><td><strong>iHS inflated in low-recombination regions</strong></td><td>Centromeres show iHS > 3 everywhere</td><td>Always normalise iHS in allele-frequency bins. Exclude centromeric regions. Use nSL which is more robust to recombination rate variation.</td></tr>
+        <tr><td><strong>PCA driven by one chromosome arm</strong></td><td>Stripe pattern in PCA; a few extreme outliers</td><td>LD pruning (--indep-pairwise 50 10 0.2) usually fixes this. Large chromosomal inversions can dominate PC1 -- exclude the inverted region from PCA input.</td></tr>
+        <tr><td><strong>Tajima D significant genome-wide</strong></td><td>Nearly all windows show D &lt; -1.5</td><td>Likely population expansion, not genome-wide selection. Run PSMC or SMC++ to infer Ne history and simulate expected D distribution under your demographic model.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="mb-5">
+  <div class="d-flex justify-content-between">
+    <a href="index.html" class="btn btn-outline-secondary rounded-pill px-4"><i class="bi bi-grid me-2"></i>All Tutorials</a>
+    <a href="haplotype-phasing-tutorial.html" class="btn btn-primary rounded-pill px-4">Haplotype Phasing <i class="bi bi-arrow-right ms-2"></i></a>
+  </div>
+</section>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-lg-6"><h5 class="text-white fw-bold mb-3"><span style="color:#ff9933;">Indian</span><span style="color:var(--ieb-primary);">Elucid</span><span style="color:var(--ieb-accent);">Biology</span></h5><p class="small">Free, interactive bioinformatics tutorials.</p></div>
+      <div class="col-lg-6 text-lg-end"><p class="small mb-1">Founded by <strong>Ankush Sharma</strong></p><div class="d-flex gap-3 justify-content-lg-end"><a href="https://github.com/ank-man" target="_blank" class="text-white fs-5"><i class="bi bi-github"></i></a><a href="https://www.linkedin.com/in/ankush-sharma-290307/" target="_blank" class="text-white fs-5"><i class="bi bi-linkedin"></i></a><a href="mailto:mr.ank2999@gmail.com" class="text-white fs-5"><i class="bi bi-envelope"></i></a></div></div>
+    </div>
+    <hr class="border-secondary mt-4 mb-3">
+    <p class="text-center small mb-0">&copy; 2025 IndianElucidBiology</p>
+  </div>
+</footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/main.js"></script>
+<script src="../js/live-spreadsheet.js"></script>
+</body>
+</html>

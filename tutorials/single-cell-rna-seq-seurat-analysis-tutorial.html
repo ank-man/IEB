@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Single-Cell RNA-Seq Analysis with Seurat v5 — Complete Tutorial | IndianElucidBiology</title>
+  <meta name="description" content="End-to-end single-cell RNA-Seq tutorial with Seurat v5 in R. QC filtering, normalization, dimensionality reduction, UMAP clustering, marker gene discovery, cell type annotation, and differential expression. Every threshold explained.">
+  <meta name="keywords" content="scRNA-Seq tutorial, Seurat v5, single cell analysis, UMAP clustering, cell type annotation, marker genes, QC filtering mitochondrial, 10X Genomics Cell Ranger, IndianElucidBiology">
+  <meta name="author" content="IndianElucidBiology">
+  <link rel="canonical" href="https://indianelucidbiology.github.io/tutorials/single-cell-rna-seq-seurat-analysis-tutorial.html">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="../css/style.css" rel="stylesheet">
+</head>
+<body>
+
+<div class="progress-tracker"></div>
+
+<nav class="navbar navbar-expand-lg fixed-top bg-body-tertiary">
+  <div class="container">
+    <a class="navbar-brand" href="../index.html"><span class="brand-indian">Indian</span><span class="brand-elucid">Elucid</span><span class="brand-biology">Biology</span></a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav"><span class="navbar-toggler-icon"></span></button>
+    <div class="collapse navbar-collapse" id="mainNav">
+      <ul class="navbar-nav ms-auto me-3">
+        <li class="nav-item"><a class="nav-link" href="../index.html">Home</a></li>
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle active" href="#" role="button" data-bs-toggle="dropdown">Tutorials</a>
+          <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="rnaseq-differential-expression-deseq2-guide.html">RNA-Seq &amp; DESeq2</a></li>
+            <li><a class="dropdown-item" href="gene-coexpression-network-wgcna-tutorial.html">WGCNA Networks</a></li>
+            <li><a class="dropdown-item" href="bioinformatics-data-visualization-ggplot2-R.html">Data Visualization</a></li>
+            <li><a class="dropdown-item active" href="single-cell-rna-seq-seurat-analysis-tutorial.html">Single-Cell RNA-Seq</a></li>
+            <li><a class="dropdown-item" href="variant-calling-gatk-bcftools-pipeline.html">Variant Calling</a></li>
+            <li><a class="dropdown-item" href="metagenomics-microbiome-analysis-qiime2.html">Metagenomics</a></li>
+          </ul>
+        </li>
+      </ul>
+      <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode">&#9790;</button>
+    </div>
+  </div>
+</nav>
+
+<section class="tutorial-hero">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-lg-8">
+        <nav aria-label="breadcrumb"><ol class="breadcrumb mb-3" style="--bs-breadcrumb-divider-color:rgba(255,255,255,0.5);"><li class="breadcrumb-item"><a href="../index.html" class="text-white-50 text-decoration-none">Home</a></li><li class="breadcrumb-item active text-white">Single-Cell RNA-Seq</li></ol></nav>
+        <h1 class="display-5 fw-bold text-white mb-3">Single-Cell RNA-Seq Analysis with Seurat</h1>
+        <p class="lead text-white-50 mb-4">From raw 10X Genomics output to annotated cell clusters — a complete walkthrough of the Seurat v5 pipeline with every QC threshold rationalized.</p>
+        <div class="d-flex gap-3 flex-wrap">
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-clock me-1"></i> ~75 min</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-bar-chart me-1"></i> Advanced</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-filetype-r me-1"></i> R / Seurat v5</span>
+        </div>
+      </div>
+      <div class="col-lg-4 text-center d-none d-lg-block">
+        <img src="../img/Byte3.png" alt="Byte explains DNA" class="img-fluid" style="max-height:250px;filter:drop-shadow(0 10px 30px rgba(0,0,0,0.4));">
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="container py-5">
+  <div class="row">
+    <div class="col-lg-3 d-none d-lg-block">
+      <div class="toc-sidebar">
+        <h6 class="fw-bold text-muted text-uppercase small mb-3">On this page</h6>
+        <nav class="nav flex-column">
+          <a class="nav-link" href="#overview">Overview</a>
+          <a class="nav-link" href="#setup">Setup</a>
+          <a class="nav-link" href="#step1">1. Load Data</a>
+          <a class="nav-link" href="#step2">2. QC &amp; Filtering</a>
+          <a class="nav-link" href="#step3">3. Normalization</a>
+          <a class="nav-link" href="#step4">4. Feature Selection</a>
+          <a class="nav-link" href="#step5">5. Dimensionality Reduction</a>
+          <a class="nav-link" href="#step6">6. Clustering</a>
+          <a class="nav-link" href="#step7">7. Marker Genes</a>
+          <a class="nav-link" href="#step8">8. Cell Type Annotation</a>
+          <a class="nav-link" href="#step9">9. Differential Expression</a>
+          <a class="nav-link" href="#summary">Summary</a>
+        </nav>
+      </div>
+    </div>
+
+    <div class="col-lg-9">
+      <div class="tutorial-content">
+
+        <section id="overview" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">?</span> What Is Single-Cell RNA-Seq?</h2>
+          <p>Bulk RNA-Seq measures the <em>average</em> gene expression across millions of cells. <strong>Single-cell RNA-Seq (scRNA-Seq)</strong> measures expression in <em>individual cells</em>, revealing cell-type-specific programs, rare populations, and cellular heterogeneity that bulk methods completely miss.</p>
+          <p>The most common platform is <strong>10X Genomics Chromium</strong>, which produces a sparse gene × cell count matrix via the <strong>Cell Ranger</strong> pipeline. Seurat is the most widely used R package for downstream analysis of this data.</p>
+
+          <h5 class="fw-bold mt-4">The Standard Seurat Workflow</h5>
+          <ol>
+            <li>Load 10X data → Create Seurat object</li>
+            <li>Quality control (filter dead cells, doublets)</li>
+            <li>Normalize expression values</li>
+            <li>Find highly variable features</li>
+            <li>Scale data &amp; run PCA</li>
+            <li>Find neighbors &amp; cluster cells (UMAP)</li>
+            <li>Identify cluster marker genes</li>
+            <li>Annotate cell types</li>
+          </ol>
+        </section>
+
+        <section id="setup" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">0</span> Installation</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre>install.packages("Seurat")
+install.packages(c("tidyverse", "patchwork", "ggrepel"))
+
+# For cell type annotation
+install.packages("remotes")
+remotes::install_github("immunogenomics/presto")  # fast marker detection
+BiocManager::install("SingleR")
+BiocManager::install("celldex")
+
+library(Seurat)
+library(tidyverse)
+library(patchwork)</pre>
+          </div>
+        </section>
+
+        <section id="step1" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">1</span> Load 10X Genomics Data</h2>
+          <p>Cell Ranger produces a folder containing three files: <code>barcodes.tsv.gz</code>, <code>features.tsv.gz</code>, and <code>matrix.mtx.gz</code>. Seurat reads these directly.</p>
+
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre># Point to the Cell Ranger output directory
+counts &lt;- Read10X(data.dir = "path/to/filtered_feature_bc_matrix/")
+
+# Create the Seurat object
+# min.cells = 3: keep genes expressed in at least 3 cells
+# min.features = 200: keep cells with at least 200 detected genes
+sobj &lt;- CreateSeuratObject(
+  counts       = counts,
+  project      = "MyExperiment",
+  min.cells    = 3,
+  min.features = 200
+)
+
+sobj   # Quick summary: genes x cells</pre>
+          </div>
+
+          <div class="byte-callout byte-info">
+            <img src="../img/Byte3.png" alt="Byte key point">
+            <div>
+              <strong>Why min.cells = 3?</strong> Genes detected in fewer than 3 cells provide almost no statistical information and are likely noise or ambient RNA. Setting this to 3 removes them upfront, reducing object size. Similarly, <strong>min.features = 200</strong> removes empty droplets or debris that passed Cell Ranger's initial filtering.
+            </div>
+          </div>
+        </section>
+
+        <section id="step2" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">2</span> Quality Control &amp; Cell Filtering</h2>
+          <p>This is the most impactful step. Poor QC leads to garbage clusters. We filter on three metrics:</p>
+
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre># Calculate mitochondrial gene percentage (marker of dying cells)
+sobj[["percent.mt"]] &lt;- PercentageFeatureSet(sobj, pattern = "^MT-")
+# For mouse, use pattern = "^mt-"
+
+# Calculate ribosomal gene percentage
+sobj[["percent.ribo"]] &lt;- PercentageFeatureSet(sobj, pattern = "^RP[SL]")
+
+# Visualize QC metrics
+VlnPlot(sobj,
+        features = c("nFeature_RNA", "nCount_RNA", "percent.mt"),
+        ncol = 3, pt.size = 0)
+
+# Scatter plots to identify relationships
+plot1 &lt;- FeatureScatter(sobj, feature1 = "nCount_RNA", feature2 = "percent.mt")
+plot2 &lt;- FeatureScatter(sobj, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+plot1 + plot2</pre>
+          </div>
+
+          <div class="decision-box">
+            <h5><i class="bi bi-signpost-split me-2"></i>How to Choose QC Thresholds</h5>
+            <div class="row g-3 mt-2">
+              <div class="col-md-4">
+                <div class="p-3 rounded-3 bg-body-secondary">
+                  <h6 class="fw-bold"><code>nFeature_RNA</code></h6>
+                  <p class="small mb-1"><strong>Genes per cell</strong></p>
+                  <ul class="small mb-0">
+                    <li><strong>Low cutoff (200–500):</strong> removes empty droplets</li>
+                    <li><strong>High cutoff (2500–6000):</strong> removes likely doublets</li>
+                    <li>Look at the violin plot — set thresholds at the natural breakpoints</li>
+                  </ul>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="p-3 rounded-3 bg-body-secondary">
+                  <h6 class="fw-bold"><code>nCount_RNA</code></h6>
+                  <p class="small mb-1"><strong>Total UMIs per cell</strong></p>
+                  <ul class="small mb-0">
+                    <li>Correlates strongly with nFeature</li>
+                    <li>Extreme outliers (top 1%) are likely doublets</li>
+                    <li>Often don't need a separate filter if nFeature is filtered</li>
+                  </ul>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="p-3 rounded-3 bg-body-secondary">
+                  <h6 class="fw-bold"><code>percent.mt</code></h6>
+                  <p class="small mb-1"><strong>Mitochondrial %</strong></p>
+                  <ul class="small mb-0">
+                    <li><strong>&lt; 5%:</strong> stringent (most tissues)</li>
+                    <li><strong>&lt; 10%:</strong> lenient (muscle, kidney, metabolically active tissues)</li>
+                    <li><strong>&lt; 20%:</strong> only for highly metabolic cells or FFPE samples</li>
+                    <li>High mt% = dying/stressed cells leaking cytoplasmic RNA</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre># Apply filters — ADJUST THESE BASED ON YOUR VIOLIN PLOTS
+sobj &lt;- subset(sobj,
+  subset = nFeature_RNA > 200 &amp;
+           nFeature_RNA &lt; 5000 &amp;
+           percent.mt &lt; 10
+)
+
+cat("Cells after QC:", ncol(sobj), "\n")</pre>
+          </div>
+
+          <div class="byte-callout byte-warn">
+            <img src="../img/Byte5.png" alt="Byte warning">
+            <div>
+              <strong>Never blindly copy thresholds!</strong> The right cutoffs depend on your tissue type, dissociation protocol, and sequencing depth. Always inspect the violin and scatter plots first and set thresholds at the natural inflection points in your specific data. A brain sample and a tumor sample will have very different QC distributions.
+            </div>
+          </div>
+        </section>
+
+        <section id="step3" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">3</span> Normalization</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre># Log-normalization (default, fast, works well for most datasets)
+sobj &lt;- NormalizeData(sobj,
+                      normalization.method = "LogNormalize",
+                      scale.factor = 10000)</pre>
+          </div>
+
+          <div class="byte-callout byte-info">
+            <img src="../img/Byte3.png" alt="Byte explains">
+            <div>
+              <strong>Normalization Methods:</strong>
+              <ul class="mb-0 mt-1">
+                <li><strong>LogNormalize</strong> (default): divides each cell's counts by total, multiplies by <code>scale.factor</code>, then log1p transforms. Fast and sufficient for most analyses.</li>
+                <li><strong>SCTransform</strong>: uses regularized negative binomial regression. Better variance stabilization, especially for complex datasets. Use <code>sobj &lt;- SCTransform(sobj)</code> instead.</li>
+                <li><strong>When to use SCTransform:</strong> if you're integrating multiple samples, have strong batch effects, or want the most statistically rigorous approach. It's slower but often gives cleaner clusters.</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <section id="step4" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">4</span> Identify Highly Variable Features</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre># Find the top 2000 most variable genes
+sobj &lt;- FindVariableFeatures(sobj,
+                              selection.method = "vst",
+                              nfeatures = 2000)
+
+# Plot variable features
+top10 &lt;- head(VariableFeatures(sobj), 10)
+plot1 &lt;- VariableFeaturePlot(sobj)
+plot2 &lt;- LabelPoints(plot = plot1, points = top10, repel = TRUE)
+plot2</pre>
+          </div>
+
+          <div class="decision-box">
+            <h5><i class="bi bi-signpost-split me-2"></i>How Many Variable Features?</h5>
+            <ul>
+              <li><strong>2000</strong> — standard default, works well for most datasets</li>
+              <li><strong>3000–5000</strong> — use for complex tissues with many cell types (e.g., whole brain, tumor microenvironment)</li>
+              <li><strong>1000</strong> — use for simpler datasets (e.g., sorted cell populations) or when you want tighter clusters</li>
+              <li>More features = more information but also more noise; diminishing returns past ~3000</li>
+            </ul>
+          </div>
+        </section>
+
+        <section id="step5" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">5</span> Scaling, PCA &amp; UMAP</h2>
+
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre># Scale data (centers and scales each gene across cells)
+sobj &lt;- ScaleData(sobj)
+
+# PCA on the variable features
+sobj &lt;- RunPCA(sobj, features = VariableFeatures(sobj))
+
+# Elbow plot to decide how many PCs to use
+ElbowPlot(sobj, ndims = 40)</pre>
+          </div>
+
+          <div class="byte-callout byte-key">
+            <img src="../img/Byte3.png" alt="Byte key point">
+            <div>
+              <strong>Choosing the Number of PCs:</strong>
+              <ul class="mb-0 mt-1">
+                <li>Look at the elbow plot — where the curve flattens is your cutoff</li>
+                <li>Typical range: <strong>10–30 PCs</strong></li>
+                <li><strong>Too few PCs:</strong> you lose real biological signal, clusters merge</li>
+                <li><strong>Too many PCs:</strong> you include noise dimensions, clusters fragment</li>
+                <li>When in doubt, use 20. It's rarely wrong and is robust for most datasets.</li>
+                <li>For a more data-driven approach, use <code>JackStraw</code> analysis, though it's slow for large datasets.</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre>n_pcs &lt;- 20  # Based on elbow plot
+
+# Build the shared nearest neighbor graph
+sobj &lt;- FindNeighbors(sobj, dims = 1:n_pcs)
+
+# UMAP for visualization
+sobj &lt;- RunUMAP(sobj, dims = 1:n_pcs)</pre>
+          </div>
+
+          <div class="byte-callout byte-warn">
+            <img src="../img/Byte5.png" alt="Byte warns">
+            <div>
+              <strong>UMAP is for Visualization Only!</strong> UMAP preserves local structure but distorts global distances. Two clusters that appear far apart on UMAP may actually be quite similar, and vice versa. Never draw biological conclusions from UMAP distances alone. Clustering happens in PCA space via <code>FindNeighbors</code> + <code>FindClusters</code> — that's what matters.
+            </div>
+          </div>
+        </section>
+
+        <section id="step6" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">6</span> Clustering</h2>
+
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre># Cluster cells — resolution controls granularity
+sobj &lt;- FindClusters(sobj, resolution = 0.5)
+
+# Visualize clusters on UMAP
+DimPlot(sobj, reduction = "umap", label = TRUE, label.size = 5) +
+  ggtitle("Cell Clusters (resolution = 0.5)") +
+  theme_minimal()</pre>
+          </div>
+
+          <div class="decision-box">
+            <h5><i class="bi bi-signpost-split me-2"></i>Choosing Clustering Resolution</h5>
+            <div class="row g-3 mt-2">
+              <div class="col-md-4">
+                <div class="p-3 rounded-3 bg-body-secondary">
+                  <h6 class="fw-bold text-success">Low (0.1–0.3)</h6>
+                  <p class="small mb-0">Fewer, larger clusters. Good for identifying major cell lineages (e.g., immune vs. epithelial vs. stromal).</p>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="p-3 rounded-3 bg-body-secondary">
+                  <h6 class="fw-bold text-primary">Medium (0.4–0.8)</h6>
+                  <p class="small mb-0">Balanced. Standard starting point. Usually gives biologically meaningful cell types.</p>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="p-3 rounded-3 bg-body-secondary">
+                  <h6 class="fw-bold text-danger">High (1.0–2.0)</h6>
+                  <p class="small mb-0">Many small clusters. Use for sub-type discovery within known populations. Risk of over-splitting.</p>
+                </div>
+              </div>
+            </div>
+            <p class="small mt-3 mb-0"><strong>Practical tip:</strong> Try multiple resolutions and use the <code>clustree</code> R package to visualize how clusters split as resolution increases. Choose the resolution where clusters are stable and biologically interpretable.</p>
+          </div>
+        </section>
+
+        <section id="step7" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">7</span> Find Cluster Marker Genes</h2>
+
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre># Find markers for ALL clusters (one-vs-rest)
+all_markers &lt;- FindAllMarkers(sobj,
+  only.pos    = TRUE,     # only upregulated markers
+  min.pct     = 0.25,     # gene must be in ≥25% of cluster cells
+  logfc.threshold = 0.25  # minimum log2FC
+)
+
+# Top 5 markers per cluster
+top5 &lt;- all_markers %>%
+  group_by(cluster) %>%
+  slice_max(n = 5, order_by = avg_log2FC)
+
+print(top5)
+
+# Dot plot of top markers
+DoHeatmap(sobj, features = top5$gene) +
+  scale_fill_viridis_c() +
+  theme(axis.text.y = element_text(size = 6))</pre>
+          </div>
+
+          <div class="param-table">
+            <table class="table table-striped mb-0">
+              <thead><tr><th>Parameter</th><th>Purpose</th><th>How to Tune</th></tr></thead>
+              <tbody>
+                <tr><td><code>min.pct</code></td><td>Minimum fraction of cells expressing the gene in either group</td><td>0.25 is standard. Decrease to 0.1 for rare markers; increase to 0.5 to focus on broadly expressed genes.</td></tr>
+                <tr><td><code>logfc.threshold</code></td><td>Minimum average log2FC between cluster and rest</td><td>0.25 is default. Increase to 0.5 or 1.0 for stronger, more specific markers.</td></tr>
+                <tr><td><code>test.use</code></td><td>Statistical test</td><td><code>"wilcox"</code> (default, fast). <code>"MAST"</code> for publication-quality DE (accounts for cellular detection rate).</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h5 class="fw-bold mt-4">Visualize Key Markers</h5>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre># Feature plot — expression on UMAP
+FeaturePlot(sobj,
+  features = c("CD3D", "MS4A1", "LYZ", "NKG7"),  # example markers
+  cols = c("lightgrey", "firebrick3"),
+  ncol = 2
+)
+
+# Dot plot — compact multi-gene view
+DotPlot(sobj,
+  features = unique(top5$gene),
+  cols = c("lightgrey", "navy")
+) + RotatedAxis()</pre>
+          </div>
+        </section>
+
+        <section id="step8" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">8</span> Cell Type Annotation</h2>
+          <p>Assigning biological identity to clusters. Two approaches: manual (using known markers) and automated (reference-based).</p>
+
+          <h5 class="fw-bold mt-4">Manual Annotation</h5>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre># Rename clusters based on marker gene knowledge
+new_labels &lt;- c(
+  "0" = "CD4+ T cells",
+  "1" = "CD14+ Monocytes",
+  "2" = "B cells",
+  "3" = "CD8+ T cells",
+  "4" = "NK cells",
+  "5" = "Dendritic cells",
+  "6" = "Platelets"
+  # ... add more as needed
+)
+
+sobj &lt;- RenameIdents(sobj, new_labels)
+DimPlot(sobj, reduction = "umap", label = TRUE, repel = TRUE) +
+  ggtitle("Annotated Cell Types") +
+  theme_minimal()</pre>
+          </div>
+
+          <h5 class="fw-bold mt-4">Automated Annotation with SingleR</h5>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre>library(SingleR)
+library(celldex)
+
+# Load a reference dataset
+ref &lt;- celldex::HumanPrimaryCellAtlasData()
+
+# Run SingleR on the normalized expression matrix
+pred &lt;- SingleR(
+  test   = GetAssayData(sobj, layer = "data"),
+  ref    = ref,
+  labels = ref$label.main
+)
+
+# Add predictions to Seurat object
+sobj$singler_labels &lt;- pred$labels
+
+DimPlot(sobj, group.by = "singler_labels", label = TRUE, repel = TRUE) +
+  ggtitle("SingleR Automated Annotation")</pre>
+          </div>
+
+          <div class="byte-callout byte-tip">
+            <img src="../img/Byte1.png" alt="Byte tip">
+            <div>
+              <strong>Best Practice:</strong> Use automated annotation as a starting point, then refine manually using known marker genes from the literature. No automated tool is perfect — always validate the top markers for each assigned cell type with <code>FeaturePlot()</code> and domain expertise.
+            </div>
+          </div>
+        </section>
+
+        <section id="step9" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">9</span> Differential Expression Between Conditions</h2>
+          <p>If your experiment has multiple conditions (e.g., disease vs. healthy), you can perform DE within each cell type.</p>
+
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre># Pseudobulk approach (recommended for multi-sample experiments)
+# Aggregate counts per cell type per sample
+bulk &lt;- AggregateExpression(sobj,
+  group.by = c("cell_type", "sample_id"),
+  return.seurat = TRUE
+)
+
+# Then run DESeq2 on pseudobulk counts (see RNA-Seq tutorial)
+
+# --- OR: Cell-level DE (simpler, but inflated p-values) ---
+# Compare conditions within a specific cell type
+cd4_cells &lt;- subset(sobj, idents = "CD4+ T cells")
+Idents(cd4_cells) &lt;- "condition"
+
+de_results &lt;- FindMarkers(cd4_cells,
+  ident.1      = "Disease",
+  ident.2      = "Healthy",
+  test.use     = "MAST",    # recommended for scRNA-Seq DE
+  min.pct      = 0.1,
+  logfc.threshold = 0.25
+)
+
+head(de_results, 20)</pre>
+          </div>
+
+          <div class="byte-callout byte-warn">
+            <img src="../img/Byte5.png" alt="Byte warns">
+            <div>
+              <strong>Pseudobulk vs. Cell-Level DE:</strong> Cell-level DE (treating each cell as an independent observation) inflates sample sizes and produces overly optimistic p-values. For multi-sample experiments, <strong>always use pseudobulk</strong> — aggregate counts per cell type per biological replicate, then run DESeq2 or edgeR. This is now the gold standard per Squair et al. (2021) and the Seurat team's own recommendations.
+            </div>
+          </div>
+        </section>
+
+        <section id="summary" class="mb-5">
+          <h2 class="fw-bold"><i class="bi bi-check-circle me-2"></i> Summary</h2>
+          <div class="byte-callout byte-tip">
+            <img src="../img/Byte0.png" alt="Byte">
+            <div>
+              <strong>What You Learned:</strong>
+              <ol class="mb-0 mt-1">
+                <li>Load 10X Genomics Cell Ranger output into Seurat</li>
+                <li>Perform QC filtering based on genes/cell, UMIs/cell, and mitochondrial %</li>
+                <li>Normalize with LogNormalize or SCTransform</li>
+                <li>Select highly variable features and run PCA</li>
+                <li>Choose the right number of PCs using the elbow plot</li>
+                <li>Cluster cells with appropriate resolution and visualize with UMAP</li>
+                <li>Identify marker genes and understand parameter tuning</li>
+                <li>Annotate cell types manually and with SingleR</li>
+                <li>Perform DE between conditions using pseudobulk (recommended) or cell-level approaches</li>
+              </ol>
+            </div>
+          </div>
+
+          <div class="d-flex justify-content-between mt-5">
+            <a href="bioinformatics-data-visualization-ggplot2-R.html" class="btn btn-outline-secondary rounded-pill px-4"><i class="bi bi-arrow-left me-2"></i>Prev: Visualization</a>
+            <a href="variant-calling-gatk-bcftools-pipeline.html" class="btn btn-primary rounded-pill px-4">Next: Variant Calling <i class="bi bi-arrow-right ms-2"></i></a>
+          </div>
+        </section>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-lg-6"><h5 class="text-white fw-bold mb-3"><span style="color:#ff9933;">Indian</span><span style="color:var(--ieb-primary);">Elucid</span><span style="color:var(--ieb-accent);">Biology</span></h5><p class="small">Free, interactive bioinformatics tutorials. Open source and community-driven.</p></div>
+      <div class="col-lg-6 text-lg-end"><p class="small mb-1">Founded by <strong>Ankush Sharma</strong></p><div class="d-flex gap-3 justify-content-lg-end"><a href="https://github.com/ank-man" target="_blank" class="text-white fs-5"><i class="bi bi-github"></i></a><a href="https://www.linkedin.com/in/ankush-sharma-290307/" target="_blank" class="text-white fs-5"><i class="bi bi-linkedin"></i></a><a href="mailto:mr.ank2999@gmail.com" class="text-white fs-5"><i class="bi bi-envelope"></i></a></div></div>
+    </div>
+    <hr class="border-secondary mt-4 mb-3">
+    <p class="text-center small mb-0">&copy; 2025 IndianElucidBiology — Founded by <a href="https://www.linkedin.com/in/ankush-sharma-290307/" class="text-white-50" target="_blank">Ankush Sharma</a>. Made with <span style="color:#e25555;">&#9829;</span> for the bioinformatics community.</p>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/main.js"></script>
+</body>
+</html>

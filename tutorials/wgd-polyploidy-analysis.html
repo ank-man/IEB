@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Whole Genome Duplication &amp; Polyploidy Analysis | IndianElucidBiology</title>
+  <meta name="description" content="Complete WGD detection tutorial: Ks plots, synteny with MCScanX, WGDI collinearity, subgenome phasing, and fractionation bias.">
+  <link rel="canonical" href="https://indianelucidbiology.github.io/tutorials/wgd-polyploidy-analysis.html">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="../css/style.css" rel="stylesheet">
+  <link href="../css/live-spreadsheet.css" rel="stylesheet">
+</head>
+<body>
+<div class="progress-tracker"></div>
+
+<nav class="navbar navbar-expand-lg fixed-top">
+  <div class="container">
+    <a class="navbar-brand" href="../index.html">
+      <span class="brand-indian">Indian</span><span class="brand-elucid">Elucid</span><span class="brand-biology">Biology</span>
+    </a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="mainNav">
+      <ul class="navbar-nav ms-auto me-3">
+        <li class="nav-item"><a class="nav-link" href="../index.html">Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="index.html">Tutorial Library</a></li>
+        <li class="nav-item"><a class="nav-link" href="qtl-mapping-tutorial.html"><i class="bi bi-arrow-left me-1"></i>QTL Mapping</a></li>
+        <li class="nav-item"><a class="nav-link" href="index.html">All Tutorials<i class="bi bi-grid ms-1"></i></a></li>
+      </ul>
+      <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode">&#9790;</button>
+    </div>
+  </div>
+</nav>
+
+<section class="tutorial-hero">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-lg-8">
+        <nav aria-label="breadcrumb">
+          <ol class="breadcrumb mb-3" style="--bs-breadcrumb-divider-color:rgba(255,255,255,0.5);">
+            <li class="breadcrumb-item"><a href="../index.html" class="text-white-50 text-decoration-none">Home</a></li>
+            <li class="breadcrumb-item"><a href="index.html" class="text-white-50 text-decoration-none">Tutorials</a></li>
+            <li class="breadcrumb-item active text-white">WGD &amp; Polyploidy</li>
+          </ol>
+        </nav>
+        <h1 class="display-5 fw-bold text-white mb-3">Whole Genome Duplication &amp; Polyploidy Analysis</h1>
+        <p class="lead text-white-50 mb-4">
+          WGD concepts explained &middot; Ks plots &middot; MCScanX synteny blocks &middot; WGDI collinearity &middot; dot plot interpretation &middot; subgenome phasing &middot; fractionation bias
+        </p>
+        <div class="d-flex gap-3 flex-wrap">
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-clock me-1"></i>~150 min</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-bar-chart me-1"></i>Advanced</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-terminal me-1"></i>Bash / Python / R</span>
+        </div>
+        <div class="mt-3">
+          <span class="dataset-badge"><i class="bi bi-database me-1"></i><em>Arabidopsis thaliana</em> TAIR10 &amp; <em>Brassica napus</em> Darmor-bzh &mdash; NCBI/EnsemblPlants</span>
+        </div>
+      </div>
+      <div class="col-lg-4 text-center d-none d-lg-block">
+        <img src="../img/Byte3.png" alt="Byte" class="img-fluid" style="max-height:230px;filter:drop-shadow(0 10px 30px rgba(0,0,0,0.4));">
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="container py-5">
+  <div class="row">
+    <div class="col-lg-3 d-none d-lg-block">
+      <div class="toc-sidebar">
+        <h6 class="fw-bold text-muted text-uppercase small mb-3">On this page</h6>
+        <nav class="nav flex-column">
+          <a class="nav-link" href="#concepts">WGD Concepts</a>
+          <a class="nav-link" href="#ks-theory">Ks as a Molecular Clock</a>
+          <a class="nav-link" href="#step1">1. All-vs-All BLAST</a>
+          <a class="nav-link" href="#step2">2. Ks Calculation &amp; Plotting</a>
+          <a class="nav-link" href="#step3">3. MCScanX Synteny Blocks</a>
+          <a class="nav-link" href="#step4">4. WGDI Collinearity &amp; Dot Plots</a>
+          <a class="nav-link" href="#step5">5. Subgenome Phasing</a>
+          <a class="nav-link" href="#step6">6. Fractionation Bias</a>
+          <a class="nav-link" href="#step7">7. Reporting WGD Evidence</a>
+        </nav>
+      </div>
+    </div>
+
+    <div class="col-lg-9">
+      <div class="tutorial-content">
+
+<!-- ============================================================ -->
+<section id="concepts" class="mb-5">
+  <h2 class="section-divider">WGD Concepts Explained</h2>
+  <p>Whole Genome Duplication (WGD) is an event where an organism's entire genome is copied — either by <strong>autopolyploidy</strong> (doubling within one species) or <strong>allopolyploidy</strong> (hybridisation between two species followed by chromosome doubling). WGD is ubiquitous in plants: virtually every flowering plant lineage has experienced at least one ancient WGD event. Understanding WGD history is fundamental for interpreting genome size, gene family expansion, and duplicate gene evolution.</p>
+
+  <div class="byte-callout">
+    <img src="../img/Byte1.png" alt="Byte">
+    <div>
+      <strong>Three flavours of polyploidy to distinguish:</strong>
+      <ul class="mb-0 mt-1 small">
+        <li><strong>Autopolyploidy:</strong> Whole-genome doubling within one species (e.g. potato <em>S. tuberosum</em> 4x; banana <em>Musa</em> 3x). Both copies originate from the same ancestral genome. After millions of years of diploidisation they become invisible cytologically.</li>
+        <li><strong>Allopolyploidy:</strong> Hybridisation of two distinct species whose merged genome then doubles (e.g. bread wheat = A+B+D subgenomes; <em>Arabidopsis suecica</em> = <em>A. thaliana</em> + <em>A. arenosa</em>; <em>Brassica napus</em> = <em>B. rapa</em> + <em>B. oleracea</em>). The two parental subgenomes can often be distinguished by GC content differences, transposon landscape, and gene expression dominance.</li>
+        <li><strong>Paleopolyploidy:</strong> Ancient WGD that has been mostly diploidised — the organism looks cytologically diploid but its genome contains remnant duplicated synteny blocks revealing the ancient event. Example: <em>Arabidopsis thaliana</em> (2n=10) underwent a WGD ~35 Mya (&alpha; event) and still carries paralogous chromosomal blocks.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="param-table mt-4">
+    <table class="table table-bordered mb-0">
+      <thead class="table-dark"><tr><th>Evidence type</th><th>Tool</th><th>What it shows</th><th>Limitation</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Ks distribution</strong></td><td>wgd, KaKs_Calculator</td><td>Peak in synonymous substitution histogram = synchronised duplication burst = WGD</td><td>Ks saturates at &gt;2.0; very old WGDs invisible</td></tr>
+        <tr><td><strong>Synteny / collinearity</strong></td><td>MCScanX, WGDI, SynMap2</td><td>Duplicated chromosomal blocks within the same genome = remnant WGD segments</td><td>Gene loss (fractionation) erodes old blocks over time</td></tr>
+        <tr><td><strong>Dot plot</strong></td><td>WGDI, MCScan, jcvi</td><td>2x2 synteny pattern = 1 WGD; 4x4 = 2 WGDs stacked</td><td>Meaningful only with chromosome-level assemblies</td></tr>
+        <tr><td><strong>Chromosome count</strong></td><td>Cytology</td><td>Multiples of base chromosome number x suggest polyploidy history</td><td>Diploidisation obscures history; not bioinformatic</td></tr>
+        <tr><td><strong>Subgenome assignment</strong></td><td>SubPhaser, ASTRAL, homeolog SNPs</td><td>Which chromosomes belong to which ancestral parental subgenome</td><td>Requires sufficient divergence between subgenomes</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section id="ks-theory" class="mb-5">
+  <h2 class="section-divider">Ks as a Molecular Clock for WGD Dating</h2>
+  <p>Ks (synonymous substitution rate) counts the number of silent substitutions per synonymous site between two homologous coding sequences. Because synonymous mutations do not change the amino acid sequence, they accumulate at a roughly neutral, constant rate &mdash; acting as a molecular clock.</p>
+
+  <div class="param-table">
+    <table class="table table-striped mb-0">
+      <thead><tr><th>Ks value</th><th>Approximate age (plants)</th><th>What to expect</th></tr></thead>
+      <tbody>
+        <tr><td>0.0 &ndash; 0.05</td><td>Very recent (&lt;3 Mya)</td><td>Tandem duplicates; very recent polyploidisation events</td></tr>
+        <tr><td>0.05 &ndash; 0.3</td><td>3&ndash;20 Mya</td><td>Recent WGDs: e.g. legume WGD (~13 Mya), Brassiceae WGD (~7 Mya)</td></tr>
+        <tr><td>0.3 &ndash; 1.0</td><td>20&ndash;60 Mya</td><td>Older WGDs: Arabidopsis &alpha; (~35 Mya), grass &rho; (~70 Mya)</td></tr>
+        <tr><td>1.0 &ndash; 2.0</td><td>60&ndash;100 Mya</td><td>Ks approaching saturation; core eudicot &gamma; triplication (~100 Mya)</td></tr>
+        <tr><td>&gt;2.0</td><td>&gt;100 Mya</td><td>Ks saturated &mdash; all synonymous sites may be multiple-hit; signal unreliable</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p class="mt-4">Use the live Ks calculator below to convert any Ks peak value to a WGD age estimate. Edit the Ks value and the substitution rate to see how the age changes &mdash; this makes the molecular clock formula completely transparent:</p>
+
+  <div class="live-sheet" data-sheet='{
+    "title": "Live Ks \u2192 WGD Age Calculator + Mapping Function Comparison",
+    "legend": true,
+    "cols": [
+      {"id":"A","label":"Parameter","desc":"Input or calculated value"},
+      {"id":"B","label":"Value","desc":"Edit yellow cells"},
+      {"id":"C","label":"Formula","desc":"Exact formula used"},
+      {"id":"D","label":"Notes","desc":"Interpretation"}
+    ],
+    "rows": [
+      {"header":"Input: edit the Ks peak value and substitution rate:"},
+      {"rowNum":2,"cells":{"A":{"text":"Ks peak value (from histogram)"},"B":{"input":0.15,"step":0.01,"min":0.001,"max":3.0},"C":{"text":"Read from Ks distribution peak"},"D":{"text":"e.g. 0.15 = Arabidopsis alpha WGD"}}},
+      {"rowNum":3,"cells":{"A":{"text":"Synonymous rate r (substitutions/site/year)"},"B":{"input":0.000000015,"step":0.000000001,"min":0.000000001},"C":{"text":"Species-specific; ~1.5e-8 for Arabidopsis"},"D":{"text":"Grasses: 6.5e-9 | Arabidopsis: 1.5e-8 | Mammals: 2.2e-9"}}},
+      {"header":"Calculated WGD age:"},
+      {"rowNum":5,"cells":{"A":{"text":"WGD age (Mya) = Ks / (2 x r) / 1,000,000"},"B":{"formula":"=ROUND(B2/(2*B3)/1000000,1)"},"C":{"text":"=B2 / (2*B3) / 1000000"},"D":{"text":"Million years ago (Mya)"}}},
+      {"rowNum":6,"cells":{"A":{"text":"95% CI lower (Ks peak - 0.05)"},"B":{"formula":"=ROUND((B2-0.05)/(2*B3)/1000000,1)"},"C":{"text":"=(B2-0.05)/(2*B3)/1e6"},"D":{"text":"Assumes \u00b10.05 Ks uncertainty in peak"}}},
+      {"rowNum":7,"cells":{"A":{"text":"95% CI upper (Ks peak + 0.05)"},"B":{"formula":"=ROUND((B2+0.05)/(2*B3)/1000000,1)"},"C":{"text":"=(B2+0.05)/(2*B3)/1e6"},"D":{"text":"WGD age range in Mya"}}},
+      {"header":"Ks reliability check:"},
+      {"rowNum":9,"cells":{"A":{"text":"Ks reliability (1=reliable 2=borderline 3=saturated)"},"B":{"formula":"=IF(B2<=1.5,IF(B2<=0.8,1,2),3)"},"C":{"text":"=IF(Ks<=1.5, IF(Ks<=0.8, 1, 2), 3)"},"D":{"text":"1=reliable | 2=use with caution | 3=Ks saturated"}}},
+      {"rowNum":10,"cells":{"A":{"text":"Ks saturation warning: % sites multiple-hit"},"B":{"formula":"=ROUND((1-EXP(-B2))*100,1)"},"C":{"text":"=ROUND((1-EXP(-Ks))*100, 1)"},"D":{"text":"% of synonymous sites estimated to have >1 substitution"}}}
+    ],
+    "colDesc": [
+      {"col":"B5 (Age)", "desc":"=B2 / (2*B3) / 1000000. The factor of 2 in the denominator accounts for the fact that Ks measures the divergence between TWO lineages since the WGD duplication event: each lineage accumulates substitutions independently, so the total Ks = 2 x (rate x time). Dividing by 1,000,000 converts years to Mya."},
+      {"col":"B10 (Saturation)", "desc":"=ROUND((1-EXP(-Ks))*100, 1). The Poisson correction shows the estimated percentage of synonymous sites that have undergone more than one substitution (multiple hits). Above Ks~1.5, over 78% of sites may be multiple-hit, making Ks an increasingly unreliable clock. Always use Ks<1.5 for dating WGD events when possible."}
+    ]
+  }'></div>
+
+  <div class="cmd-explain mt-4">
+    <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> Reading a Ks plot</div>
+    <table>
+      <tr><td><span class="cmd-emoji">&#128202;</span>A <strong>sharp peak</strong> at a specific Ks value</td><td>= WGD signal. All duplicated gene pairs from a WGD event accumulated the same amount of synonymous substitutions since the duplication &rarr; they form a peak in the histogram.</td></tr>
+      <tr><td><span class="cmd-emoji">&#128202;</span>A <strong>shoulder or secondary peak</strong></td><td>= evidence of an older WGD layered underneath a newer one (e.g. maize has peaks at Ks~0.05 for the recent maize WGD and Ks~1.5 for the ancient grass WGD).</td></tr>
+      <tr><td><span class="cmd-emoji">&#128202;</span>A <strong>broad flat distribution, no peak</strong></td><td>= background of tandem/segmental duplicates; no WGD. Use synteny blocks to confirm.</td></tr>
+      <tr><td><span class="cmd-emoji">&#9200;</span>Converting Ks to time</td><td>Time (Mya) = Ks &divide; (2 &times; r), where r = synonymous substitution rate per site per year. For plants: r &asymp; 1.5&ndash;7 &times; 10<sup>&minus;9</sup> (highly variable). Always calibrate using paralog pairs with a known fossil/biogeographic date in <em>your own lineage</em>.</td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section id="step1" class="mb-5">
+  <h2 class="section-divider">Step 1 &mdash; All-vs-All BLAST: Finding Paralogous Gene Pairs</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash &mdash; Self-BLAST + longest-isoform filtering</span><button class="btn-copy">Copy</button></div>
+<pre id="s1-blast">######################################################################
+## STEP 1: All-vs-all protein BLAST to identify all paralog pairs
+## Self-BLAST: we BLAST every protein against every other protein
+## in the same genome, then filter for likely paralogs.
+##
+## Dataset: Arabidopsis thaliana TAIR10
+##   Known WGDs: alpha (~35 Mya), beta (~100 Mya), gamma triplication (~140 Mya)
+##   27,655 protein-coding genes; 5 chromosomes; 135 Mb
+######################################################################
+
+## Download Arabidopsis TAIR10 protein FASTA
+wget "https://www.arabidopsis.org/download_files/Proteins/TAIR10_protein_lists/TAIR10_pep_20101214_updated" \
+    -O Athaliana_TAIR10.faa
+
+## Step 1a: Keep only the longest isoform per gene
+## Using all isoforms creates false duplicate pairs (same gene, different splice forms)
+python3 - <<'PYEOF'
+from Bio import SeqIO
+seqs = {}
+for rec in SeqIO.parse("Athaliana_TAIR10.faa", "fasta"):
+    gene = rec.id.split(".")[0]   # gene ID = everything before first "."
+    if gene not in seqs or len(rec.seq) > len(seqs[gene].seq):
+        seqs[gene] = rec
+with open("Athaliana_longest.faa", "w") as f:
+    SeqIO.write(seqs.values(), f, "fasta")
+print(f"Wrote {len(seqs)} proteins (longest isoform per gene)")
+PYEOF
+
+## Step 1b: Build BLAST database
+module load blast+/2.14.0
+makeblastdb -in Athaliana_longest.faa -dbtype prot -out Athaliana_db
+
+## Step 1c: Run self-BLAST (query == database)
+## -max_target_seqs 20: keep top 20 hits per query
+##   WGD analysis does not need all distant homologs
+## -perc_identity 40: 40% is permissive enough to catch ancient WGD pairs
+##   (very old paralogs from Ks~1.5 WGDs have ~50-60% identity at protein level)
+blastp \
+    -query   Athaliana_longest.faa \
+    -db      Athaliana_db \
+    -evalue  1e-5 \
+    -num_threads 16 \
+    -max_target_seqs 20 \
+    -outfmt  "6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore" \
+    -perc_identity 40 \
+    -out     Athaliana_selfblast.txt
+echo "Raw BLAST hits: $(wc -l < Athaliana_selfblast.txt)"
+
+## Step 1d: Remove self-hits and keep best hit per gene pair
+## awk '$1 != $2': remove lines where query == subject (self-hit)
+## sort + awk '!seen[]': keep only the top-scoring hit per pair
+awk '$1 != $2' Athaliana_selfblast.txt | \
+    sort -k1,1 -k2,2 -k12,12rn | \
+    awk '!seen[$1"_"$2]++' > Athaliana_best_pairs.txt
+echo "Unique paralog pairs: $(wc -l < Athaliana_best_pairs.txt)"</pre>
+  </div>
+  <div class="download-bar">
+    <span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span>
+    <button class="btn-download-script" data-script-id="s1-blast" data-filename="01_selfblast.sh"><i class="bi bi-download me-1"></i>01_selfblast.sh</button>
+  </div>
+  <div class="fun-tip"><span class="fun-tip-icon">&#127919;</span><div><strong>Always use the longest isoform!</strong> Alternative transcripts from the same gene appear as apparent "paralogs" in BLAST output. Using all isoforms inflates the Ks distribution with Ks~0 pairs (identical protein = Ks=0) and creates a false spike at the origin. This is the single most common error in Ks analysis pipelines.</div></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="step2" class="mb-5">
+  <h2 class="section-divider">Step 2 &mdash; Ks Calculation &amp; WGD Peak Identification</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Python + R &mdash; wgd suite Ks pipeline + Gaussian mixture model peak fitting</span><button class="btn-copy">Copy</button></div>
+<pre id="s2-ks">######################################################################
+## STEP 2: Calculate Ks values and identify WGD peaks
+## Tool: wgd Python suite (https://github.com/arzwa/wgd)
+## wgd handles: MCL clustering -> CDS alignment -> Ks calculation
+## -> mixture model fitting to identify how many WGD peaks exist
+## Install: pip install wgd
+######################################################################
+
+## Also download CDS sequences (required for synonymous rate calculation)
+wget "https://www.arabidopsis.org/download_files/Genes/TAIR10_genome_release/TAIR10_blastsets/TAIR10_cds_20101214_updated" \
+    -O Athaliana_CDS.fna
+
+## Step A: MCL gene family clustering based on BLAST homology
+## --inflation 1.5: MCL inflation parameter (higher = more, smaller families)
+## --eval 1e-5:     BLAST E-value cutoff
+wgd dmd Athaliana_longest.faa \
+    --inflation 1.5 \
+    --eval 1e-5 \
+    --aln_tool mafft \
+    -o wgd_dmd/
+
+## Step B: Calculate pairwise Ks within each gene family
+## wgd ksd aligns each gene pair at the codon level and uses PAML yn00
+## (or codeml) to estimate Ka and Ks from the codon alignment
+wgd ksd wgd_dmd/*.mcl.tsv Athaliana_longest.faa \
+    --cds Athaliana_CDS.fna \
+    -o wgd_ks/
+
+## Step C: Gaussian mixture model to decompose WGD peaks
+## -n 1:5 = try 1 to 5 Gaussian components; AIC/BIC selects best
+wgd mix wgd_ks/ks.tsv \
+    --n_range 1 5 \
+    -o wgd_mix/
+
+## Outputs:
+##   wgd_ks/ks.tsv        : all pairwise Ks values
+##   wgd_mix/*.pdf        : Ks plot with fitted mixture components
+##   wgd_mix/*.tsv        : fitted component means (= WGD peak Ks values)
+
+## ============================================================
+## R: Custom Ks distribution plot with WGD annotations
+## ============================================================
+cat <<'REOF' > plot_ks_distribution.R
+library(ggplot2)
+library(mclust)      # Gaussian mixture model fitting
+library(tidyverse)
+
+## Load Ks values
+ks_raw <- read.delim("wgd_ks/ks.tsv", header=TRUE)
+
+## Quality filters:
+## - Ks >= 0.05: exclude very recent/tandem duplicates (Ks near 0 is unreliable)
+## - Ks <= 3.0:  exclude saturated pairs (multiple hits at synonymous sites)
+## - Ka/Ks <= 1: exclude positively selected pairs (Ks underestimated under positive selection)
+ks_filt <- ks_raw %>%
+    filter(Ks >= 0.05, Ks <= 3.0) %>%
+    filter(is.na(Ka) | (Ka/Ks) <= 1.0)
+
+cat("Paralog pairs after filtering:", nrow(ks_filt), "\n")
+
+## Fit Gaussian mixture to log(Ks)
+## Working in log space because Ks distributions are right-skewed
+set.seed(42)
+bic_fit  <- mclustBIC(log(ks_filt$Ks), G=1:5, modelNames="V")
+best_fit <- Mclust(log(ks_filt$Ks), x=bic_fit)
+cat("Best number of components:", best_fit$G, "\n")
+
+## Report WGD peaks
+peak_ks <- sort(exp(best_fit$parameters$mean))
+props    <- best_fit$parameters$pro[order(best_fit$parameters$mean)]
+cat("\nKs peaks (WGD candidates):\n")
+for (i in seq_along(peak_ks)) {
+    ## Convert Ks to approximate age using plant synonymous rate
+    ## r = 1.5e-8 substitutions/site/year (Arabidopsis-calibrated)
+    r_plant   <- 1.5e-8
+    age_Mya   <- peak_ks[i] / (2 * r_plant) / 1e6
+    cat(sprintf("  Peak %d: Ks=%.3f  (~%.0f Mya)  %.1f%% of pairs\n",
+                i, peak_ks[i], age_Mya, props[i]*100))
+}
+
+## Build density data for plot
+dens <- density(ks_filt$Ks, bw=0.05, from=0, to=3)
+
+## Custom plot
+ggplot(ks_filt, aes(x=Ks)) +
+    geom_histogram(aes(y=after_stat(density)),
+                   bins=120, fill="steelblue", color=NA, alpha=0.65) +
+    geom_line(data=data.frame(x=dens$x, y=dens$y),
+              aes(x=x, y=y), color="navy", linewidth=1) +
+    ## Annotate WGD peaks (Arabidopsis-specific)
+    geom_vline(xintercept=0.15, color="firebrick", linetype=2, linewidth=0.9) +
+    geom_vline(xintercept=0.90, color="darkorange", linetype=2, linewidth=0.9) +
+    annotate("text", x=0.20, y=2.8,
+             label="alpha WGD\n~35 Mya", color="firebrick", size=3.5, hjust=0) +
+    annotate("text", x=0.95, y=1.5,
+             label="beta WGD\n~100 Mya", color="darkorange", size=3.5, hjust=0) +
+    scale_x_continuous(limits=c(0,3), breaks=seq(0,3,0.5)) +
+    labs(
+        title    = "Ks distribution of Arabidopsis thaliana paralogs",
+        subtitle = "Peaks at Ks peaks indicate ancient whole-genome duplication events",
+        x        = "Ks (synonymous substitutions per synonymous site)",
+        y        = "Density"
+    ) +
+    theme_bw(base_size=13)
+ggsave("ks_distribution.png", width=9, height=5.5, dpi=150)
+cat("Saved: ks_distribution.png\n")
+REOF
+
+Rscript plot_ks_distribution.R</pre>
+  </div>
+  <div class="download-bar">
+    <span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span>
+    <button class="btn-download-script" data-script-id="s2-ks" data-filename="02_ks_plot.R"><i class="bi bi-download me-1"></i>02_ks_plot.R</button>
+  </div>
+  <div class="fun-tip"><span class="fun-tip-icon">&#128204;</span><div><strong>Tandem duplicates inflate the Ks signal!</strong> Tandem gene duplicates (adjacent in the genome, often very recent) create a broad low-Ks background that can mask or inflate the WGD peak. The solution: filter for <em>syntenic</em> paralogs (genes in collinear blocks from Step 3) before reporting a WGD. The Ks peak from syntenic paralogs is much sharper and more convincing than from all paralogs.</div></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="step3" class="mb-5">
+  <h2 class="section-divider">Step 3 &mdash; MCScanX Synteny Block Detection</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Bash &mdash; MCScanX collinearity detection + visualisation setup</span><button class="btn-copy">Copy</button></div>
+<pre id="s3-mcscanx">######################################################################
+## STEP 3: MCScanX - detect synteny blocks (collinear genomic regions)
+## A synteny block = chromosomal region where multiple gene pairs
+## appear in the same relative order on two chromosomal segments.
+## Within-genome collinear blocks = WGD remnants.
+##
+## Download: https://github.com/wyp1125/MCScanX
+## Also works with MCScan (Python version: python-jcvi / jcvi package)
+######################################################################
+
+## Step 3a: Prepare GFF input for MCScanX
+## MCScanX needs: chr(no spaces) TAB gene_id TAB start TAB end
+## Arabidopsis GFF3 from TAIR:
+wget "https://www.arabidopsis.org/download_files/Genes/TAIR10_genome_release/TAIR10_gff3/TAIR10_GFF3_genes.gff" \
+    -O TAIR10_genes.gff
+
+## Convert GFF3 to MCScanX format
+## Extract gene features, strip "Chr" prefix from chromosome names
+awk '$3 == "gene" {
+    chr = $1; sub(/^Chr/, "", chr)
+    match($9, /ID=([^;]+)/, a)
+    print chr "\t" a[1] "\t" $4 "\t" $5
+}' TAIR10_genes.gff > Athaliana.gff
+
+echo "Gene entries in GFF: $(wc -l < Athaliana.gff)"
+
+## Step 3b: Rename BLAST file (MCScanX requires prefix.blast)
+## Use the best-hit BLAST file from Step 1
+cp Athaliana_best_pairs.txt Athaliana.blast
+
+## Verify chromosome names match between GFF and BLAST
+echo "Chromosomes in GFF:"
+cut -f1 Athaliana.gff | sort -u
+echo "Gene IDs in BLAST (first column, 5 examples):"
+cut -f1 Athaliana.blast | head -5
+
+## Step 3c: Run MCScanX
+## -a : attempt to add unanchored genes into existing synteny blocks
+## -e 1e-5 : BLAST E-value threshold
+## -u 25   : max number of gaps (uncollinear genes) between anchor pairs
+##   Increase -u for older WGDs (more fractionation = more gaps expected)
+## -s 5    : minimum 5 collinear gene pairs per synteny block
+##   Decrease to -s 3 for fragmented/highly fractionated genomes
+MCScanX Athaliana \
+    -a \
+    -e 1e-5 \
+    -u 25 \
+    -s 5
+## Output: Athaliana.collinearity (the main result file)
+
+## Step 3d: Count synteny blocks
+echo "Total synteny blocks:"
+grep -c "^## Alignment" Athaliana.collinearity
+
+## Step 3e: Extract only within-genome (intragenomic) blocks
+## These are the WGD-derived duplicated segments
+## Intragenomic = both chromosomes in the pair are from the same species
+grep "^## Alignment" Athaliana.collinearity | \
+    awk -F'[&amp; ]' '{if ($5 == $6 || ($5 != $6 &amp;&amp; $5 != "")) print}' | \
+    head -20
+
+## Step 3f: Build synteny visualisation input (for WGDI or Circos)
+## MCScanX downstream tools directory has scripts for:
+##   - Collinearity plot
+##   - Venn diagram of shared synteny
+##   - Chromosome number/gene count statistics
+python3 MCScanX/downstream_analyses/detect_collinear_tandem_dispersed_proximal.py \
+    -g Athaliana.gff \
+    -b Athaliana.blast \
+    -c Athaliana.collinearity \
+    -o Athaliana_duplication_mode.txt
+echo "Duplication mode classification:"
+head -5 Athaliana_duplication_mode.txt</pre>
+  </div>
+  <div class="download-bar">
+    <span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span>
+    <button class="btn-download-script" data-script-id="s3-mcscanx" data-filename="03_mcscanx.sh"><i class="bi bi-download me-1"></i>03_mcscanx.sh</button>
+  </div>
+  <div class="cmd-explain">
+    <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> Synteny block parameters decoded</div>
+    <table>
+      <tr><td><span class="cmd-emoji">&#128204;</span>-u (gap tolerance)</td><td>The maximum number of non-collinear genes allowed between two consecutive anchor pairs within a synteny block. Higher -u = more permissive; finds longer blocks but includes more noisy segments. For recent WGDs (Ks&lt;0.3): use -u 10-15. For ancient WGDs (Ks&gt;1.0) with heavy fractionation: use -u 25-50. Too high a value will create spuriously long blocks spanning unrelated chromosomal regions.</td></tr>
+      <tr><td><span class="cmd-emoji">&#128204;</span>-s (minimum block size)</td><td>Minimum number of collinear anchor pairs required for a block to be reported. -s 5 is the MCSCAN standard; it requires at least 5 homologous gene pairs in the correct order. Use -s 3 for very fragmented genomes (contig-level assemblies). Use -s 8-10 for high-confidence blocks only.</td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section id="step4" class="mb-5">
+  <h2 class="section-divider">Step 4 &mdash; WGDI Collinearity Analysis &amp; Dot Plots</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Python &mdash; WGDI pipeline: collinearity + dot plot + Ks on syntenic pairs</span><button class="btn-copy">Copy</button></div>
+<pre id="s4-wgdi">######################################################################
+## STEP 4: WGDI - a comprehensive WGD analysis suite
+## WGDI (https://github.com/SunPengChuan/wgdi) integrates:
+##   - Collinearity detection (improved MCScan algorithm)
+##   - Syntenic Ks distribution (only syntenic paralog pairs)
+##   - Dot plots (chromosome-scale synteny visualization)
+##   - Subgenome analysis
+##   - Collinearity depth (how many duplicates per region)
+## Install: pip install wgdi
+######################################################################
+
+## Step 4a: Prepare WGDI input files
+## WGDI needs a .conf file specifying all input paths and parameters.
+## Required input files:
+##   1. Genome annotation GFF (same as MCScanX)
+##   2. Protein FASTA (same as Step 1)
+##   3. BLAST output (same as Step 1)
+
+## Create WGDI configuration file
+cat > wgdi_collinearity.conf <<'CONF'
+[dotplot]
+blast = Athaliana_best_pairs.txt
+gff   = Athaliana.gff
+lens  = Athaliana_lens.txt        ; chromosome lengths file
+genome1_name = Ath               ; label for x-axis
+genome2_name = Ath               ; same genome for intragenomic
+multiple = 1                     ; show top 1 synteny block per region
+score = 100                      ; minimum BLAST bit score
+e_value = 1e-5
+repeat_number = 20               ; top N BLAST hits to consider
+position = order                 ; plot by gene order (not Mbp position)
+ancestor_left = none
+ancestor_top = none
+markersize = 0.5                 ; dot size in the plot
+figsize = 10,10                  ; figure dimensions (inches)
+savefile = Ath_vs_Ath_dotplot.pdf
+
+[collinearity]
+blast = Athaliana_best_pairs.txt
+gff   = Athaliana.gff
+lens  = Athaliana_lens.txt
+multiple = 1
+score = 100
+e_value = 1e-5
+repeat_number = 20
+mg = 40,40                       ; maximum gap between anchor pairs (= MCScanX -u)
+pvalue = 0.2
+savefile = Athaliana_collinearity.txt
+
+[ks]
+cds_file = Athaliana_CDS.fna
+pep_file = Athaliana_longest.faa
+align_software = mafft            ; or muscle
+pairs_file = Athaliana_collinearity.txt  ; use syntenic pairs only!
+ks_file = Athaliana_syntenic_ks.txt
+CONF
+
+## Create chromosome lengths file (tab-separated: chr_name TAB gene_count)
+## Count genes per chromosome from GFF
+awk '{print $1}' Athaliana.gff | sort | uniq -c | \
+    awk '{print $2 "\t" $1}' > Athaliana_lens.txt
+echo "Chromosome lengths (gene counts):"
+cat Athaliana_lens.txt
+
+## Step 4b: Run WGDI dot plot
+wgdi -d wgdi_collinearity.conf
+## Output: Ath_vs_Ath_dotplot.pdf
+
+## Step 4c: Run WGDI collinearity detection
+wgdi -c wgdi_collinearity.conf
+## Output: Athaliana_collinearity.txt
+
+## Step 4d: Calculate Ks for SYNTENIC pairs only
+## This is the key difference from all-paralog Ks: using only syntenic
+## (collinear) pairs removes tandem duplicates and produces a much
+## cleaner Ks distribution with sharper WGD peaks
+wgdi -ks wgdi_collinearity.conf
+## Output: Athaliana_syntenic_ks.txt
+
+echo "Syntenic Ks pairs:"
+wc -l Athaliana_syntenic_ks.txt</pre>
+  </div>
+  <div class="download-bar">
+    <span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span>
+    <button class="btn-download-script" data-script-id="s4-wgdi" data-filename="04_wgdi_pipeline.sh"><i class="bi bi-download me-1"></i>04_wgdi_pipeline.sh</button>
+  </div>
+
+  <h4 class="mt-4 fw-bold">How to Interpret the Dot Plot</h4>
+  <p>A dot plot between a genome and itself (intragenomic) reveals WGD history through its synteny pattern:</p>
+  <div class="param-table">
+    <table class="table table-bordered mb-0">
+      <thead class="table-dark"><tr><th>What you see in the dot plot</th><th>What it means</th></tr></thead>
+      <tbody>
+        <tr><td>Diagonal line (self-comparison identity line)</td><td>Every chromosome aligned to itself &mdash; always present and not informative</td></tr>
+        <tr><td>Off-diagonal dot lines: each chromosome has <strong>1 paralogous partner</strong></td><td>1 WGD event. Genome is diploidised paleotetraploid (2x2 pattern).</td></tr>
+        <tr><td>Each chromosome has <strong>2 paralogous partners</strong></td><td>2 WGD events stacked. Diploidised paleohexaploid (e.g. core eudicot gamma triplication gives each region 3 copies &rarr; 2 off-diagonal partners).</td></tr>
+        <tr><td>Dots faint or broken across chromosome</td><td>Fractionation (gene loss after WGD). Normal for ancient WGDs &mdash; not all synteny blocks are intact.</td></tr>
+        <tr><td>No off-diagonal synteny</td><td>No WGD detected at the Ks range visible in the genome</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section id="step5" class="mb-5">
+  <h2 class="section-divider">Step 5 &mdash; Subgenome Phasing (Allopolyploids)</h2>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>Python + Bash &mdash; SubPhaser for subgenome assignment in allopolyploids</span><button class="btn-copy">Copy</button></div>
+<pre id="s5-subgenome">######################################################################
+## STEP 5: Subgenome phasing for allopolyploids
+## For allopolyploids (e.g. Brassica napus = B. rapa AC + B. oleracea C),
+## we want to assign each chromosome to its parental subgenome.
+## This matters for:
+##   - Understanding gene expression dominance (one subgenome is expressed more)
+##   - Tracing which genes came from which ancestor
+##   - Understanding fractionation bias (one subgenome retains more genes)
+##
+## Tool: SubPhaser (https://github.com/zhangrengang/SubPhaser)
+##   Uses k-mer frequency differences between chromosomes to identify
+##   which chromosomes share the same ancestral origin (same subgenome)
+##
+## Dataset: Brassica napus (canola) - known allotetraploid
+##   An genome: 19 chromosomes from B. rapa ancestor
+##   Cn genome: 19 chromosomes from B. oleracea ancestor
+######################################################################
+
+## Download B. napus genome (Darmor-bzh reference)
+wget https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/686/985/GCA_000686985.1_Bnapus_v4.1/\
+GCA_000686985.1_Bnapus_v4.1_genomic.fna.gz \
+    -O Bnapus_Darmor.fna.gz
+gunzip Bnapus_Darmor.fna.gz
+
+## Install SubPhaser
+pip install subphaser
+
+## Run SubPhaser
+## -i : genome FASTA
+## -c : expected number of subgenomes (2 for allotetraploid)
+## SubPhaser uses k-mer (k=15 by default) frequency profiles to cluster
+## chromosomes into subgenome groups based on their k-mer similarity
+## Chromosomes from the same ancestor have similar repetitive element profiles
+subphaser \
+    -i Bnapus_Darmor.fna \
+    -c 2 \
+    -k 15 \
+    -o subphaser_output/
+## Output: subphaser_output/subgenome_assignments.tsv
+## Lists each chromosome with its assigned subgenome (A or C)
+
+## ================================================================
+## Alternative approach: Use diploid ancestor genomes to assign subgenomes
+## ================================================================
+## If you have sequenced the diploid ancestors (B. rapa and B. oleracea),
+## you can directly assign B. napus chromosomes by synteny to each ancestor
+
+## Step A: BLAST B. napus proteins against B. rapa (A genome ancestor)
+makeblastdb -in Brapa_proteins.faa -dbtype prot -out Brapa_db
+blastp -query Bnapus_proteins.faa -db Brapa_db \
+    -evalue 1e-5 -max_target_seqs 1 -outfmt 6 \
+    -out Bnapus_vs_Brapa.blast -num_threads 16
+
+## Step B: BLAST B. napus proteins against B. oleracea (C genome ancestor)
+makeblastdb -in Boleracea_proteins.faa -dbtype prot -out Boleracea_db
+blastp -query Bnapus_proteins.faa -db Boleracea_db \
+    -evalue 1e-5 -max_target_seqs 1 -outfmt 6 \
+    -out Bnapus_vs_Boleracea.blast -num_threads 16
+
+## Step C: For each B. napus gene, assign to whichever ancestor has better BLAST hit
+python3 - <<'PYEOF'
+import pandas as pd
+
+cols = ["qseqid","sseqid","pident","length","mm","go","qs","qe","ss","se","evalue","bitscore"]
+rapa = pd.read_csv("Bnapus_vs_Brapa.blast",    sep="\t", names=cols)
+olr  = pd.read_csv("Bnapus_vs_Boleracea.blast", sep="\t", names=cols)
+
+rapa_best = rapa.groupby("qseqid")["bitscore"].max().rename("score_A")
+olr_best  = olr.groupby("qseqid")["bitscore"].max().rename("score_C")
+
+df = pd.concat([rapa_best, olr_best], axis=1).fillna(0)
+df["subgenome"] = df.apply(lambda r: "An" if r.score_A >= r.score_C else "Cn", axis=1)
+df.to_csv("subgenome_gene_assignments.tsv", sep="\t")
+
+# Count genes per subgenome
+print(df["subgenome"].value_counts())
+PYEOF</pre>
+  </div>
+  <div class="download-bar">
+    <span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span>
+    <button class="btn-download-script" data-script-id="s5-subgenome" data-filename="05_subgenome_phasing.sh"><i class="bi bi-download me-1"></i>05_subgenome_phasing.sh</button>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section id="step6" class="mb-5">
+  <h2 class="section-divider">Step 6 &mdash; Fractionation Bias</h2>
+  <p>After WGD, one copy of each duplicated gene pair is progressively lost through a process called <strong>gene fractionation</strong>. In allopolyploids, this loss is often <strong>biased toward one subgenome</strong> (the subgenome dominant in gene expression tends to retain more genes). Detecting fractionation bias is important evidence that your genome is allopolyploid (not autopolyploid, where fractionation is usually symmetrical).</p>
+  <div class="code-block-wrapper">
+    <div class="code-block-header"><span>R &mdash; Fractionation bias: gene retention per synteny block per subgenome</span><button class="btn-copy">Copy</button></div>
+<pre id="s6-fraction">######################################################################
+## STEP 6: Fractionation bias analysis
+## For each synteny block (from Step 3/4), count how many genes were
+## retained vs lost in each subgenome.
+## Biased fractionation: one subgenome consistently retains more genes
+## = evidence of allopolyploidy + subgenome dominance.
+######################################################################
+
+library(tidyverse)
+library(ggplot2)
+
+## Load synteny blocks from WGDI/MCScanX collinearity output
+## And gene-to-subgenome assignments from Step 5
+collinearity <- read.delim("Athaliana_collinearity.txt",
+                            comment.char="#", header=FALSE,
+                            col.names=c("block","i","gene1","gene2","score"))
+subgenomes   <- read.delim("subgenome_gene_assignments.tsv")
+
+## For each synteny block, calculate:
+##   - Number of genes retained in subgenome 1 (An)
+##   - Number of genes retained in subgenome 2 (Cn)
+##   - Retention ratio (An / total)
+block_stats <- collinearity %>%
+    left_join(subgenomes %>% select(qseqid, subgenome),
+              by=c("gene1"="qseqid")) %>%
+    group_by(block, subgenome) %>%
+    summarise(n_genes = n(), .groups="drop") %>%
+    pivot_wider(names_from=subgenome, values_from=n_genes, values_fill=0) %>%
+    mutate(
+        total    = An + Cn,
+        An_frac  = An / total,
+        bias     = case_when(
+            An_frac > 0.6 ~ "An dominant",
+            An_frac < 0.4 ~ "Cn dominant",
+            TRUE           ~ "Balanced"
+        )
+    )
+
+cat("=== Fractionation bias summary ===\n")
+print(table(block_stats$bias))
+
+## Plot fractionation bias per synteny block
+ggplot(block_stats, aes(x=An_frac, fill=bias)) +
+    geom_histogram(bins=30, color="white") +
+    geom_vline(xintercept=0.5, linetype=2, color="grey40") +
+    scale_fill_manual(values=c(
+        "An dominant"="steelblue", "Cn dominant"="tomato", "Balanced"="grey70")) +
+    labs(
+        title    = "Fractionation bias across synteny blocks",
+        subtitle = "Shift from 0.5 indicates one subgenome retains more genes (biased fractionation)",
+        x        = "Proportion of retained genes from An subgenome",
+        y        = "Number of synteny blocks",
+        fill     = NULL
+    ) +
+    theme_bw(base_size=13)
+ggsave("fractionation_bias.png", width=8, height=5, dpi=150)
+
+## Statistical test: is fractionation biased overall?
+## One-sample t-test: is the mean An_frac significantly different from 0.5?
+t_result <- t.test(block_stats$An_frac, mu=0.5)
+cat("\n=== Fractionation bias test (H0: mean fraction = 0.5) ===\n")
+cat("Mean An fraction:", round(mean(block_stats$An_frac), 3), "\n")
+cat("p-value:", formatC(t_result$p.value, format="e", digits=3), "\n")
+if (t_result$p.value < 0.05) {
+    cat("CONCLUSION: Significant fractionation bias detected (p < 0.05)\n")
+    cat("            Consistent with allopolyploidy and subgenome dominance.\n")
+} else {
+    cat("CONCLUSION: No significant fractionation bias (p >= 0.05)\n")
+    cat("            Consistent with autopolyploidy or balanced diploidisation.\n")
+}</pre>
+  </div>
+  <div class="download-bar">
+    <span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span>
+    <button class="btn-download-script" data-script-id="s6-fraction" data-filename="06_fractionation_bias.R"><i class="bi bi-download me-1"></i>06_fractionation_bias.R</button>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section id="step7" class="mb-5">
+  <h2 class="section-divider">Step 7 &mdash; Reporting WGD Evidence</h2>
+  <p>A convincing WGD manuscript section requires <em>convergent evidence</em> from multiple independent lines. The table below is the standard checklist reviewers expect:</p>
+  <div class="param-table">
+    <table class="table table-bordered mb-0">
+      <thead class="table-dark"><tr><th>Evidence</th><th>What to report</th><th>Tool used</th></tr></thead>
+      <tbody>
+        <tr><td>Ks peak (all paralogs)</td><td>Peak Ks value &plusmn; SD; number of pairs; background-subtracted peak height</td><td>wgd, KaKs_Calculator</td></tr>
+        <tr><td>Ks peak (syntenic only)</td><td>Same as above but for collinear gene pairs only; much sharper signal</td><td>wgd + MCScanX/WGDI collinearity</td></tr>
+        <tr><td>Estimated WGD age</td><td>X Mya &plusmn; CI; calibration rate used; calibration reference taxon</td><td>Ks &divide; 2r formula</td></tr>
+        <tr><td>Synteny blocks</td><td>Number of intragenomic collinear blocks; N genes in blocks; median block size</td><td>MCScanX or WGDI</td></tr>
+        <tr><td>Dot plot</td><td>Figure showing 1:1 or 1:2 chromosome correspondence; off-diagonal lines</td><td>WGDI or MCScan</td></tr>
+        <tr><td>Collinearity depth</td><td>What fraction of the genome is covered by duplicated synteny blocks</td><td>MCScanX downstream analysis</td></tr>
+        <tr><td>Fractionation pattern</td><td>Symmetric (autopolyploidy) or asymmetric (allopolyploidy); p-value for bias test</td><td>R fractionation analysis</td></tr>
+        <tr><td>Phylogenetic placement</td><td>Is the WGD shared with sister lineages? (requires multi-species comparison)</td><td>ASTRAL / species tree with WGD</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="fun-tip mt-4"><span class="fun-tip-icon">&#128270;</span><div><strong>The 3-evidence rule for WGD publication:</strong> Reviewers generally require at least three independent lines of evidence for a new WGD claim: (1) a clear Ks peak in syntenic paralogs, (2) a dot plot showing duplicated chromosomal blocks, and (3) genome-wide collinearity statistics. A Ks peak alone is insufficient because tandem duplicates and gene conversion can create spurious peaks. Synteny blocks are the strongest evidence because they cannot be explained by tandem duplication.</div></div>
+
+  <div class="code-block-wrapper mt-4">
+    <div class="code-block-header"><span>R &mdash; Multi-species Ks comparison to date and share a WGD event</span><button class="btn-copy">Copy</button></div>
+<pre id="s7-multispecies">######################################################################
+## STEP 7: Multi-species Ks comparison
+## To confirm a WGD is shared by a lineage (not species-specific),
+## compare:
+##   1. Paralog Ks within each species (peak = species WGD timing)
+##   2. Ortholog Ks between species (= speciation time; calibration)
+## If all species in a clade show the WGD peak at the same Ks value
+## relative to their pairwise ortholog Ks, the WGD is shared.
+######################################################################
+
+library(ggplot2)
+library(tidyverse)
+
+## Load Ks values for several Brassicaceae species
+## (paralog Ks from wgd; ortholog Ks from CodeML on one-to-one orthologs)
+ks_ath   <- read.delim("Athaliana_syntenic_ks.txt")    %>% mutate(species="A. thaliana", type="Paralog")
+ks_aly   <- read.delim("Alyrata_syntenic_ks.txt")      %>% mutate(species="A. lyrata",   type="Paralog")
+ks_brap  <- read.delim("Brapa_syntenic_ks.txt")        %>% mutate(species="B. rapa",      type="Paralog")
+## Ortholog Ks between A. thaliana and A. lyrata (= speciation time calibration)
+ks_orth  <- read.delim("Ath_vs_Aly_ortholog_ks.txt")  %>% mutate(species="Ath-Aly orthologs", type="Ortholog")
+
+all_ks <- bind_rows(ks_ath, ks_aly, ks_brap, ks_orth) %>%
+    filter(Ks >= 0.05, Ks <= 3.0)
+
+## Plot: overlaid Ks distributions for all species + ortholog calibration
+ggplot(all_ks, aes(x=Ks, fill=species, color=species)) +
+    geom_density(aes(linetype=type), alpha=0.3, linewidth=1) +
+    ## Ortholog distribution peak = speciation time (calibration)
+    scale_linetype_manual(values=c("Paralog"="solid", "Ortholog"="dashed")) +
+    scale_x_continuous(limits=c(0, 3), breaks=seq(0, 3, 0.5)) +
+    labs(
+        title    = "Multi-species Ks comparison: Brassicaceae WGDs",
+        subtitle = "Dashed line = A. thaliana - A. lyrata ortholog Ks (speciation calibration)",
+        x        = "Ks",
+        y        = "Density",
+        fill     = "Species",
+        color    = "Species",
+        linetype = "Pair type"
+    ) +
+    theme_bw(base_size=13) +
+    theme(legend.position="right")
+ggsave("multispecies_ks_comparison.png", width=10, height=5.5, dpi=150)
+
+## Interpretation guide:
+## - If all three species show the SAME Ks peak (after normalising by ortholog Ks),
+##   the WGD is shared by the common ancestor of all three species.
+## - If only B. rapa shows an additional peak at lower Ks,
+##   B. rapa has an additional, more recent WGD (the Brassiceae WGD).
+cat("Multi-species Ks comparison saved: multispecies_ks_comparison.png\n")</pre>
+  </div>
+  <div class="download-bar">
+    <span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span>
+    <button class="btn-download-script" data-script-id="s7-multispecies" data-filename="07_multispecies_ks.R"><i class="bi bi-download me-1"></i>07_multispecies_ks.R</button>
+  </div>
+</section>
+
+<section class="mb-5">
+  <div class="d-flex justify-content-between">
+    <a href="qtl-mapping-tutorial.html" class="btn btn-outline-secondary rounded-pill px-4"><i class="bi bi-arrow-left me-2"></i>QTL Mapping</a>
+    <a href="index.html" class="btn btn-primary rounded-pill px-4"><i class="bi bi-grid me-2"></i>All Tutorials</a>
+  </div>
+</section>
+
+      </div><!-- end tutorial-content -->
+    </div><!-- end col-lg-9 -->
+  </div><!-- end row -->
+</div><!-- end container -->
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-lg-6">
+        <h5 class="text-white fw-bold mb-3">
+          <span style="color:#ff9933;">Indian</span><span style="color:var(--ieb-primary);">Elucid</span><span style="color:var(--ieb-accent);">Biology</span>
+        </h5>
+        <p class="small">Free, interactive bioinformatics tutorials. Open source and community-driven.</p>
+      </div>
+      <div class="col-lg-6 text-lg-end">
+        <p class="small mb-1">Founded by <strong>Ankush Sharma</strong></p>
+        <div class="d-flex gap-3 justify-content-lg-end">
+          <a href="https://github.com/ank-man" target="_blank" class="text-white fs-5"><i class="bi bi-github"></i></a>
+          <a href="https://www.linkedin.com/in/ankush-sharma-290307/" target="_blank" class="text-white fs-5"><i class="bi bi-linkedin"></i></a>
+          <a href="mailto:mr.ank2999@gmail.com" class="text-white fs-5"><i class="bi bi-envelope"></i></a>
+        </div>
+      </div>
+    </div>
+    <hr class="border-secondary mt-4 mb-3">
+    <p class="text-center small mb-0">&copy; 2025 IndianElucidBiology &mdash; Made with <span style="color:#e25555;">&#9829;</span> for the bioinformatics community.</p>
+  </div>
+</footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/main.js"></script>
+<script src="../js/live-spreadsheet.js"></script>
+</body>
+</html>

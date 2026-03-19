@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Genome Annotation — MAKER, BRAKER2, Functional Annotation &amp; TE Masking | IndianElucidBiology</title>
+  <meta name="description" content="Complete genome annotation tutorial: repeat masking with RepeatModeler/RepeatMasker, ab initio gene prediction with BRAKER2, evidence-based annotation with MAKER, functional annotation with InterProScan and eggNOG-mapper.">
+  <meta name="keywords" content="genome annotation, MAKER, BRAKER2, RepeatMasker, RepeatModeler, Augustus, InterProScan, eggNOG, gene prediction, bioinformatics tutorial">
+  <link rel="canonical" href="https://indianelucidbiology.github.io/tutorials/genome-annotation-maker-braker2-tutorial.html">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="../css/style.css" rel="stylesheet">
+</head>
+<body>
+<div class="progress-tracker"></div>
+<nav class="navbar navbar-expand-lg fixed-top">
+  <div class="container">
+    <a class="navbar-brand" href="../index.html"><span class="brand-indian">Indian</span><span class="brand-elucid">Elucid</span><span class="brand-biology">Biology</span></a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav"><span class="navbar-toggler-icon"></span></button>
+    <div class="collapse navbar-collapse" id="mainNav">
+      <ul class="navbar-nav ms-auto me-3">
+        <li class="nav-item"><a class="nav-link" href="../index.html">Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="bioinformatics-101-beginners-guide.html">Bioinformatics 101</a></li>
+      </ul>
+      <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode">&#9790;</button>
+    </div>
+  </div>
+</nav>
+
+<section class="tutorial-hero">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-lg-8">
+        <nav aria-label="breadcrumb"><ol class="breadcrumb mb-3" style="--bs-breadcrumb-divider-color:rgba(255,255,255,0.5);"><li class="breadcrumb-item"><a href="../index.html" class="text-white-50 text-decoration-none">Home</a></li><li class="breadcrumb-item active text-white">Genome Annotation</li></ol></nav>
+        <h1 class="display-5 fw-bold text-white mb-3">Genome Annotation Pipeline</h1>
+        <p class="lead text-white-50 mb-4">Repeat masking, gene prediction, evidence-based annotation with MAKER &amp; BRAKER2, and functional annotation with InterProScan &amp; eggNOG-mapper.</p>
+        <div class="d-flex gap-3 flex-wrap">
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-clock me-1"></i> ~90 min</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-bar-chart me-1"></i> Advanced</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-terminal me-1"></i> Bash / Perl</span>
+        </div>
+      </div>
+      <div class="col-lg-4 text-center d-none d-lg-block">
+        <img src="../img/Byte4.png" alt="Byte" class="img-fluid" style="max-height:230px;filter:drop-shadow(0 10px 30px rgba(0,0,0,0.4));">
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="container py-5">
+  <div class="row">
+    <div class="col-lg-3 d-none d-lg-block">
+      <div class="toc-sidebar">
+        <h6 class="fw-bold text-muted text-uppercase small mb-3">On this page</h6>
+        <nav class="nav flex-column">
+          <a class="nav-link" href="#overview">Overview</a>
+          <a class="nav-link" href="#repeats">Repeat Masking</a>
+          <a class="nav-link" href="#braker">BRAKER2/3</a>
+          <a class="nav-link" href="#maker">MAKER</a>
+          <a class="nav-link" href="#functional">Functional Annotation</a>
+          <a class="nav-link" href="#methylation">Methylation Calling</a>
+          <a class="nav-link" href="#ai-prompt">AI Prompt Guide</a>
+          <a class="nav-link" href="#errors">Troubleshooting</a>
+          <a class="nav-link" href="#organism">Organism-Specific</a>
+          <a class="nav-link" href="#alternatives">All Tools</a>
+          <a class="nav-link" href="#mnemonics">Mnemonics</a>
+        </nav>
+      </div>
+    </div>
+    <div class="col-lg-9">
+      <div class="tutorial-content">
+
+        <!-- Overview -->
+        <section id="overview" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">1</span> Overview</h2>
+          <p>Genome annotation identifies genes, regulatory elements, and repeats within an assembled genome. The standard workflow:</p>
+          <div class="decision-box">
+            <h5><i class="bi bi-signpost-split me-2"></i>Annotation Pipeline Order</h5>
+            <ol>
+              <li><strong>Repeat identification &amp; masking</strong> — RepeatModeler + RepeatMasker</li>
+              <li><strong>Ab initio gene prediction</strong> — BRAKER2/3 (trains Augustus/GeneMark)</li>
+              <li><strong>Evidence-based annotation</strong> — MAKER (combines ab initio + RNA-Seq + protein evidence)</li>
+              <li><strong>Functional annotation</strong> — InterProScan, eggNOG-mapper, BLAST</li>
+              <li><strong>Manual curation</strong> — Apollo/JBrowse for key genes</li>
+            </ol>
+          </div>
+          <div class="thumb-rule">
+            <strong>Thumb Rule:</strong> Always mask repeats before gene prediction. Unmasked repeats cause thousands of false gene predictions.
+          </div>
+        </section>
+
+        <!-- Repeat Masking -->
+        <section id="repeats" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">2</span> Repeat Identification &amp; Masking</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash</span><button class="btn-copy">Copy</button></div>
+<pre id="script-repeats"># Step 1: Build a custom repeat library
+BuildDatabase -name mygenome assembly.fasta
+RepeatModeler -database mygenome -pa 16 -LTRStruct
+
+# Step 2: Mask the genome
+RepeatMasker -pa 16 -gff -xsmall -lib mygenome-families.fa assembly.fasta
+
+# Output files:
+# assembly.fasta.masked     — hard-masked (Ns)
+# assembly.fasta.out        — detailed repeat table
+# assembly.fasta.out.gff    — repeat coordinates
+# assembly.fasta.tbl        — summary statistics</pre>
+          </div>
+          <div class="download-bar">
+            <span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span>
+            <button class="btn-download-script" data-script-id="script-repeats" data-filename="repeat_masking.sh"><i class="bi bi-download me-1"></i> repeat_masking.sh</button>
+          </div>
+          <div class="demo-output">
+            <span class="output-label">RepeatMasker Summary (typical plant genome)</span>
+==================================================
+file name: assembly.fasta
+sequences:            12
+total length:  498234102 bp
+GC level:         36.42 %
+bases masked:  349765270 bp ( 70.20 %)
+==================================================
+              number of      length   percentage
+              elements       (bp)     of sequence
+--------------------------------------------------
+SINEs:             234      45,678     0.01 %
+LINEs:           12,456   8,234,567   1.65 %
+LTR elements:    98,765 234,567,890  47.08 %
+DNA elements:    23,456  45,678,901   9.17 %
+Unclassified:    45,678  56,789,012  11.40 %
+Total repeats:          349,765,270  70.20 %
+          </div>
+          <div class="mnemonic-box">
+            <span class="mnemonic-label">Mnemonic</span>
+            <p class="mnemonic-phrase">"<strong>M</strong>ask <strong>B</strong>efore <strong>P</strong>redicting" — MBP</p>
+            <p class="mnemonic-detail">Always <strong>M</strong>ask repeats → <strong>B</strong>uild training set → <strong>P</strong>redict genes. Skipping masking = thousands of false positives.</p>
+          </div>
+        </section>
+
+        <!-- BRAKER -->
+        <section id="braker" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">3</span> BRAKER2/3 — Ab Initio Gene Prediction</h2>
+          <p>BRAKER automatically trains Augustus and GeneMark-ETP using RNA-Seq and/or protein evidence.</p>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash</span><button class="btn-copy">Copy</button></div>
+<pre id="script-braker"># BRAKER with RNA-Seq evidence (preferred)
+braker.pl --genome=assembly.masked.fasta \
+  --bam=rnaseq_aligned.bam \
+  --softmasking \
+  --cores 16 \
+  --species=my_species
+
+# BRAKER with protein evidence only
+braker.pl --genome=assembly.masked.fasta \
+  --prot_seq=proteins.fasta \
+  --softmasking \
+  --cores 16 \
+  --species=my_species
+
+# BRAKER3: combines RNA-Seq + proteins (best)
+braker.pl --genome=assembly.masked.fasta \
+  --bam=rnaseq_aligned.bam \
+  --prot_seq=proteins.fasta \
+  --softmasking \
+  --cores 16 \
+  --species=my_species</pre>
+          </div>
+          <div class="download-bar">
+            <span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span>
+            <button class="btn-download-script" data-script-id="script-braker" data-filename="braker_annotation.sh"><i class="bi bi-download me-1"></i> braker_annotation.sh</button>
+          </div>
+          <div class="param-table">
+            <table class="table table-striped mb-0">
+              <thead><tr><th>Evidence Type</th><th>BRAKER Mode</th><th>Expected Gene Count Accuracy</th></tr></thead>
+              <tbody>
+                <tr><td>RNA-Seq only</td><td>BRAKER1 mode</td><td>Good for expressed genes, misses tissue-specific</td></tr>
+                <tr><td>Protein only</td><td>BRAKER2 mode</td><td>Good coverage, may miss novel genes</td></tr>
+                <tr><td>RNA-Seq + Protein</td><td>BRAKER3 mode</td><td>Best overall — use when both available</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="byte-callout byte-tip">
+            <img src="../img/Byte1.png" alt="Byte tip">
+            <div>
+              <strong>Protein databases for BRAKER:</strong> Download OrthoDB proteins for your clade — e.g., <code>Viridiplantae</code> for plants, <code>Metazoa</code> for animals. Available at <a href="https://bioinf.uni-greifswald.de/Augustus/datasets/" target="_blank">BRAKER datasets page</a>.
+            </div>
+          </div>
+        </section>
+
+        <!-- MAKER -->
+        <section id="maker" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">4</span> MAKER — Evidence-Based Annotation</h2>
+          <p>MAKER combines ab initio predictions, RNA-Seq alignments, and protein homology into consensus gene models.</p>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash</span><button class="btn-copy">Copy</button></div>
+<pre id="script-maker"># Generate control files
+maker -CTL
+# Edit: maker_opts.ctl, maker_bopts.ctl, maker_exe.ctl
+
+# Key settings in maker_opts.ctl:
+# genome=assembly.masked.fasta
+# est=transcripts.fasta          (assembled RNA-Seq)
+# protein=uniprot_proteins.fasta (related species)
+# rmlib=mygenome-families.fa     (custom repeat library)
+# augustus_species=my_species     (trained by BRAKER)
+# est2genome=1                   (for first pass)
+# protein2genome=1               (for first pass)
+
+# Run MAKER (MPI for parallel)
+mpiexec -n 16 maker -base my_annotation maker_opts.ctl maker_bopts.ctl maker_exe.ctl
+
+# Extract results
+cd my_annotation.maker.output
+gff3_merge -d my_annotation_master_datastore_index.log
+fasta_merge -d my_annotation_master_datastore_index.log
+
+# Filter by AED score (Annotation Edit Distance)
+# AED < 0.5 = good gene models
+awk '$0 ~ /AED=/ { match($0, /AED=([0-9.]+)/, a); if (a[1] < 0.5) print }' \
+  my_annotation.all.gff > high_quality_genes.gff</pre>
+          </div>
+          <div class="download-bar">
+            <span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span>
+            <button class="btn-download-script" data-script-id="script-maker" data-filename="maker_annotation.sh"><i class="bi bi-download me-1"></i> maker_annotation.sh</button>
+          </div>
+          <div class="thumb-rule">
+            <strong>Thumb Rule — AED Scores:</strong> AED = 0 means perfect match to evidence. AED = 1 means no evidence. Filter at AED < 0.5 for publication. AED < 0.3 for high-confidence set.
+          </div>
+        </section>
+
+        <!-- Functional Annotation -->
+        <section id="functional" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">5</span> Functional Annotation</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash</span><button class="btn-copy">Copy</button></div>
+<pre id="script-functional"># InterProScan — domain and GO annotation
+interproscan.sh -i proteins.fasta \
+  -f tsv,gff3,xml \
+  -goterms -iprlookup -pa \
+  -cpu 16 \
+  -o interproscan_results
+
+# eggNOG-mapper — ortholog-based functional annotation
+emapper.py -i proteins.fasta \
+  --output eggnog_results \
+  -m diamond \
+  --cpu 16 \
+  --go_evidence non-electronic
+
+# BLAST against SwissProt/UniProt
+blastp -query proteins.fasta \
+  -db swissprot \
+  -evalue 1e-5 \
+  -max_target_seqs 5 \
+  -outfmt 6 \
+  -num_threads 16 \
+  -out blast_swissprot.txt</pre>
+          </div>
+          <div class="download-bar">
+            <span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span>
+            <button class="btn-download-script" data-script-id="script-functional" data-filename="functional_annotation.sh"><i class="bi bi-download me-1"></i> functional_annotation.sh</button>
+          </div>
+        </section>
+
+        <!-- Methylation -->
+        <section id="methylation" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">6</span> Methylation Calling (Bonus)</h2>
+          <p>PacBio HiFi and ONT reads carry base modification information. Extract 5mC methylation:</p>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash</span><button class="btn-copy">Copy</button></div>
+<pre># PacBio: pb-CpG-tools
+aligned_bam_to_cpg_scores --bam aligned.hifi.bam \
+  --output-prefix cpg_scores \
+  --model pileup_calling_model.v1.tflite \
+  --threads 16
+
+# ONT: modkit (from Oxford Nanopore)
+modkit pileup aligned.ont.bam methylation.bed \
+  --ref assembly.fasta \
+  --threads 16</pre>
+          </div>
+        </section>
+
+        <!-- AI Prompt Guide -->
+        <section id="ai-prompt" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">7</span> AI Prompt Guide</h2>
+          <div class="ai-prompt-box">
+            <h5><i class="bi bi-robot me-2"></i> Annotation Pipeline for Your Genome</h5>
+            <div class="ai-prompt-text">I have a [ORGANISM] genome assembly ([SIZE] Mb, [CONTIGS] contigs, BUSCO C=[X]%).
+I have [RNA-Seq BAM / assembled transcripts / neither] as evidence.
+I have [protein sequences from related species / OrthoDB / neither].
+
+Please write a complete annotation pipeline that:
+1. Masks repeats with RepeatModeler + RepeatMasker
+2. Runs BRAKER with my available evidence
+3. Runs MAKER to refine gene models
+4. Performs functional annotation with InterProScan + eggNOG-mapper
+5. Filters final genes by AED < 0.5
+6. Outputs gene count and average gene length statistics
+7. Wraps everything in SLURM scripts for [CORES] CPUs, [RAM] GB RAM</div>
+            <button class="btn-copy-prompt mt-3"><i class="bi bi-clipboard me-1"></i> Copy Prompt</button>
+          </div>
+        </section>
+
+        <!-- Troubleshooting -->
+        <section id="errors" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">8</span> Common Errors &amp; Troubleshooting</h2>
+          <div class="error-box">
+            <h6><i class="bi bi-exclamation-triangle me-2"></i>MAKER: "Died at..." or hangs</h6>
+            <p>Check <code>maker_opts.ctl</code> paths — MAKER silently fails on bad file paths. Use absolute paths. Also check that Augustus species is trained (<code>augustus --species=help</code>).</p>
+          </div>
+          <div class="error-box">
+            <h6><i class="bi bi-exclamation-triangle me-2"></i>BRAKER: "No training genes found"</h6>
+            <p>Your RNA-Seq BAM may have too few aligned reads. Check alignment rate with <code>samtools flagstat</code>. Ensure BAM is sorted and indexed. Try protein mode instead.</p>
+          </div>
+          <div class="error-box">
+            <h6><i class="bi bi-exclamation-triangle me-2"></i>RepeatModeler: Takes days to finish</h6>
+            <p>Normal for large genomes (>1 Gb). Use <code>-pa 32</code> for more parallelism. For a quick alternative, use RepeatMasker with a curated library only (skip RepeatModeler).</p>
+          </div>
+          <div class="error-box">
+            <h6><i class="bi bi-exclamation-triangle me-2"></i>Too many predicted genes (>2× expected)</h6>
+            <p>Likely unmasked repeats or transposon fragments being called as genes. Re-run repeat masking more thoroughly, or filter by AED and protein evidence.</p>
+          </div>
+        </section>
+
+        <!-- Organism-Specific -->
+        <section id="organism" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">9</span> Organism-Specific Notes</h2>
+          <div class="organism-callout plant">
+            <h6><i class="bi bi-flower1 me-2"></i>Plants</h6>
+            <ul class="mb-0">
+              <li>70–85% of plant genomes are repetitive — repeat masking is critical</li>
+              <li>Polyploid genomes: expect 2×–6× gene count vs. diploid relatives</li>
+              <li>Use <code>Viridiplantae</code> OrthoDB proteins for BRAKER</li>
+              <li>Alternative: <strong>Helixer</strong> (deep-learning gene predictor, good for plants)</li>
+            </ul>
+          </div>
+          <div class="organism-callout animal">
+            <h6><i class="bi bi-bug me-2"></i>Animals</h6>
+            <ul class="mb-0">
+              <li>More introns and longer genes than plants — gene finders need proper training</li>
+              <li>Use <code>Metazoa</code> OrthoDB proteins</li>
+              <li>Consider NCBI's <strong>PGAP</strong> for submission-ready annotation</li>
+            </ul>
+          </div>
+          <div class="organism-callout microbe">
+            <h6><i class="bi bi-virus me-2"></i>Microbes</h6>
+            <ul class="mb-0">
+              <li>Use <strong>Prokka</strong> or <strong>Bakta</strong> — much simpler than MAKER/BRAKER</li>
+              <li>Prokaryotes: no introns, high gene density, minimal repeats</li>
+              <li>Fungi: use <strong>Funannotate</strong> — designed specifically for fungi</li>
+            </ul>
+          </div>
+        </section>
+
+        <!-- Alternatives -->
+        <section id="alternatives" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">10</span> All Annotation Tools</h2>
+          <div class="tool-grid">
+            <div class="tool-card"><h6>MAKER</h6><p class="small text-muted mb-1">Evidence-based pipeline (eukaryotes)</p><span class="tool-tag">Eukaryote</span></div>
+            <div class="tool-card"><h6>BRAKER2/3</h6><p class="small text-muted mb-1">Self-training Augustus+GeneMark</p><span class="tool-tag">Eukaryote</span></div>
+            <div class="tool-card"><h6>Helixer</h6><p class="small text-muted mb-1">Deep learning gene predictor (GPU)</p><span class="tool-tag">DL</span></div>
+            <div class="tool-card"><h6>GALBA</h6><p class="small text-muted mb-1">Miniprot + Augustus (protein only)</p><span class="tool-tag">Protein</span></div>
+            <div class="tool-card"><h6>Funannotate</h6><p class="small text-muted mb-1">Fungi-specific annotation pipeline</p><span class="tool-tag">Fungi</span></div>
+            <div class="tool-card"><h6>Prokka</h6><p class="small text-muted mb-1">Fast prokaryotic annotation</p><span class="tool-tag">Bacteria</span></div>
+            <div class="tool-card"><h6>Bakta</h6><p class="small text-muted mb-1">Modern Prokka replacement, better DB</p><span class="tool-tag">Bacteria</span></div>
+            <div class="tool-card"><h6>PGAP</h6><p class="small text-muted mb-1">NCBI's official annotation pipeline</p><span class="tool-tag">Submission</span></div>
+            <div class="tool-card"><h6>GeMoMa</h6><p class="small text-muted mb-1">Homology-based gene model transfer</p><span class="tool-tag">Homology</span></div>
+            <div class="tool-card"><h6>TSEBRA</h6><p class="small text-muted mb-1">Combine BRAKER + other predictions</p><span class="tool-tag">Combiner</span></div>
+            <div class="tool-card"><h6>InterProScan</h6><p class="small text-muted mb-1">Domain, GO, pathway annotation</p><span class="tool-tag">Functional</span></div>
+            <div class="tool-card"><h6>eggNOG-mapper</h6><p class="small text-muted mb-1">Ortholog-based functional annotation</p><span class="tool-tag">Functional</span></div>
+          </div>
+        </section>
+
+        <!-- Mnemonics -->
+        <section id="mnemonics" class="mb-5">
+          <h2 class="fw-bold"><i class="bi bi-lightbulb me-2"></i> Mnemonics &amp; Thumb Rules</h2>
+          <div class="mnemonic-box">
+            <span class="mnemonic-label">Mnemonic</span>
+            <p class="mnemonic-phrase">"<strong>R</strong>epeat → <strong>T</strong>rain → <strong>A</strong>nnotate → <strong>F</strong>unction" — RTAF</p>
+            <p class="mnemonic-detail"><strong>R</strong>epeatMasker → <strong>T</strong>rain with BRAKER → <strong>A</strong>nnotate with MAKER → <strong>F</strong>unctional with InterProScan. This order is mandatory.</p>
+          </div>
+          <div class="mnemonic-box">
+            <span class="mnemonic-label">Thumb Rule</span>
+            <p class="mnemonic-phrase">Expected gene counts</p>
+            <p class="mnemonic-detail">Plants: 25,000–40,000 genes. Mammals: 20,000–25,000. Insects: 13,000–18,000. Bacteria: 3,000–6,000. If you get 2× these numbers, your repeat masking failed.</p>
+          </div>
+          <div class="thumb-rule">
+            <strong>Thumb Rule — AED Filter:</strong> Start with AED < 0.5 (includes ~80% of real genes). For a high-confidence subset: AED < 0.25. For submission: manually curate genes with AED > 0.7.
+          </div>
+        </section>
+
+        <!-- Summary -->
+        <section id="summary" class="mb-5">
+          <h2 class="fw-bold"><i class="bi bi-check-circle me-2"></i> Summary</h2>
+          <div class="byte-callout byte-tip">
+            <img src="../img/Byte0.png" alt="Byte">
+            <div>
+              <strong>You can now:</strong>
+              <ol class="mb-0 mt-1">
+                <li>Build custom repeat libraries and mask genomes</li>
+                <li>Train gene predictors with BRAKER using RNA-Seq or protein evidence</li>
+                <li>Run MAKER for evidence-based consensus annotation</li>
+                <li>Add functional annotations with InterProScan and eggNOG</li>
+                <li>Filter and evaluate gene models by AED score</li>
+              </ol>
+            </div>
+          </div>
+          <div class="d-flex justify-content-between mt-5">
+            <a href="genome-assembly-hifiasm-flye-spades-tutorial.html" class="btn btn-outline-secondary rounded-pill px-4"><i class="bi bi-arrow-left me-2"></i>Genome Assembly</a>
+            <a href="comparative-genomics-synteny-mcscanx-orthofinder.html" class="btn btn-primary rounded-pill px-4">Next: Comparative Genomics <i class="bi bi-arrow-right ms-2"></i></a>
+          </div>
+        </section>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-lg-6"><h5 class="text-white fw-bold mb-3"><span style="color:#ff9933;">Indian</span><span style="color:var(--ieb-primary);">Elucid</span><span style="color:var(--ieb-accent);">Biology</span></h5><p class="small">Free, interactive bioinformatics tutorials. Open source and community-driven.</p></div>
+      <div class="col-lg-6 text-lg-end"><p class="small mb-1">Founded by <strong>Ankush Sharma</strong></p><div class="d-flex gap-3 justify-content-lg-end"><a href="https://github.com/ank-man" target="_blank" class="text-white fs-5"><i class="bi bi-github"></i></a><a href="https://www.linkedin.com/in/ankush-sharma-290307/" target="_blank" class="text-white fs-5"><i class="bi bi-linkedin"></i></a><a href="mailto:mr.ank2999@gmail.com" class="text-white fs-5"><i class="bi bi-envelope"></i></a></div></div>
+    </div>
+    <hr class="border-secondary mt-4 mb-3">
+    <p class="text-center small mb-0">&copy; 2025 IndianElucidBiology — Founded by <a href="https://www.linkedin.com/in/ankush-sharma-290307/" class="text-white-50" target="_blank">Ankush Sharma</a>. Made with <span style="color:#e25555;">&#9829;</span> for the bioinformatics community.</p>
+  </div>
+</footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Genome Annotation with MAKER2 | IndianElucidBiology</title>
+  <meta name="description" content="Evidence-based genome annotation with MAKER2 using the Heterodera glycines soybean cyst nematode genome. Covers training AUGUSTUS with BUSCO, iterative MAKER runs, AED score evaluation, and functional annotation with InterProScan.">
+  <link rel="canonical" href="https://indianelucidbiology.github.io/tutorials/genome-annotation-maker2.html">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="../css/style.css" rel="stylesheet">
+</head>
+<body>
+<div class="progress-tracker"></div>
+<nav class="navbar navbar-expand-lg fixed-top">
+  <div class="container">
+    <a class="navbar-brand" href="../index.html"><span class="brand-indian">Indian</span><span class="brand-elucid">Elucid</span><span class="brand-biology">Biology</span></a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav"><span class="navbar-toggler-icon"></span></button>
+    <div class="collapse navbar-collapse" id="mainNav">
+      <ul class="navbar-nav ms-auto me-3">
+        <li class="nav-item"><a class="nav-link" href="../index.html">Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="index.html">Tutorial Library</a></li>
+      </ul>
+      <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode">&#9790;</button>
+    </div>
+  </div>
+</nav>
+
+<section class="tutorial-hero">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-lg-8">
+        <nav aria-label="breadcrumb"><ol class="breadcrumb mb-3" style="--bs-breadcrumb-divider-color:rgba(255,255,255,0.5);"><li class="breadcrumb-item"><a href="../index.html" class="text-white-50 text-decoration-none">Home</a></li><li class="breadcrumb-item"><a href="index.html" class="text-white-50 text-decoration-none">Tutorials</a></li><li class="breadcrumb-item active text-white">MAKER2 Annotation</li></ol></nav>
+        <h1 class="display-5 fw-bold text-white mb-3">Genome Annotation with MAKER2</h1>
+        <p class="lead text-white-50 mb-4">Evidence-based gene prediction on the <em>Heterodera glycines</em> (soybean cyst nematode) genome — MAKER2 pipeline from transcript/protein evidence to trained AUGUSTUS models and AED score evaluation.</p>
+        <div class="d-flex gap-3 flex-wrap">
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-clock me-1"></i>~180 min</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-bar-chart me-1"></i>Advanced</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-terminal me-1"></i>Bash</span>
+        </div>
+      </div>
+      <div class="col-lg-4 text-center d-none d-lg-block">
+        <img src="../img/Byte4.png" alt="Byte" class="img-fluid" style="max-height:220px;filter:drop-shadow(0 10px 30px rgba(0,0,0,0.4));">
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="container py-5">
+  <div class="row">
+    <div class="col-lg-3 d-none d-lg-block">
+      <div class="toc-sidebar">
+        <h6 class="fw-bold text-muted text-uppercase small mb-3">On this page</h6>
+        <nav class="nav flex-column">
+          <a class="nav-link" href="#overview">Overview</a>
+          <a class="nav-link" href="#aed">AED Score</a>
+          <a class="nav-link" href="#step1">1. Gather Evidence</a>
+          <a class="nav-link" href="#step2">2. MAKER Round 1</a>
+          <a class="nav-link" href="#step3">3. Train AUGUSTUS with BUSCO</a>
+          <a class="nav-link" href="#step4">4. Train SNAP</a>
+          <a class="nav-link" href="#step5">5. MAKER Round 2 (ab initio)</a>
+          <a class="nav-link" href="#step6">6. Evaluate Gene Models</a>
+          <a class="nav-link" href="#step7">7. Functional Annotation</a>
+          <a class="nav-link" href="#errors">Troubleshooting</a>
+        </nav>
+      </div>
+    </div>
+    <div class="col-lg-9">
+      <div class="tutorial-content">
+
+        <section id="overview" class="mb-5">
+          <h2 class="section-divider">Overview</h2>
+          <p>MAKER2 is an evidence-based genome annotation pipeline that combines three types of evidence to predict gene models:</p>
+          <div class="row g-3 mb-4">
+            <div class="col-md-4">
+              <div class="p-3 rounded-3 h-100 text-center" style="background:rgba(13,110,253,0.08);border:1px solid rgba(13,110,253,0.2)">
+                <div class="fs-2 mb-2">&#128218;</div>
+                <strong>EST/Transcript evidence</strong>
+                <p class="small text-muted mt-1 mb-0">mRNA sequences from your species or close relatives</p>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="p-3 rounded-3 h-100 text-center" style="background:rgba(32,201,151,0.08);border:1px solid rgba(32,201,151,0.2)">
+                <div class="fs-2 mb-2">&#129528;</div>
+                <strong>Protein homology</strong>
+                <p class="small text-muted mt-1 mb-0">Protein sequences from related species (Swiss-Prot, clade proteomes)</p>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="p-3 rounded-3 h-100 text-center" style="background:rgba(111,66,193,0.08);border:1px solid rgba(111,66,193,0.2)">
+                <div class="fs-2 mb-2">&#129302;</div>
+                <strong>Ab initio prediction</strong>
+                <p class="small text-muted mt-1 mb-0">AUGUSTUS + SNAP trained on high-quality gene models</p>
+              </div>
+            </div>
+          </div>
+          <p>The recommended approach is iterative: <strong>Round 1</strong> uses only transcript/protein evidence → extract confident gene models → <strong>train</strong> AUGUSTUS and SNAP → <strong>Round 2</strong> adds ab initio predictions guided by the trained models.</p>
+          <div class="byte-callout">
+            <img src="../img/Byte1.png" alt="Byte">
+            <div><strong>Organism:</strong> <em>Heterodera glycines</em> — the soybean cyst nematode, a major agricultural pathogen causing ~$1 billion in crop losses annually. Its genome (~93 Mb) is complex with many transposons, making annotation challenging. Author: Rick Masonbrink (Iowa State University).</div>
+          </div>
+        </section>
+
+        <section id="dirstructure" class="mb-5">
+          <h2 class="section-divider">Ideal Directory Structure</h2>
+          <p>MAKER2 is run in two rounds; keeping them in separate numbered directories lets you compare gene model quality between rounds and restart either round independently.</p>
+          <div class="dir-tree">
+            <div class="dir-tree-header"><i class="bi bi-folder2-open"></i> maker2_hglyc_project/</div>
+<span class="tree-folder">maker2_hglyc_project/</span>
+├── <span class="tree-folder tree-active">evidence/</span>
+│   ├── <span class="tree-folder">transcripts/</span>   <span class="tree-note"># EST FASTA files</span>
+│   └── <span class="tree-folder">proteins/</span>      <span class="tree-note"># protein FASTA files (SwissProt + clade)</span>
+├── <span class="tree-folder">genome/</span>
+│   └── <span class="tree-file">Hglyc_genome.fasta</span>  <span class="tree-note"># repeat-masked genome FASTA</span>
+├── <span class="tree-folder">round1_maker/</span>       <span class="tree-note"># MAKER2 round 1 (evidence-only)</span>
+│   ├── <span class="tree-file">maker_opts.ctl</span>    <span class="tree-note"># main config file</span>
+│   ├── <span class="tree-file">maker_bopts.ctl</span>   <span class="tree-note"># BLAST options</span>
+│   ├── <span class="tree-file">maker_exe.ctl</span>     <span class="tree-note"># tool paths</span>
+│   └── <span class="tree-output">hglyc.all.gff</span>     <span class="tree-note"># merged GFF3 output</span>
+├── <span class="tree-folder">training/</span>           <span class="tree-note"># AUGUSTUS + SNAP training files</span>
+│   ├── <span class="tree-folder">augustus/</span>         <span class="tree-note"># trained AUGUSTUS parameter set</span>
+│   └── <span class="tree-output">hglyc.hmm</span>         <span class="tree-note"># SNAP HMM profile</span>
+├── <span class="tree-folder">round2_maker/</span>       <span class="tree-note"># MAKER2 round 2 (ab initio + evidence)</span>
+│   └── <span class="tree-output">hglyc.final.gff</span>   <span class="tree-note"># final annotation</span>
+└── <span class="tree-folder">busco/</span>              <span class="tree-note"># BUSCO completeness check</span>
+    └── <span class="tree-output">short_summary.txt</span>
+          </div>
+          <div class="fun-tip"><span class="fun-tip-icon">🔄</span><div><strong>Why two rounds?</strong> Round 1 uses only external evidence (ESTs + proteins) to generate high-confidence "seed" gene models. These seeds are used to train ab initio predictors (AUGUSTUS, SNAP). Round 2 combines all three evidence types for a comprehensive annotation. Skipping to Round 2 without training = low-quality predictions!</div></div>
+        </section>
+
+        <section id="aed" class="mb-5">
+          <h2 class="section-divider">Understanding AED Scores</h2>
+          <p>The <strong>Annotation Edit Distance (AED)</strong> measures how well a gene model is supported by external evidence. It ranges from 0 to 1:</p>
+          <div class="param-table">
+            <table class="table table-striped mb-0">
+              <thead><tr><th>AED Value</th><th>Interpretation</th><th>Quality</th></tr></thead>
+              <tbody>
+                <tr><td>0.00 – 0.25</td><td>Gene model perfectly matches evidence</td><td class="text-success fw-bold">High quality</td></tr>
+                <tr><td>0.25 – 0.50</td><td>Minor discrepancies with evidence</td><td class="text-warning fw-bold">Acceptable</td></tr>
+                <tr><td>0.50 – 0.75</td><td>Substantial deviation from evidence</td><td class="text-danger fw-bold">Low quality</td></tr>
+                <tr><td>0.75 – 1.00</td><td>Gene model contradicts evidence</td><td class="text-danger fw-bold">Very poor</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="mt-2 small">A good annotation should have &gt;80% of gene models with AED &lt; 0.5. The AED score is embedded in the GFF3 output and can be plotted for quality assessment.</p>
+          <img src="../../assets/MakerAEDExplanations.png" alt="AED Score Explanation" class="img-fluid rounded-3 border mt-2" style="max-height:280px;">
+          <p class="text-muted small mt-1">AED score explanation graphic from the Bioinformatics Workbook.</p>
+        </section>
+
+        <section id="step1" class="mb-5">
+          <h2 class="section-divider">Step 1 — Gather Transcriptional and Protein Evidence</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash — Download clade transcripts and proteins</span><button class="btn-copy">Copy</button></div>
+<pre id="s1-evidence">mkdir -p evidence/{transcripts,proteins}
+
+# Download all publicly available EST and protein sequences for Tylenchida
+# Sources: WormBase ParaSite (https://parasite.wormbase.org/ftp.html)
+# Species: B. xylophilus, D. destructor, G. pallida, G. rostochiensis,
+#          M. floridensis, M. hapla, M. incognita, etc.
+
+# Example download for a few key species:
+cd evidence/proteins
+wget https://parasite.wormbase.org/ftp.html  # Navigate to download proteins
+
+# Also download SwissProt for broad coverage:
+wget https://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/complete/uniprot_sprot.fasta.gz
+gzip -d uniprot_sprot.fasta.gz
+
+# Combine all protein evidence
+cat *proteins*.fa uniprot_sprot.fasta > all_proteins.fasta
+cd ../..
+
+# Download H. glycines EST sequences from NCBI (species-specific)
+cd evidence/transcripts
+# efetch -db nuccore -query "Heterodera glycines[Organism] AND EST[filter]" \
+#   -format fasta > Hgly_ests.fasta
+cd ../..
+
+# Your genome assembly (output from previous assembly step)
+GENOME="genome_assembly.fasta"
+echo "Genome: $GENOME"
+grep -c ">" $GENOME</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s1-evidence" data-filename="01_gather_evidence.sh"><i class="bi bi-download me-1"></i>01_gather_evidence.sh</button></div>
+          <div class="cmd-explain">
+            <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> Evidence gathering decoded</div>
+            <table>
+              <tr><td><span class="cmd-emoji">🚀</span>maker -CTL</td><td>Generates the three MAKER2 control files from scratch: <code>maker_opts.ctl</code> (main settings), <code>maker_bopts.ctl</code> (BLAST parameters), and <code>maker_exe.ctl</code> (paths to tools). Edit these before running MAKER2.</td></tr>
+              <tr><td><span class="cmd-emoji">🧹</span>RepeatMasker</td><td>Masks transposable elements and repetitive sequences in the genome before annotation. MAKER2 runs better with a softmasked genome (lowercase = repeats) because BLAST is not distracted by repetitive regions.</td></tr>
+              <tr><td><span class="cmd-emoji">📊</span>cat *.fa &gt; combined</td><td>Concatenates all protein evidence files into one. MAKER2 takes a single protein FASTA, so all evidence proteins (clade proteins + SwissProt) must be merged first.</td></tr>
+            </table>
+          </div>
+        </section>
+
+        <section id="step2" class="mb-5">
+          <h2 class="section-divider">Step 2 — MAKER Round 1 (Evidence Only)</h2>
+          <p>First, generate MAKER control files, then edit them to point to your data:</p>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash — MAKER Round 1 Setup and Run</span><button class="btn-copy">Copy</button></div>
+<pre id="s2-maker1">module load maker/3.01.03
+module load blast/2.12.0
+module load augustus/3.4.0
+module load snap
+
+# Generate default control files
+maker -CTL
+# Creates: maker_opts.ctl, maker_bopts.ctl, maker_exe.ctl
+
+# Edit maker_opts.ctl (key fields):
+cat > maker_opts.ctl << 'EOF'
+genome=genome_assembly.fasta
+organism_type=eukaryotic
+
+# Evidence inputs
+est=evidence/transcripts/Hgly_ests.fasta
+protein=evidence/proteins/all_proteins.fasta
+
+# No ab initio predictors yet (Round 1)
+snaphmm=
+augustus_species=
+
+# Repeat masking (use RepeatMasker output or leave blank to run it)
+rmlib=
+softmask=1   # soft-mask repeats (lowercase) instead of hard-masking
+
+# EST/protein alignment settings
+est2genome=1   # infer gene models directly from EST alignments
+protein2genome=1  # infer gene models from protein alignments
+
+# Quality filtering
+min_contig=1000  # skip contigs shorter than 1kb
+EOF
+
+# Run MAKER (MPI parallel on cluster)
+mpiexec -n 16 maker -fix_nucleotides 2>&1 | tee maker_round1.log
+
+echo "Round 1 complete. Merging outputs..."
+# Merge all output GFF3 and FASTA files
+gff3_merge -d genome_assembly.maker.output/genome_assembly_master_datastore_index.log \
+    -o round1.gff3
+
+fasta_merge -d genome_assembly.maker.output/genome_assembly_master_datastore_index.log \
+    -o round1
+
+ls round1*</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s2-maker1" data-filename="02_maker_round1.sh"><i class="bi bi-download me-1"></i>02_maker_round1.sh</button></div>
+          <div class="cmd-explain">
+            <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> MAKER Round 1 commands decoded</div>
+            <table>
+              <tr><td><span class="cmd-emoji">🛠️</span>maker -CTL</td><td>Generates the three control files. Open each in a text editor and fill in paths to your genome, EST, and protein files. <code>maker_exe.ctl</code> must point to the actual installed paths of BLAST, AUGUSTUS, etc. on your cluster.</td></tr>
+              <tr><td><span class="cmd-emoji">🧱</span>est2genome=1</td><td>Tells MAKER to generate gene models <em>directly</em> from EST alignments (not just use them as hints). This is correct for Round 1 where we have no trained ab initio predictor yet.</td></tr>
+              <tr><td><span class="cmd-emoji">🐦</span>mpiexec -n 16 maker</td><td>Run MAKER using MPI (Message Passing Interface) across 16 processes. MAKER parallelizes by splitting the genome into chunks — each MPI process handles a subset of contigs. This is the recommended way to run MAKER on a cluster.</td></tr>
+              <tr><td><span class="cmd-emoji">🔀</span>gff3_merge</td><td>MAKER writes outputs into a complex datastore directory (one folder per contig). <code>gff3_merge</code> collects all the individual GFF3 files and merges them into a single <code>round1.gff3</code>. Always merge before downstream analysis!</td></tr>
+            </table>
+          </div>
+          <div class="fun-tip"><span class="fun-tip-icon">⏱️</span><div><strong>Time expectations:</strong> MAKER Round 1 on a ~100 Mb eukaryotic genome with 16 cores typically takes 12–48 hours depending on the size of your EST/protein evidence databases. The BLAST steps are the bottleneck. Plan for an overnight run at minimum.</div></div>
+        </section>
+
+        <section id="step3" class="mb-5">
+          <h2 class="section-divider">Step 3 — Train AUGUSTUS Using BUSCO</h2>
+          <p>Extract high-quality gene models from Round 1 to train AUGUSTUS for ab initio prediction:</p>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash — BUSCO-based AUGUSTUS training</span><button class="btn-copy">Copy</button></div>
+<pre id="s3-augustus">module load busco/5.4.3
+module load augustus/3.4.0
+
+GENOME="genome_assembly.fasta"
+SPECIES_NAME="h_glycines"   # unique name for your training data
+
+# Run BUSCO in genome mode — it will train Augustus internally
+# Use a nematode-appropriate lineage
+busco \
+    -i ${GENOME} \
+    -o busco_training \
+    -m genome \
+    -l nematoda_odb10 \
+    -c 16 \
+    --augustus_species caenorhabditis  # starting species for training
+
+# Copy trained AUGUSTUS parameters to AUGUSTUS config directory
+AUGUSTUS_CONFIG=$(augustus --print-cfg 2>&1 | grep "Config" | cut -d' ' -f3)
+cp -r busco_training/run_nematoda_odb10/augustus_output/retraining_parameters \
+    ${AUGUSTUS_CONFIG}/species/${SPECIES_NAME}
+
+echo "Augustus training complete for species: ${SPECIES_NAME}"
+echo "Verify:"
+ls ${AUGUSTUS_CONFIG}/species/${SPECIES_NAME}/</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s3-augustus" data-filename="03_train_augustus.sh"><i class="bi bi-download me-1"></i>03_train_augustus.sh</button></div>
+        </section>
+
+        <section id="step4" class="mb-5">
+          <h2 class="section-divider">Step 4 — Train SNAP from Round 1 Annotations</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash — SNAP training from MAKER Round 1 output</span><button class="btn-copy">Copy</button></div>
+<pre id="s4-snap">module load maker/3.01.03
+module load snap
+
+# Extract gene models with AED <= 0.25 and protein length >= 50aa
+# These are high-confidence models for training
+awk '{ if ($0 ~  /\tmaker\t/) print $0 }' round1.gff3 > round1.maker.gff3
+
+maker2zff \
+    -c 0.25 \
+    -e 0.25 \
+    -o 25 \
+    -d genome_assembly.maker.output/genome_assembly_master_datastore_index.log
+
+# This creates genome.ann and genome.dna files
+ls genome.*
+
+# Train SNAP
+mkdir -p snap_training
+fathom -categorize 1000 genome.ann genome.dna
+fathom -export 1000 -plus uni.ann uni.dna
+forge export.ann export.dna
+hmm-assembler.pl ${SPECIES_NAME} params > snap_training/${SPECIES_NAME}.hmm
+
+echo "SNAP HMM trained: snap_training/${SPECIES_NAME}.hmm"</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s4-snap" data-filename="04_train_snap.sh"><i class="bi bi-download me-1"></i>04_train_snap.sh</button></div>
+          <div class="cmd-explain">
+            <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> SNAP training pipeline decoded</div>
+            <table>
+              <tr><td><span class="cmd-emoji">✅</span>maker2zff -c 0.25 -e 0.25</td><td>Converts MAKER gene models to ZFF format (SNAP's input). <code>-c</code> and <code>-e</code> set AED cutoffs for coding sequence and exons — only models with AED &le; 0.25 are used as training data. <code>-o 25</code> requires proteins ≥ 25 aa.</td></tr>
+              <tr><td><span class="cmd-emoji">📦</span>fathom -categorize 1000</td><td>Categorizes gene loci into training categories (single-gene, multi-gene, etc.) and creates windows of 1000 bp flanking sequence around each gene for SNAP to learn from.</td></tr>
+              <tr><td><span class="cmd-emoji">🔨</span>forge</td><td>Estimates SNAP's model parameters from the categorized training data. Output: a set of parameter files in the <code>params/</code> directory.</td></tr>
+              <tr><td><span class="cmd-emoji">🧠</span>hmm-assembler.pl</td><td>Assembles the trained parameter files into a single SNAP HMM file (<code>.hmm</code>). This is what you provide to <code>maker_opts.ctl</code> as <code>snaphmm=</code> in Round 2.</td></tr>
+            </table>
+          </div>
+        </section>
+
+        <section id="step5" class="mb-5">
+          <h2 class="section-divider">Step 5 — MAKER Round 2 (With ab initio Predictors)</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash — MAKER Round 2 with AUGUSTUS + SNAP</span><button class="btn-copy">Copy</button></div>
+<pre id="s5-maker2">module load maker/3.01.03
+
+# Update maker_opts.ctl to include trained ab initio predictors
+# Key changes from Round 1:
+sed -i "s/^snaphmm=.*/snaphmm=snap_training\/h_glycines.hmm/" maker_opts.ctl
+sed -i "s/^augustus_species=.*/augustus_species=h_glycines/" maker_opts.ctl
+sed -i "s/^est2genome=1/est2genome=0/" maker_opts.ctl      # use EST as hints, not direct models
+sed -i "s/^protein2genome=1/protein2genome=0/" maker_opts.ctl  # same for proteins
+
+# Verify the changes
+grep -E "snaphmm|augustus_species|est2genome|protein2genome" maker_opts.ctl
+
+# Run MAKER Round 2
+mpiexec -n 16 maker -fix_nucleotides 2>&1 | tee maker_round2.log
+
+# Merge outputs
+gff3_merge -d genome_assembly.maker.output/genome_assembly_master_datastore_index.log \
+    -o round2.gff3 -n
+
+fasta_merge -d genome_assembly.maker.output/genome_assembly_master_datastore_index.log \
+    -o round2
+
+echo "Round 2 gene count:"
+grep -c "mRNA" round2.gff3</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s5-maker2" data-filename="05_maker_round2.sh"><i class="bi bi-download me-1"></i>05_maker_round2.sh</button></div>
+          <div class="cmd-explain">
+            <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> Round 2 key changes decoded</div>
+            <table>
+              <tr><td><span class="cmd-emoji">✂️</span>sed -i "s/.../.../ "</td><td>In-place (<code>-i</code>) string substitution using sed. Modifies the control file directly without opening a text editor. Adds SNAP and AUGUSTUS paths and switches est/protein from genome-mode (<code>=1</code>) to hints-mode (<code>=0</code>).</td></tr>
+              <tr><td><span class="cmd-emoji">🎯</span>est2genome=0</td><td>Switches EST evidence from "direct model" mode to "hints" mode. ESTs now <em>guide</em> the ab initio predictors instead of defining gene boundaries. This gives AUGUSTUS/SNAP more control over the final model structure.</td></tr>
+              <tr><td><span class="cmd-emoji">🔍</span>grep -c "mRNA"</td><td>Counts the number of mRNA features in the GFF3 = total number of predicted gene models. Compare Round 1 vs Round 2 to see the impact of adding ab initio prediction.</td></tr>
+            </table>
+          </div>
+          <div class="fun-tip"><span class="fun-tip-icon">🏆</span><div><strong>Round 2 gene count:</strong> For <em>H. glycines</em>, Round 1 typically predicts ~18,000 gene models, while Round 2 predicts ~21,000+ models. The ab initio predictors find genes missed by EST/protein evidence alone — especially novel genes with no homologs!</div></div>
+        </section>
+
+        <section id="step6" class="mb-5">
+          <h2 class="section-divider">Step 6 — Evaluate Gene Models with AED Plot</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash + R — AED distribution plot</span><button class="btn-copy">Copy</button></div>
+<pre id="s6-aed">module load maker/3.01.03
+
+# Extract AED scores from GFF3
+AEDplot_lib.pm round2.gff3 > aed_plot.png
+# or use the built-in MAKER script:
+# maker_AED_CDF_script.pl round2.gff3 > aed.data
+
+# Manual extraction with awk:
+grep "mRNA" round2.gff3 | \
+    awk '{match($9, /AED:([0-9.]+)/, a); print a[1]}' \
+    > aed_scores.txt
+
+# R: Plot AED distribution
+Rscript - << 'EOF'
+aed <- read.table("aed_scores.txt")$V1
+png("aed_distribution.png", width=800, height=600)
+hist(aed, breaks=40, col="steelblue",
+     main="AED Score Distribution",
+     xlab="AED Score",
+     ylab="Number of Gene Models")
+abline(v=0.5, col="red", lty=2, lwd=2)
+legend("topright", legend="AED=0.5 cutoff", col="red", lty=2)
+dev.off()
+cat("Gene models with AED < 0.5:", sum(aed < 0.5), "\n")
+cat("Total gene models:", length(aed), "\n")
+cat("Percentage high-quality:", round(100*mean(aed < 0.5),1), "%\n")
+EOF</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s6-aed" data-filename="06_aed_evaluation.sh"><i class="bi bi-download me-1"></i>06_aed_evaluation.sh</button></div>
+          <div class="thumb-rule mt-3"><strong>Rule of thumb for MAKER annotations:</strong> A well-annotated genome should have &gt;80% of gene models with AED &lt; 0.5. BUSCO completeness of the predicted protein set should be &gt;85% for a high-quality annotation. For <em>H. glycines</em>, the published annotation contains ~21,000 gene models.</div>
+        </section>
+
+        <section id="step7" class="mb-5">
+          <h2 class="section-divider">Step 7 — Functional Annotation</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash — InterProScan + BLAST functional annotation</span><button class="btn-copy">Copy</button></div>
+<pre id="s7-func">module load interproscan/5.59-91.0
+module load blast/2.12.0
+
+PROTEINS="round2.all.maker.proteins.fasta"
+
+# InterProScan: assign protein domains, GO terms, pathway annotations
+interproscan.sh \
+    -i ${PROTEINS} \
+    -o interproscan_results.tsv \
+    -f TSV \
+    -appl Pfam,TIGRFAM,PRINTS,ProSiteProfiles,Gene3D,SMART \
+    -goterms \
+    -pa \
+    --cpu 16
+
+# BLAST against Swiss-Prot for gene name assignment
+makeblastdb -in uniprot_sprot.fasta -dbtype prot -out swissprot_db
+blastp \
+    -query ${PROTEINS} \
+    -db swissprot_db \
+    -out blast_swissprot.txt \
+    -evalue 1e-6 \
+    -max_target_seqs 5 \
+    -num_threads 16 \
+    -outfmt "6 qseqid sseqid pident length evalue bitscore stitle"
+
+echo "Top BLAST hits:"
+head -5 blast_swissprot.txt
+
+# Add functional annotations to GFF3
+ipr_update_gff round2.gff3 interproscan_results.tsv > round2.annotated.gff3</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s7-func" data-filename="07_functional_annotation.sh"><i class="bi bi-download me-1"></i>07_functional_annotation.sh</button></div>
+        </section>
+
+        <section id="errors" class="mb-5">
+          <h2 class="fw-bold"><i class="bi bi-exclamation-triangle me-2 text-warning"></i>Troubleshooting</h2>
+          <div class="error-box">
+            <h6>MAKER: job stalls or some contigs never complete</h6>
+            <p>Check the <code>*_master_datastore_index.log</code> for lines with <code>FAILED</code> status. Re-run those contigs by running MAKER again in the same directory — it resumes from where it stopped. Common cause: BLAST runs out of memory on very large contigs.</p>
+          </div>
+          <div class="error-box">
+            <h6>AUGUSTUS fails: "species not found in config directory"</h6>
+            <p>The <code>$AUGUSTUS_CONFIG_PATH</code> environment variable must point to a writeable directory containing the trained species folder. Check with <code>echo $AUGUSTUS_CONFIG_PATH</code> and verify the species directory exists there. If running in a Conda environment, the path is usually <code>$CONDA_PREFIX/config/species/</code>.</p>
+          </div>
+          <div class="error-box">
+            <h6>Very few gene models after Round 2 (&lt;5,000 for a ~90 Mb genome)</h6>
+            <p>Check that <code>est2genome</code> and <code>protein2genome</code> were NOT set to 0 simultaneously in round 1 (you need at least one evidence source for model building). Also verify your EST/protein FASTA files are non-empty and in the correct FASTA format.</p>
+          </div>
+        </section>
+
+        <div class="d-flex justify-content-between mt-4">
+          <a href="genome-assembly-genomescope-spades.html" class="btn btn-outline-secondary rounded-pill px-4"><i class="bi bi-arrow-left me-2"></i>Genome Assembly</a>
+          <a href="secreted-protein-prediction-signalp-tmhmm.html" class="btn btn-primary rounded-pill px-4">Next: Secreted Protein Prediction <i class="bi bi-arrow-right ms-2"></i></a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-lg-6"><h5 class="text-white fw-bold mb-3"><span style="color:#ff9933;">Indian</span><span style="color:var(--ieb-primary);">Elucid</span><span style="color:var(--ieb-accent);">Biology</span></h5><p class="small">Tutorial adapted from the Bioinformatics Workbook (Iowa State University GIF). Original author: Rick Masonbrink.</p></div>
+      <div class="col-lg-6 text-lg-end"><p class="small mb-1">Founded by <strong>Ankush Sharma</strong></p><div class="d-flex gap-3 justify-content-lg-end"><a href="https://github.com/ank-man" target="_blank" class="text-white fs-5"><i class="bi bi-github"></i></a><a href="https://www.linkedin.com/in/ankush-sharma-290307/" target="_blank" class="text-white fs-5"><i class="bi bi-linkedin"></i></a></div></div>
+    </div>
+    <hr class="border-secondary mt-4 mb-3">
+    <p class="text-center small mb-0">&copy; 2025 IndianElucidBiology. Based on <a href="https://bioinformaticsworkbook.org" class="text-white-50" target="_blank">bioinformaticsworkbook.org</a>.</p>
+  </div>
+</footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/main.js"></script>
+</body>
+</html>

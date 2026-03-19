@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Amplicon Metagenomics with QIIME2 | IndianElucidBiology</title>
+  <meta name="description" content="16S amplicon metagenomics using Arabidopsis root microbiome dataset (PRJEB15671). DADA2, taxonomy, diversity, PERMANOVA with QIIME2.">
+  <link rel="canonical" href="https://indianelucidbiology.github.io/tutorials/metagenomics-qiime2-amplicon.html">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="../css/style.css" rel="stylesheet">
+</head>
+<body>
+<div class="progress-tracker"></div>
+<nav class="navbar navbar-expand-lg fixed-top">
+  <div class="container">
+    <a class="navbar-brand" href="../index.html"><span class="brand-indian">Indian</span><span class="brand-elucid">Elucid</span><span class="brand-biology">Biology</span></a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav"><span class="navbar-toggler-icon"></span></button>
+    <div class="collapse navbar-collapse" id="mainNav">
+      <ul class="navbar-nav ms-auto me-3">
+        <li class="nav-item"><a class="nav-link" href="../index.html">Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="index.html">Tutorial Library</a></li>
+      </ul>
+      <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode">&#9790;</button>
+    </div>
+  </div>
+</nav>
+
+<section class="tutorial-hero">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-lg-8">
+        <nav aria-label="breadcrumb"><ol class="breadcrumb mb-3" style="--bs-breadcrumb-divider-color:rgba(255,255,255,0.5);"><li class="breadcrumb-item"><a href="../index.html" class="text-white-50 text-decoration-none">Home</a></li><li class="breadcrumb-item"><a href="index.html" class="text-white-50 text-decoration-none">Tutorials</a></li><li class="breadcrumb-item active text-white">QIIME2</li></ol></nav>
+        <h1 class="display-5 fw-bold text-white mb-3">Amplicon Metagenomics with QIIME2</h1>
+        <p class="lead text-white-50 mb-4">16S rRNA V4 amplicon analysis of the <em>Arabidopsis thaliana</em> root microbiome (Castrillo et al., Nature 2017) — DADA2 ASVs, taxonomy, diversity metrics, and PERMANOVA.</p>
+        <div class="d-flex gap-3 flex-wrap">
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-clock me-1"></i>~120 min</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-database me-1"></i>PRJEB15671</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-bar-chart me-1"></i>Intermediate</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-terminal me-1"></i>Bash</span>
+        </div>
+      </div>
+      <div class="col-lg-4 text-center d-none d-lg-block">
+        <img src="../img/Byte3.png" alt="Byte" class="img-fluid" style="max-height:220px;filter:drop-shadow(0 10px 30px rgba(0,0,0,0.4));">
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="container py-5">
+  <div class="row">
+    <div class="col-lg-3 d-none d-lg-block">
+      <div class="toc-sidebar">
+        <h6 class="fw-bold text-muted text-uppercase small mb-3">On this page</h6>
+        <nav class="nav flex-column">
+          <a class="nav-link" href="#overview">Overview</a>
+          <a class="nav-link" href="#dataset">Dataset</a>
+          <a class="nav-link" href="#step1">1. Install QIIME2</a>
+          <a class="nav-link" href="#step2">2. Import Data</a>
+          <a class="nav-link" href="#step3">3. DADA2 Denoising</a>
+          <a class="nav-link" href="#step4">4. Taxonomy</a>
+          <a class="nav-link" href="#step5">5. Diversity Analysis</a>
+          <a class="nav-link" href="#step6">6. Statistics</a>
+          <a class="nav-link" href="#errors">Troubleshooting</a>
+        </nav>
+      </div>
+    </div>
+    <div class="col-lg-9">
+      <div class="tutorial-content">
+
+        <section id="overview" class="mb-5">
+          <h2 class="section-divider">Overview</h2>
+          <p>QIIME2 is the leading platform for amplicon microbiome analysis. Unlike QIIME1 (OTUs), QIIME2 uses <strong>Amplicon Sequence Variants (ASVs)</strong> via DADA2 — exact sequences with single-nucleotide resolution.</p>
+          <div class="byte-callout">
+            <img src="../img/Byte1.png" alt="Byte">
+            <div><strong>OTUs vs ASVs:</strong> OTUs cluster sequences at 97% similarity. ASVs are exact sequences inferred by DADA2's error model — they can distinguish strains differing by a single base, are reproducible across studies, and do not require re-clustering when new samples are added. Tutorial original author: Adam Rivers (USDA-ARS).</div>
+          </div>
+        </section>
+
+        <section id="dirstructure" class="mb-5">
+          <h2 class="section-divider">Ideal Directory Structure</h2>
+          <p>QIIME2 produces <code>.qza</code> (artifact) and <code>.qzv</code> (visualization) files at every step. Keep them organized by step so you can re-run from any point and track the provenance chain.</p>
+          <div class="dir-tree">
+            <div class="dir-tree-header"><i class="bi bi-folder2-open"></i> qiime2_arabidopsis_microbiome/</div>
+<span class="tree-folder">qiime2_arabidopsis_microbiome/</span>
+├── <span class="tree-folder tree-active">data/</span>                 <span class="tree-note"># raw FASTQ files (read-only!)</span>
+│   ├── <span class="tree-file">sample1_R1.fastq.gz</span>
+│   └── <span class="tree-note">... (146 samples × 2)</span>
+├── <span class="tree-file">manifest.csv</span>          <span class="tree-note"># sample-id, fwd path, rev path</span>
+├── <span class="tree-file">metadata.tsv</span>          <span class="tree-note"># sample metadata (required for diversity)</span>
+├── <span class="tree-folder">1_import/</span>
+│   ├── <span class="tree-output">paired_end_demux.qza</span>  <span class="tree-note"># imported reads artifact</span>
+│   └── <span class="tree-output">paired_end_demux.qzv</span>  <span class="tree-note"># quality summary → view at view.qiime2.org</span>
+├── <span class="tree-folder">2_dada2/</span>
+│   ├── <span class="tree-output">table.qza</span>            <span class="tree-note"># ASV feature table (samples × ASVs)</span>
+│   ├── <span class="tree-output">rep-seqs.qza</span>         <span class="tree-note"># representative ASV sequences</span>
+│   └── <span class="tree-output">denoising-stats.qza</span>  <span class="tree-note"># reads lost at each DADA2 step</span>
+├── <span class="tree-folder">3_taxonomy/</span>
+│   └── <span class="tree-output">taxonomy.qza</span>         <span class="tree-note"># taxonomic assignments for each ASV</span>
+├── <span class="tree-folder">4_phylogeny/</span>
+│   └── <span class="tree-output">rooted-tree.qza</span>      <span class="tree-note"># for UniFrac distances</span>
+└── <span class="tree-folder">5_diversity/</span>
+    ├── <span class="tree-output">alpha-diversity.qzv</span>
+    └── <span class="tree-output">beta-diversity.qzv</span>
+          </div>
+          <div class="fun-tip"><span class="fun-tip-icon">🔍</span><div><strong>What are .qza and .qzv files?</strong> They're just ZIP archives! Rename any <code>.qza</code> to <code>.zip</code> and unzip it to see the underlying data (BIOM tables, FASTA, etc.) and the complete provenance log of every command that produced it. <code>.qzv</code> files are visualizations — drag them to <a href="https://view.qiime2.org" target="_blank">view.qiime2.org</a> to see interactive charts.</div></div>
+        </section>
+
+        <section id="dataset" class="mb-5">
+          <h2 class="section-divider">Dataset</h2>
+          <p>Data from <a href="https://dx.doi.org/10.1038/nature21417" target="_blank">Castrillo et al. (2017, Nature)</a>: <em>Arabidopsis</em> phosphate stress mutants grown in natural soil, 16S V4 sequencing of root microbiome. 146 samples, subsampled to 10,000 reads each.</p>
+          <div class="param-table">
+            <table class="table table-striped mb-0">
+              <thead><tr><th>Property</th><th>Value</th></tr></thead>
+              <tbody>
+                <tr><td>BioProject</td><td><a href="https://www.ebi.ac.uk/ena/data/view/PRJEB15671" target="_blank">PRJEB15671</a></td></tr>
+                <tr><td>Amplicon region</td><td>16S rRNA V4 (primers 515F/806R)</td></tr>
+                <tr><td>Samples</td><td>146 (WT + pho1, pho2, phf1, nla mutants)</td></tr>
+                <tr><td>Platform</td><td>Illumina MiSeq paired-end</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="step1" class="mb-5">
+          <h2 class="section-divider">Step 1 — Install QIIME2</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash — QIIME2 Conda install</span><button class="btn-copy">Copy</button></div>
+<pre id="s1-qiime2-install">wget https://data.qiime2.org/distro/amplicon/qiime2-amplicon-2024.10-py310-linux-conda.yml
+conda env create -n qiime2-2024.10 \
+    --file qiime2-amplicon-2024.10-py310-linux-conda.yml
+conda activate qiime2-2024.10
+qiime --version</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s1-qiime2-install" data-filename="01_install_qiime2.sh"><i class="bi bi-download me-1"></i>01_install_qiime2.sh</button></div>
+        </section>
+
+        <section id="step2" class="mb-5">
+          <h2 class="section-divider">Step 2 — Import Data</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash — Manifest file creation and import</span><button class="btn-copy">Copy</button></div>
+<pre id="s2-qiime2-import">conda activate qiime2-2024.10
+
+# Create manifest.csv (paths to your paired FASTQ files)
+# Format: sample-id, forward path, reverse path
+# Header line required
+echo "sample-id,absolute-filepath-forward,absolute-filepath-reverse" > manifest.csv
+for r1 in data/*_R1.fastq.gz; do
+    r2="${r1/_R1.fastq.gz/_R2.fastq.gz}"
+    sample=$(basename $r1 _R1.fastq.gz)
+    echo "${sample},$(realpath $r1),$(realpath $r2)" >> manifest.csv
+done
+
+# Import into QIIME2 artifact format
+qiime tools import \
+    --type "SampleData[PairedEndSequencesWithQuality]" \
+    --input-path manifest.csv \
+    --output-path paired_end_demux.qza \
+    --input-format PairedEndFastqManifestPhred33V2
+
+# Summarize quality (open .qzv at https://view.qiime2.org)
+qiime demux summarize \
+    --i-data paired_end_demux.qza \
+    --o-visualization paired_end_demux.qzv</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s2-qiime2-import" data-filename="02_import.sh"><i class="bi bi-download me-1"></i>02_import.sh</button></div>
+          <div class="cmd-explain">
+            <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> QIIME2 import commands decoded</div>
+            <table>
+              <tr><td><span class="cmd-emoji">📝</span>manifest.csv</td><td>A CSV telling QIIME2 where each sample's FASTQ files live. The <code>sample-id</code> column becomes the sample name used in all downstream artifacts. <code>realpath</code> converts relative paths to absolute paths — QIIME2 requires absolute paths in the manifest.</td></tr>
+              <tr><td><span class="cmd-emoji">📦</span>qiime tools import --type</td><td>The <code>--type</code> must exactly match a QIIME2 semantic type. <code>SampleData[PairedEndSequencesWithQuality]</code> = paired-end FASTQ with quality scores. QIIME2 validates this type at import time — wrong type = immediate error.</td></tr>
+              <tr><td><span class="cmd-emoji">📱</span>--input-format PairedEndFastqManifestPhred33V2</td><td>Specifies the manifest file format AND the quality encoding. Phred33 is the standard Illumina encoding since ~2012. If you have older Illumina data, use Phred64.</td></tr>
+              <tr><td><span class="cmd-emoji">🔍</span>qiime demux summarize</td><td>Creates a <code>.qzv</code> visualization of per-sample read counts and per-position quality scores. <strong>Always inspect this before DADA2</strong> to decide your truncation lengths.</td></tr>
+            </table>
+          </div>
+          <div class="fun-tip"><span class="fun-tip-icon">🌐</span><div><strong>view.qiime2.org</strong> is your best friend. Every <code>.qzv</code> file can be drag-and-dropped there for an interactive visualization — no software needed. Bookmark it now!</div></div>
+        </section>
+
+        <section id="step3" class="mb-5">
+          <h2 class="section-divider">Step 3 — DADA2 Denoising</h2>
+          <p>Choose truncation lengths from the quality visualization. Aim to truncate where quality drops below Q25. Forward and reverse reads must still overlap by &ge;20 bp.</p>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash — DADA2 paired-end denoising</span><button class="btn-copy">Copy</button></div>
+<pre id="s3-qiime2-dada2">qiime dada2 denoise-paired \
+    --i-demultiplexed-seqs paired_end_demux.qza \
+    --p-trim-left-f 0 \
+    --p-trim-left-r 0 \
+    --p-trunc-len-f 220 \
+    --p-trunc-len-r 200 \
+    --p-n-threads 16 \
+    --o-table feature_table.qza \
+    --o-representative-sequences rep_seqs.qza \
+    --o-denoising-stats denoising_stats.qza
+
+# Summarize results
+qiime metadata tabulate \
+    --m-input-file denoising_stats.qza \
+    --o-visualization denoising_stats.qzv
+
+qiime feature-table summarize \
+    --i-table feature_table.qza \
+    --m-sample-metadata-file metadata.txt \
+    --o-visualization feature_table.qzv</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s3-qiime2-dada2" data-filename="03_dada2.sh"><i class="bi bi-download me-1"></i>03_dada2.sh</button></div>
+          <div class="cmd-explain">
+            <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> DADA2 parameters decoded</div>
+            <table>
+              <tr><td><span class="cmd-emoji">✂️</span>--p-trim-left-f/r 0</td><td>Trim this many bases from the 5' (left) end of forward/reverse reads. Set to the primer length if primers weren't removed upstream. Here 0 because the dataset is already primer-trimmed.</td></tr>
+              <tr><td><span class="cmd-emoji">✂️</span>--p-trunc-len-f 220</td><td>Truncate forward reads to 220 bp. DADA2 discards reads shorter than this. Set based on where quality drops in your <code>.qzv</code> inspection — aim to keep Q>25. F reads are usually high quality longer than R reads.</td></tr>
+              <tr><td><span class="cmd-emoji">✂️</span>--p-trunc-len-r 200</td><td>Truncate reverse reads to 200 bp. R reads degrade faster on Illumina. These truncated reads must still overlap the forward reads by ≥20 bp to merge correctly.</td></tr>
+              <tr><td><span class="cmd-emoji">🧵</span>--p-n-threads 16</td><td>DADA2 runs on 16 threads. It's the slowest step in the pipeline (error model learning) — on 146 samples expect 2–6 hours. Use all available cores.</td></tr>
+              <tr><td><span class="cmd-emoji">📊</span>denoising-stats.qza</td><td>Reports reads passing each DADA2 step: input → filtered → denoised → merged → non-chimeric. If you lose >50% at any step, your truncation lengths are wrong or primer trimming was missed.</td></tr>
+            </table>
+          </div>
+          <div class="thumb-rule mt-3"><strong>Truncation rule for paired-end V4:</strong> Forward reads are typically good quality for 230–250 bp. Reverse reads degrade faster — truncate at 200 bp or where quality drops. The combined (merged) read must cover the V4 amplicon (~253 bp) with 20 bp overlap. For 2x250 MiSeq runs, <code>trunc-len-f 230 trunc-len-r 200</code> is a common starting point.</div>
+        </section>
+
+        <section id="step4" class="mb-5">
+          <h2 class="section-divider">Step 4 — Taxonomy Classification</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash — SILVA-based taxonomy + barplots</span><button class="btn-copy">Copy</button></div>
+<pre id="s4-qiime2-tax"># Download pre-trained SILVA 138 V4 classifier
+wget https://data.qiime2.org/2024.10/common/silva-138-99-seqs-515-806.qza
+
+# Classify ASVs (Naive Bayes, trained on V4 region)
+qiime feature-classifier classify-sklearn \
+    --i-classifier silva-138-99-seqs-515-806.qza \
+    --i-reads rep_seqs.qza \
+    --o-classification taxonomy.qza \
+    --p-n-jobs -1
+
+# Remove chloroplasts and mitochondria (plant study contaminants)
+qiime taxa filter-table \
+    --i-table feature_table.qza \
+    --i-taxonomy taxonomy.qza \
+    --p-exclude "Chloroplast,Mitochondria,Unassigned" \
+    --o-filtered-table feature_table_filtered.qza
+
+# Taxonomy barplot (interactive, open at view.qiime2.org)
+qiime taxa barplot \
+    --i-table feature_table_filtered.qza \
+    --i-taxonomy taxonomy.qza \
+    --m-metadata-file metadata.txt \
+    --o-visualization taxa_barplot.qzv</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s4-qiime2-tax" data-filename="04_taxonomy.sh"><i class="bi bi-download me-1"></i>04_taxonomy.sh</button></div>
+          <div class="cmd-explain">
+            <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> Taxonomy classification decoded</div>
+            <table>
+              <tr><td><span class="cmd-emoji">🧠</span>classify-sklearn</td><td>Naive Bayes classifier trained on the SILVA 138 database trimmed to V4 region (515F–806R). It classifies each ASV by comparing its k-mer profile to trained taxon profiles. Region-specific training is critical — a full-length 16S classifier on V4 reads gives worse results.</td></tr>
+              <tr><td><span class="cmd-emoji">🚫</span>--p-exclude Chloroplast,Mitochondria</td><td>Filters out ASVs classified as plant chloroplast or mitochondrial 16S (both have 16S-like rRNA). In plant root/leaf studies, these can be 10–40% of reads! Always remove them for a true bacterial community profile.</td></tr>
+              <tr><td><span class="cmd-emoji">📊</span>taxa barplot</td><td>Creates a stacked bar chart showing taxonomic composition per sample. Color = taxonomy level, height = relative abundance. Interactive in the browser — you can switch between phylum, class, order, family, genus levels.</td></tr>
+            </table>
+          </div>
+          <div class="fun-tip"><span class="fun-tip-icon">🌱</span><div><strong>Why remove Unassigned?</strong> ASVs with no classification could be: (1) novel bacteria genuinely not in SILVA, (2) chimeric sequences DADA2 missed, or (3) non-bacterial sequences. For a cleaned analysis, filter them out. For discovery-focused work, keep them — they might be interesting!</div></div>
+        </section>
+
+        <section id="step5" class="mb-5">
+          <h2 class="section-divider">Step 5 — Diversity Analysis</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash — Alpha and Beta diversity</span><button class="btn-copy">Copy</button></div>
+<pre id="s5-qiime2-diversity"># First build a phylogenetic tree (needed for UniFrac distances)
+qiime phylogeny align-to-tree-mafft-fasttree \
+    --i-sequences rep_seqs.qza \
+    --o-alignment aligned_rep_seqs.qza \
+    --o-masked-alignment masked_aligned_rep_seqs.qza \
+    --o-tree unrooted_tree.qza \
+    --o-rooted-tree rooted_tree.qza \
+    --p-n-threads 16
+
+# Core diversity metrics (rarefied to equal depth)
+# Choose sampling depth by inspecting feature_table.qzv
+# Rule: keep depth where most samples are retained (e.g., 5000 reads)
+SAMPLING_DEPTH=5000
+
+qiime diversity core-metrics-phylogenetic \
+    --i-phylogeny rooted_tree.qza \
+    --i-table feature_table_filtered.qza \
+    --p-sampling-depth ${SAMPLING_DEPTH} \
+    --m-metadata-file metadata.txt \
+    --output-dir diversity_core/
+
+# This generates:
+# Alpha diversity: observed_features, shannon, evenness, faith_pd
+# Beta diversity: unweighted_unifrac, weighted_unifrac, bray_curtis, jaccard
+# PCoA ordination plots for each beta diversity metric
+
+ls diversity_core/</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s5-qiime2-diversity" data-filename="05_diversity.sh"><i class="bi bi-download me-1"></i>05_diversity.sh</button></div>
+          <div class="cmd-explain">
+            <div class="cmd-explain-title"><i class="bi bi-lightbulb"></i> Diversity analysis decoded</div>
+            <table>
+              <tr><td><span class="cmd-emoji">🌳</span>align-to-tree-mafft-fasttree</td><td>One-command pipeline: aligns ASV sequences with MAFFT, masks poorly aligned columns, builds an unrooted tree with FastTree2, then roots it at the midpoint. The rooted tree is required for Faith's PD and UniFrac distances.</td></tr>
+              <tr><td><span class="cmd-emoji">💰</span>--p-sampling-depth 5000</td><td>Rarefies all samples to 5000 reads before diversity calculation. Rarefaction equalizes sequencing effort across samples. Samples with fewer reads are <strong>dropped</strong> — choose a depth that keeps most samples. Check <code>feature_table.qzv</code> first.</td></tr>
+              <tr><td><span class="cmd-emoji">🌍</span>core-metrics-phylogenetic</td><td>Calculates 8 diversity metrics in one command: 4 alpha (Shannon, Observed Features, Evenness, Faith PD) and 4 beta (Bray-Curtis, Jaccard, Unweighted UniFrac, Weighted UniFrac) plus PCoA plots for each beta metric.</td></tr>
+            </table>
+          </div>
+          <div class="fun-tip"><span class="fun-tip-icon">📌</span><div><strong>Alpha vs Beta diversity:</strong> Alpha = diversity <em>within</em> a sample (how many species? how even?). Beta = diversity <em>between</em> samples (how different are the communities?). UniFrac is phylogeny-aware — it weights differences by evolutionary distance. Weighted UniFrac also considers abundance; unweighted treats all taxa equally present/absent.</div></div>
+        </section>
+
+        <section id="step6" class="mb-5">
+          <h2 class="section-divider">Step 6 — Statistical Testing (PERMANOVA)</h2>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash — PERMANOVA beta diversity + alpha group significance</span><button class="btn-copy">Copy</button></div>
+<pre id="s6-qiime2-stats"># Alpha diversity: test if Shannon diversity differs between genotypes
+qiime diversity alpha-group-significance \
+    --i-alpha-diversity diversity_core/shannon_vector.qza \
+    --m-metadata-file metadata.txt \
+    --o-visualization alpha_shannon_significance.qzv
+
+# Beta diversity: PERMANOVA test
+# Does genotype explain variation in community composition?
+qiime diversity beta-group-significance \
+    --i-distance-matrix diversity_core/unweighted_unifrac_distance_matrix.qza \
+    --m-metadata-file metadata.txt \
+    --m-metadata-column genotype \
+    --o-visualization uw_unifrac_permanova.qzv \
+    --p-method permanova \
+    --p-pairwise
+
+# Weighted UniFrac (accounts for abundance)
+qiime diversity beta-group-significance \
+    --i-distance-matrix diversity_core/weighted_unifrac_distance_matrix.qza \
+    --m-metadata-file metadata.txt \
+    --m-metadata-column genotype \
+    --o-visualization w_unifrac_permanova.qzv \
+    --p-method permanova
+
+# Expected result (Castrillo et al.):
+# pho1 and pho2 mutants have significantly altered root microbiome (p < 0.001)
+# phf1 mutant shows intermediate effect</pre>
+          </div>
+          <div class="download-bar"><span class="download-label"><i class="bi bi-file-earmark-code me-2"></i>Download:</span><button class="btn-download-script" data-script-id="s6-qiime2-stats" data-filename="06_statistics.sh"><i class="bi bi-download me-1"></i>06_statistics.sh</button></div>
+          <div class="thumb-rule mt-3"><strong>Interpreting PERMANOVA:</strong> A significant p-value (&lt;0.05) means your grouping variable (e.g., genotype) explains a significant portion of community variation. The R² value tells you how much variation is explained (R²=0.15 means genotype explains 15% of beta diversity). Always check the homogeneity of dispersion test (PERMDISP) — significant PERMDISP means groups differ in variability, not just composition.</div>
+        </section>
+
+        <section id="errors" class="mb-5">
+          <h2 class="fw-bold"><i class="bi bi-exclamation-triangle me-2 text-warning"></i>Troubleshooting</h2>
+          <div class="error-box">
+            <h6>DADA2: "Not enough reads passed the filters" for many samples</h6>
+            <p>Your truncation length is too aggressive, or reads don't overlap after truncation. Check <code>denoising_stats.qzv</code> to see where reads are lost. Try shorter truncation lengths or remove the strictest filter. For V4 amplicons, merged reads must be ~253 bp so forward+reverse-truncation must exceed ~273 bp.</p>
+          </div>
+          <div class="error-box">
+            <h6>Taxonomy classification: many ASVs unassigned (&gt;30%)</h6>
+            <p>Check: (1) Did you use the correct region-trained classifier? A full-length SILVA classifier on V4 data performs poorly. Always use a primer-specific trained classifier. (2) If studying environmental or non-16S targets, retrain the classifier on the appropriate reference database.</p>
+          </div>
+          <div class="error-box">
+            <h6>core-metrics fails: "sampling depth exceeds sample size"</h6>
+            <p>Some samples have fewer reads than your chosen sampling depth. Either lower the depth or filter out low-read-count samples first: <code>qiime feature-table filter-samples --p-min-frequency 5000</code>. View the read count distribution in <code>feature_table.qzv</code> to pick an appropriate rarefaction depth.</p>
+          </div>
+        </section>
+
+        <div class="d-flex justify-content-between mt-4">
+          <a href="secreted-protein-prediction-signalp-tmhmm.html" class="btn btn-outline-secondary rounded-pill px-4"><i class="bi bi-arrow-left me-2"></i>Secreted Proteins</a>
+          <a href="kraken2-taxonomic-classification.html" class="btn btn-primary rounded-pill px-4">Next: Kraken2 Classification <i class="bi bi-arrow-right ms-2"></i></a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-lg-6"><h5 class="text-white fw-bold mb-3"><span style="color:#ff9933;">Indian</span><span style="color:var(--ieb-primary);">Elucid</span><span style="color:var(--ieb-accent);">Biology</span></h5><p class="small">Tutorial adapted from the Bioinformatics Workbook (Iowa State University GIF). Original author: Adam Rivers (USDA-ARS).</p></div>
+      <div class="col-lg-6 text-lg-end"><p class="small mb-1">Founded by <strong>Ankush Sharma</strong></p><div class="d-flex gap-3 justify-content-lg-end"><a href="https://github.com/ank-man" target="_blank" class="text-white fs-5"><i class="bi bi-github"></i></a><a href="https://www.linkedin.com/in/ankush-sharma-290307/" target="_blank" class="text-white fs-5"><i class="bi bi-linkedin"></i></a></div></div>
+    </div>
+    <hr class="border-secondary mt-4 mb-3">
+    <p class="text-center small mb-0">&copy; 2025 IndianElucidBiology. Based on <a href="https://bioinformaticsworkbook.org" class="text-white-50" target="_blank">bioinformaticsworkbook.org</a>.</p>
+  </div>
+</footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/main.js"></script>
+</body>
+</html>

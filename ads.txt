@@ -1,0 +1,4 @@
+# Google AdSense ads.txt
+# Replace ca-pub-XXXXXXXXXXXXXXXX with your real Publisher ID from AdSense dashboard
+# Format: <ad network domain>, <publisher ID>, DIRECT, <TAG ID (optional)>
+google.com, pub-XXXXXXXXXXXXXXXX, DIRECT, f08c47fec0942fa0
