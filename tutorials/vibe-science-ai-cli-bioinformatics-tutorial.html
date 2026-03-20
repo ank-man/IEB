@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vibe Science: Using Claude, Codex & Gemini CLI for Bioinformatics — Tutorial | IndianElucidBiology</title>
+  <meta name="description" content="Learn how to use Claude CLI, OpenAI Codex, and Gemini CLI to supercharge your bioinformatics workflows. Vibe-code your RNA-seq pipelines, debug your segfaults at 2am, and let AI write the boilerplate you hate.">
+  <meta name="keywords" content="vibe science, Claude CLI bioinformatics, Codex bioinformatics, Gemini CLI, AI bioinformatics, vibe coding, LLM science, AI life science, IndianElucidBiology">
+  <meta name="author" content="IndianElucidBiology">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="../css/style.css" rel="stylesheet">
+</head>
+<body>
+<div class="progress-tracker"></div>
+
+<nav class="navbar navbar-expand-lg fixed-top bg-body-tertiary">
+  <div class="container">
+    <a class="navbar-brand" href="../index.html">
+      <span class="brand-indian">Indian</span><span class="brand-elucid">Elucid</span><span class="brand-biology">Biology</span>
+    </a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav"><span class="navbar-toggler-icon"></span></button>
+    <div class="collapse navbar-collapse" id="mainNav">
+      <ul class="navbar-nav ms-auto me-3">
+        <li class="nav-item"><a class="nav-link" href="../index.html">Home</a></li>
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle active" href="#" role="button" data-bs-toggle="dropdown">Tutorials</a>
+          <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="rnaseq-differential-expression-deseq2-guide.html">RNA-Seq &amp; DESeq2</a></li>
+            <li><a class="dropdown-item" href="scgpt-single-cell-foundation-model-tutorial.html">scGPT Foundation Model</a></li>
+            <li><a class="dropdown-item" href="spatialdata-spatial-omics-framework-tutorial.html">SpatialData</a></li>
+            <li><a class="dropdown-item" href="fastoma-orthology-inference-tutorial.html">FastOMA</a></li>
+            <li><a class="dropdown-item active" href="vibe-science-ai-cli-bioinformatics-tutorial.html">Vibe Science ✨</a></li>
+          </ul>
+        </li>
+        <li class="nav-item"><a class="nav-link" href="../community.html">Community</a></li>
+        <li class="nav-item"><a class="nav-link" href="../contributors.html">Contributors</a></li>
+      </ul>
+      <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode">&#9790;</button>
+    </div>
+  </div>
+</nav>
+
+<section class="tutorial-hero" style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 40%, #0f3460 70%, #533483 100%);">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-lg-8">
+        <nav aria-label="breadcrumb"><ol class="breadcrumb mb-3" style="--bs-breadcrumb-divider-color:rgba(255,255,255,0.5);">
+          <li class="breadcrumb-item"><a href="../index.html" class="text-white-50 text-decoration-none">Home</a></li>
+          <li class="breadcrumb-item"><a href="index.html" class="text-white-50 text-decoration-none">Tutorials</a></li>
+          <li class="breadcrumb-item active text-white">Vibe Science</li>
+        </ol></nav>
+        <div class="mb-3 d-flex gap-2 flex-wrap">
+          <span class="badge px-3 py-2 rounded-pill" style="background:rgba(255,200,0,0.35);color:#fff;font-size:0.78rem;"><i class="bi bi-stars me-1"></i>New Era of Science</span>
+          <span class="badge px-3 py-2 rounded-pill" style="background:rgba(100,220,150,0.3);color:#fff;font-size:0.78rem;"><i class="bi bi-emoji-laughing me-1"></i>Mildly Unhinged</span>
+        </div>
+        <h1 class="display-5 fw-bold text-white mb-3">Vibe Science ✨<br><span style="font-size:0.65em;opacity:0.85;">Claude + Codex + Gemini CLI for Bioinformatics</span></h1>
+        <p class="lead text-white-50 mb-4">Why spend 6 hours debugging a Snakemake rule when you can just <em>describe the vibe</em> to an AI? Learn to harness Claude CLI, OpenAI Codex, and Gemini CLI to write pipelines, analyse genomes, debug segfaults at 2am, and publish papers so fast your PI will think you cloned yourself.</p>
+        <div class="d-flex gap-3 flex-wrap">
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-clock me-1"></i>~35 min</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-bar-chart me-1"></i>All Levels</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-terminal me-1"></i>Bash / Python / R</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-robot me-1"></i>AI-Assisted</span>
+        </div>
+      </div>
+      <div class="col-lg-4 text-center d-none d-lg-block">
+        <img src="../img/Byte1.png" alt="Byte" class="img-fluid" style="max-height:220px;filter:drop-shadow(0 10px 30px rgba(0,0,0,0.4));">
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="container py-5">
+  <div class="row">
+    <div class="col-lg-3 d-none d-lg-block">
+      <div class="toc-sidebar">
+        <h6 class="fw-bold text-muted text-uppercase small mb-3">On this page</h6>
+        <nav class="nav flex-column">
+          <a class="nav-link" href="#overview">What is Vibe Science?</a>
+          <a class="nav-link" href="#tools">The Holy Trinity of AI CLIs</a>
+          <a class="nav-link" href="#install">Installation</a>
+          <a class="nav-link" href="#claude">1. Claude CLI</a>
+          <a class="nav-link" href="#codex">2. OpenAI Codex CLI</a>
+          <a class="nav-link" href="#gemini">3. Gemini CLI</a>
+          <a class="nav-link" href="#prompts">Prompt Engineering for Bio</a>
+          <a class="nav-link" href="#pipelines">AI-Generated Pipelines</a>
+          <a class="nav-link" href="#debug">Debugging with AI</a>
+          <a class="nav-link" href="#ethics">A Word on Ethics</a>
+          <a class="nav-link" href="#summary">Summary</a>
+        </nav>
+      </div>
+    </div>
+    <div class="col-lg-9">
+      <div class="tutorial-content">
+
+        <section id="overview" class="mb-5">
+          <h2 class="fw-bold">What is Vibe Science? 🧬✨</h2>
+          <p>You know how "vibe coding" means describing what you want in plain English and letting an AI write the code? <strong>Vibe Science</strong> is the same thing but for bioinformatics — and it is, frankly, ridiculous how well it works.</p>
+
+          <div class="byte-callout byte-info">
+            <img src="../img/Byte3.png" alt="Byte">
+            <div>
+              <strong>Hot take:</strong> The bioinformatics community spent 30 years arguing about the best aligner. Claude will write you a wrapper for all of them in 4 seconds and ask which one you actually wanted. We are living in a simulation and the simulation has an API.
+            </div>
+          </div>
+
+          <p class="mt-3">In all seriousness, large language model CLIs (command-line interfaces) have become genuinely transformative tools for computational biologists in 2024–2025. This tutorial covers three of the best:</p>
+
+          <div class="row g-3 mt-2">
+            <div class="col-md-4">
+              <div class="card border-0 shadow-sm h-100" style="border-top: 3px solid #cc785c !important;">
+                <div class="card-body text-center">
+                  <div class="fs-1 mb-2">🤖</div>
+                  <h6 class="fw-bold">Claude (Anthropic)</h6>
+                  <p class="small mb-0">Best at reasoning, long-context document analysis, and being suspiciously polite about your terrible variable names.</p>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="card border-0 shadow-sm h-100" style="border-top: 3px solid #10a37f !important;">
+                <div class="card-body text-center">
+                  <div class="fs-1 mb-2">⚡</div>
+                  <h6 class="fw-bold">Codex / GPT-4o (OpenAI)</h6>
+                  <p class="small mb-0">Blazing fast code generation. Will write your entire GATK pipeline and then ask if you want it in Nextflow too.</p>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="card border-0 shadow-sm h-100" style="border-top: 3px solid #4285f4 !important;">
+                <div class="card-body text-center">
+                  <div class="fs-1 mb-2">💎</div>
+                  <h6 class="fw-bold">Gemini (Google)</h6>
+                  <p class="small mb-0">Enormous context window. Can read your entire genome annotation GTF and still have room for your feelings.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="tools" class="mb-5">
+          <h2 class="fw-bold">The Holy Trinity of AI CLIs</h2>
+          <div class="param-table"><div class="table-responsive">
+            <table class="table table-striped mb-0">
+              <thead><tr><th>Tool</th><th>Developer</th><th>Context Window</th><th>Best for Bio Use Case</th><th>Free Tier?</th></tr></thead>
+              <tbody>
+                <tr><td><strong>Claude CLI</strong></td><td>Anthropic</td><td>200K tokens</td><td>Code review, long-doc QA, writing methods sections</td><td>Limited (API key)</td></tr>
+                <tr><td><strong>Codex CLI</strong></td><td>OpenAI</td><td>128K tokens</td><td>Code generation, pipeline writing, data wrangling</td><td>Limited (API key)</td></tr>
+                <tr><td><strong>Gemini CLI</strong></td><td>Google DeepMind</td><td>1M tokens (!)</td><td>Whole-genome analysis prompts, reading massive files</td><td>Yes (free tier)</td></tr>
+              </tbody>
+            </table>
+          </div></div>
+
+          <div class="byte-callout byte-tip mt-4">
+            <img src="../img/Byte1.png" alt="Byte tip">
+            <div>
+              <strong>Gemini's 1 million token context window</strong> means you can paste an entire chromosome annotation, a STAR alignment log, a pile of DESeq2 results, and your existential dread about the replication crisis — and Gemini will read all of it. This is not a drill.
+            </div>
+          </div>
+        </section>
+
+        <section id="install" class="mb-5">
+          <h2 class="fw-bold">Installation — All Three</h2>
+
+          <h5 class="fw-bold mt-3">Claude CLI (claude-cli)</h5>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash</span><button class="btn-copy">Copy</button></div>
+<pre># Install via npm (Node.js required)
+npm install -g @anthropic-ai/claude-code
+
+# Or via pip wrapper
+pip install anthropic
+
+# Set your API key (get one at console.anthropic.com)
+export ANTHROPIC_API_KEY="sk-ant-..."
+
+# Verify
+claude --version</pre>
+          </div>
+
+          <h5 class="fw-bold mt-4">OpenAI Codex CLI</h5>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash</span><button class="btn-copy">Copy</button></div>
+<pre># Install Codex CLI
+npm install -g @openai/codex
+
+# Or use the OpenAI Python SDK directly
+pip install openai
+
+# Set API key (platform.openai.com)
+export OPENAI_API_KEY="sk-..."
+
+# Verify
+codex --version</pre>
+          </div>
+
+          <h5 class="fw-bold mt-4">Gemini CLI</h5>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash</span><button class="btn-copy">Copy</button></div>
+<pre># Install Gemini CLI (Google AI SDK)
+npm install -g @google/gemini-cli
+
+# Or Python
+pip install google-generativeai
+
+# Set API key (aistudio.google.com — has a FREE tier!)
+export GEMINI_API_KEY="AIza..."
+
+# Verify
+gemini --version
+
+# Pro tip: Gemini 1.5 Pro has a free tier with 1M context
+# You can literally paste a GTF file and ask questions about it</pre>
+          </div>
+
+          <div class="byte-callout byte-warn mt-4">
+            <img src="../img/Byte5.png" alt="Byte warning">
+            <div>
+              <strong>Never commit API keys to GitHub.</strong> Use <code>export</code> in your <code>~/.bashrc</code> or a <code>.env</code> file (add it to <code>.gitignore</code>). Leaked API keys get abused within minutes. Your PI will not be amused when they get a $4,000 OpenAI bill from some cryptominer in Crimea.
+            </div>
+          </div>
+        </section>
+
+        <section id="claude" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">1</span>Claude CLI for Bioinformatics</h2>
+          <p>Claude is particularly good at <strong>reasoning about complex biology</strong>, reading long methods sections, reviewing code logic, and generating well-commented scripts. Think of it as a very calm postdoc who has read every paper ever published.</p>
+
+          <h5 class="fw-bold mt-3">Basic usage pattern</h5>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash</span><button class="btn-copy">Copy</button></div>
+<pre># Ask Claude a direct question
+claude "What does a TSS enrichment score of 1.2 mean for my ATAC-seq QC?"
+
+# Pipe a file to Claude for analysis
+cat alignment_stats.txt | claude "Summarise these alignment stats and flag anything concerning"
+
+# Ask Claude to write a script
+claude "Write a Python script that reads a VCF file with cyvcf2,
+filters to PASS variants with MAF > 0.01, and outputs a tidy TSV
+with columns: chrom, pos, ref, alt, gene, consequence, AF"
+
+# Have Claude review your existing script
+claude "Review this DESeq2 script for statistical mistakes" < deseq2_analysis.R</pre>
+          </div>
+
+          <h5 class="fw-bold mt-4">Real-world use case: Explaining a cryptic error</h5>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash</span><button class="btn-copy">Copy</button></div>
+<pre># It's 2am. STAR alignment crashed. You have no idea why.
+# Old you: Stack Overflow for 90 minutes
+# New you:
+
+cat star_log.final.out | claude "Why did my STAR alignment fail and how do I fix it?
+I am running human GRCh38 with splice junctions. Here is the log:"
+
+# Claude will calmly identify that your --genomeSAindexNbases was wrong for your genome size
+# and give you the exact corrected command.
+# You will feel both grateful and slightly embarrassed.</pre>
+          </div>
+
+          <h5 class="fw-bold mt-4">Interactive mode for iterative analysis</h5>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash</span><button class="btn-copy">Copy</button></div>
+<pre># Start an interactive session
+claude
+
+# Then inside the session:
+# > I have 48 RNA-seq samples, 3 conditions (control, drug_A, drug_B),
+# > 16 replicates each, human samples. I want to do differential expression
+# > analysis. Walk me through the best approach step by step.
+
+# Claude will ask clarifying questions, recommend DESeq2 vs edgeR based on
+# your design, warn you about batch effects, and generate the full R script.
+# This used to take a week to figure out from papers. Now: 8 minutes.</pre>
+          </div>
+
+          <div class="byte-callout byte-info">
+            <img src="../img/Byte3.png" alt="Byte">
+            <div>
+              <strong>Why Claude shines for biology:</strong> Its 200K token context window means you can feed it a full methods section from a paper and ask "does my pipeline match theirs?" or paste your entire Snakemake workflow and ask for a critical review. This is genuinely revolutionary for methods harmonisation.
+            </div>
+          </div>
+        </section>
+
+        <section id="codex" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">2</span>OpenAI Codex CLI for Bioinformatics</h2>
+          <p>Codex is a code-generation powerhouse. If Claude is the thoughtful postdoc, Codex is the caffeine-fuelled grad student who types 200wpm and somehow makes it work. Ask it to generate boilerplate — it thrives.</p>
+
+          <h5 class="fw-bold mt-3">Generate a full pipeline from a description</h5>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash</span><button class="btn-copy">Copy</button></div>
+<pre"># Generate a complete variant calling pipeline
+codex "Write a complete Snakemake pipeline for variant calling:
+- Input: paired-end WGS FASTQ files in a samples/ directory
+- Steps: FastQC -> Trimmomatic -> BWA-MEM2 -> samtools sort/markdup -> GATK HaplotypeCaller -> VQSR -> bcftools filter
+- Output: annotated VCF per sample + multiqc report
+- Use config.yaml for sample sheet and reference genome paths
+- Include proper wildcard handling and temp() for intermediate files"
+
+# What you get: a complete, runnable Snakemake workflow
+# What this used to take: 2-3 days of debugging wildcards</pre>
+          </div>
+
+          <h5 class="fw-bold mt-4">Python scripting on the fly</h5>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Python</span><button class="btn-copy">Copy</button></div>
+<pre>from openai import OpenAI
+
+client = OpenAI()
+
+# Use the API programmatically in your analysis notebooks
+def ask_codex(prompt, system="You are an expert bioinformatics engineer."):
+    response = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[
+            {"role": "system", "content": system},
+            {"role": "user", "content": prompt}
+        ]
+    )
+    return response.choices[0].message.content
+
+# Example: generate a parsing function on the fly
+code = ask_codex("""
+Write a Python function parse_blast_xml(filepath) that:
+1. Parses BLAST XML output using BioPython
+2. Returns a pandas DataFrame with columns:
+   query_id, subject_id, pident, length, evalue, bitscore, query_start,
+   query_end, subject_start, subject_end
+3. Filters to evalue < 1e-5 and pident > 70
+""")
+
+print(code)
+# Paste or exec() the output — instant working parser</pre>
+          </div>
+
+          <h5 class="fw-bold mt-4">The "I hate writing this" use case</h5>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash</span><button class="btn-copy">Copy</button></div>
+<pre># All those tasks you've been putting off for months:
+
+codex "Write an argparse CLI wrapper for my RNA-seq pipeline with
+flags: --input-dir, --output-dir, --genome, --threads, --dry-run,
+--config, --resume. Include --help text for each flag."
+
+codex "Convert my hardcoded paths in analysis.py to a config.yaml
+system using pydantic for validation"
+
+codex "Write unit tests for my VCF parsing functions using pytest
+with 3 synthetic VCF fixtures"
+
+# Every bioinformatician has a list of 20 scripts they need to write.
+# Codex writes all 20. You drink your coffee.</pre>
+          </div>
+
+          <div class="byte-callout byte-tip">
+            <img src="../img/Byte1.png" alt="Byte tip">
+            <div>
+              <strong>Pro tip — few-shot prompting for bio:</strong> Give Codex 2–3 examples of your input format before asking it to write a parser. "Here is one line from my file: <code>chr1\t12345\tSNV\tA\tG\t.\tPASS\tDP=40;AF=0.35</code>. Write a parser for this format." Works every time.
+            </div>
+          </div>
+        </section>
+
+        <section id="gemini" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">3</span>Gemini CLI for Bioinformatics</h2>
+          <p>Google's Gemini CLI is the dark horse. The <strong>1-million token context window</strong> in Gemini 1.5 Pro changes the game entirely — you can feed it entire genomes' worth of annotation and have a conversation about them. Oh, and there's a free tier. Google just casually handed science a superpower.</p>
+
+          <h5 class="fw-bold mt-3">Basic setup and usage</h5>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash</span><button class="btn-copy">Copy</button></div>
+<pre">gemini --version
+
+# One-shot question
+gemini "Explain UMAP dimensionality reduction to a biologist who
+understands PCA but has never heard of topology"
+
+# File analysis — this is where Gemini DESTROYS the competition
+gemini -f my_deseq2_results.csv "Which genes are most consistently
+upregulated across all comparisons? Are there any obvious pathway
+themes? Flag anything that looks like a batch effect artifact."
+
+# Multi-file analysis
+gemini -f sample_metadata.csv -f counts_matrix.tsv -f qc_report.html \
+  "Review my experimental design for confounds and suggest
+  the optimal DESeq2 design formula"</pre>
+          </div>
+
+          <h5 class="fw-bold mt-4">The 1M context use case — reading whole genomes</h5>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash</span><button class="btn-copy">Copy</button></div>
+<pre"># Gemini can literally read your entire annotation file
+# A human GTF is ~1.5 GB but the text of relevant fields is much smaller
+# Extract what you need and feed it in:
+
+# Get all gene annotations for a chromosome
+grep "^chr17" gencode.v44.annotation.gtf | grep -v "^#" | head -50000 > chr17_genes.gtf
+
+# Ask Gemini to analyse it
+cat chr17_genes.gtf | gemini "How many protein-coding genes are on chr17?
+What fraction have at least 5 transcripts? List the top 10 by transcript count."
+
+# Compare two annotation files
+gemini -f gencode_v44.gene_summary.txt -f ensembl_v110.gene_summary.txt \
+  "What are the key differences between these two genome annotations?
+  Which has more non-coding RNAs? Are there genes in one missing from the other?"</pre>
+          </div>
+
+          <h5 class="fw-bold mt-4">Using Gemini in Python for automated analysis</h5>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Python</span><button class="btn-copy">Copy</button></div>
+<pre>import google.generativeai as genai
+import pandas as pd
+
+genai.configure(api_key="YOUR_GEMINI_API_KEY")
+model = genai.GenerativeModel("gemini-1.5-pro")
+
+# Load your DESeq2 results
+df = pd.read_csv("deseq2_results.csv")
+
+# Automated biological interpretation
+prompt = f"""
+I have DESeq2 differential expression results comparing cancer vs normal tissue.
+Here are the top 50 significant genes (padj < 0.05, |log2FC| > 1):
+
+{df[df.padj < 0.05].nlargest(50, 'log2FoldChange')[['gene_name','log2FoldChange','padj']].to_string()}
+
+Please:
+1. Identify major biological pathways involved
+2. Highlight any known oncogenes or tumour suppressors
+3. Suggest the most relevant Gene Ontology terms to test for enrichment
+4. Flag any surprising findings
+"""
+
+response = model.generate_content(prompt)
+print(response.text)
+
+# This replaces about 45 minutes of manual literature lookup
+# Your PI asks "so what do these genes do?"
+# You already know because Gemini told you 3 minutes ago</pre>
+          </div>
+
+          <div class="byte-callout byte-info">
+            <img src="../img/Byte3.png" alt="Byte">
+            <div>
+              <strong>The 1M token context in practice:</strong> The entire human transcriptome (all mRNA sequences, ~50K transcripts) is roughly 500MB of text but compresses to well under 1M tokens when you extract just the relevant metadata. You can have a full genome-scale conversation with Gemini. In 2022 this was science fiction. In 2025 it's a free API call.
+            </div>
+          </div>
+        </section>
+
+        <section id="prompts" class="mb-5">
+          <h2 class="fw-bold">Prompt Engineering for Bioinformatics</h2>
+          <p>Good prompts are the new bioinformatics skill. Here are patterns that work reliably across all three CLIs:</p>
+
+          <h5 class="fw-bold mt-3">The "Expert persona" pattern</h5>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Text</span><button class="btn-copy">Copy</button></div>
+<pre">You are a senior computational biologist with 15 years of experience in
+RNA-seq analysis, familiar with Bioconductor, Nextflow, and GATK best practices.
+You prioritise reproducibility, statistical rigour, and clear documentation.
+
+[Your actual question here]</pre>
+          </div>
+
+          <h5 class="fw-bold mt-4">The "Format constraint" pattern — forces usable output</h5>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Text</span><button class="btn-copy">Copy</button></div>
+<pre">Write a Python function that [does X].
+Requirements:
+- Use only standard library + pandas + numpy + [specific lib]
+- Include type hints
+- Include a docstring with Args and Returns sections
+- Include 2 example calls in a if __name__ == '__main__': block
+- Handle FileNotFoundError gracefully
+Output only code, no explanation.</pre>
+          </div>
+
+          <h5 class="fw-bold mt-4">The "Debug my error" pattern</h5>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Text</span><button class="btn-copy">Copy</button></div>
+<pre">I am running [tool/script] and getting this error:
+
+[PASTE FULL ERROR TRACEBACK]
+
+Here is the relevant code/command:
+
+[PASTE CODE]
+
+My environment: [OS, Python/R version, key package versions]
+
+What is the root cause and what is the exact fix?</pre>
+          </div>
+
+          <h5 class="fw-bold mt-4">The "Teach me while coding" pattern</h5>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Text</span><button class="btn-copy">Copy</button></div>
+<pre">Write a script to [do X] and explain each major step with inline comments.
+I understand [concept A] but not [concept B], so please explain
+[concept B] in the comment where it first appears.
+Target audience: graduate student with wet-lab background learning bioinformatics.</pre>
+          </div>
+
+          <div class="byte-callout byte-warn">
+            <img src="../img/Byte5.png" alt="Byte warning">
+            <div>
+              <strong>The #1 mistake beginners make:</strong> Accepting AI output without understanding it. Always read the generated code. Ask the AI to explain anything you don't understand. "This works but I don't know why" is how you accumulate technical debt that bites you at 11pm before a paper deadline. Trust but verify. Vibe science does not mean blind science.
+            </div>
+          </div>
+        </section>
+
+        <section id="pipelines" class="mb-5">
+          <h2 class="fw-bold">AI-Generated Pipelines: Real Examples</h2>
+          <p>Let's be concrete. Here are production-quality prompts and the type of output you should expect:</p>
+
+          <h5 class="fw-bold mt-3">Example 1: Complete scRNA-seq pipeline prompt</h5>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Text — Prompt to Claude/Codex/Gemini</span><button class="btn-copy">Copy</button></div>
+<pre">I have 10x Chromium scRNA-seq data (Cell Ranger output) from 6 human PBMC
+samples (3 healthy donors, 3 COVID-19 patients). Write a complete Seurat v5
+analysis script in R that:
+
+1. Loads all 6 samples and creates a merged Seurat object
+2. QC filtering: nFeature_RNA 200-5000, percent.mt < 15, nCount_RNA < 30000
+3. SCTransform normalisation (not NormalizeData)
+4. PCA → Harmony batch correction (batch = "donor") → UMAP
+5. Leiden clustering (resolution 0.5 and 0.8)
+6. Automated cell type annotation using SingleR with HumanPrimaryCellAtlas
+7. DGE between COVID vs healthy within each major cell type using FindMarkers
+8. Save: Seurat RDS, UMAP PDF, top 10 markers per cluster as CSV
+9. Set seed(42) for reproducibility
+
+Include a sessionInfo() at the end.</pre>
+          </div>
+
+          <h5 class="fw-bold mt-4">Example 2: Generate a Nextflow pipeline</h5>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Text — Prompt</span><button class="btn-copy">Copy</button></div>
+<pre">Write a Nextflow DSL2 pipeline for bulk RNA-seq analysis:
+- Inputs: FASTQ files from a samplesheet CSV (sample_id, fastq_1, fastq_2, condition)
+- Tools: FastQC, TrimGalore, STAR (2-pass), featureCounts, DESeq2
+- Use containers: specify Docker images for each process
+- Publish: QC reports, BAM files, count matrix, DESeq2 results
+- Include a nextflow.config with resource profiles for 'standard' and 'slurm'
+Follow nf-core coding style conventions.</pre>
+          </div>
+
+          <div class="byte-callout byte-tip">
+            <img src="../img/Byte1.png" alt="Byte tip">
+            <div>
+              <strong>Workflow generation speed:</strong> A Nextflow pipeline like the one above would take an experienced bioinformatician 1–2 days to write from scratch. AI generates a solid first draft in 30 seconds. You spend 1–2 hours reviewing, testing, and refining. Net time saving: ~90%. The future is weird and we love it.
+            </div>
+          </div>
+        </section>
+
+        <section id="debug" class="mb-5">
+          <h2 class="fw-bold">Debugging with AI: The Killer Use Case</h2>
+          <p>Honestly? Debugging is where AI CLIs shine brightest. Bioinformatics errors are notoriously cryptic. Your AI co-pilot has seen every error message ever posted on Biostars and GitHub Issues.</p>
+
+          <h5 class="fw-bold mt-3">The "2am Snakemake meltdown" fix</h5>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash</span><button class="btn-copy">Copy</button></div>
+<pre"># Classic scenario: Snakemake wildcard error you can't parse
+# Error: "WildcardError: Wildcards in input files cannot be determined from output files"
+
+# Old approach: Read Snakemake docs for 1 hour, still confused
+# New approach:
+
+cat Snakefile | claude "I'm getting a WildcardError in Snakemake.
+Here is my Snakefile. Identify the rule causing the issue and explain
+why the wildcard constraint is failing. Show me the corrected rule."
+
+# Claude spots that you used {sample} in input but {samples} in output.
+# One character. You lost 2 hours to one character.
+# Claude found it in 4 seconds.
+# You are both humbled and liberated.</pre>
+          </div>
+
+          <h5 class="fw-bold mt-4">R / Bioconductor error archaeology</h5>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre"># Paste your error into the terminal
+# Using the R httr2 package to call the API:
+library(httr2)
+
+debug_with_claude <- function(error_msg, code_context) {
+  req <- request("https://api.anthropic.com/v1/messages") |>
+    req_headers(
+      "x-api-key" = Sys.getenv("ANTHROPIC_API_KEY"),
+      "anthropic-version" = "2023-06-01",
+      "content-type" = "application/json"
+    ) |>
+    req_body_json(list(
+      model = "claude-opus-4-5",
+      max_tokens = 1024,
+      messages = list(list(
+        role = "user",
+        content = paste0(
+          "I have this R error in my bioinformatics analysis:\n\n",
+          error_msg,
+          "\n\nContext code:\n\n", code_context,
+          "\n\nWhat is the root cause and exact fix?"
+        )
+      ))
+    ))
+
+  resp <- req_perform(req)
+  cat(resp_body_json(resp)$content[[1]]$text)
+}
+
+# Usage: just call it when something breaks
+tryCatch(
+  expr = { result <- DESeq(dds) },
+  error = function(e) debug_with_claude(conditionMessage(e), deparse(dds))
+)</pre>
+          </div>
+        </section>
+
+        <section id="ethics" class="mb-5">
+          <h2 class="fw-bold">A Word on Ethics (Yes, We Have to Talk About This)</h2>
+
+          <div class="byte-callout byte-warn">
+            <img src="../img/Byte5.png" alt="Byte warning">
+            <div>
+              <strong>Do NOT use AI to write your Methods section without disclosure.</strong> Many journals now require disclosure of AI tool use. The biology still needs to be yours. The interpretation still needs to be yours. AI is your co-pilot, not the pilot. You are responsible for every number in your paper. If the AI hallucinates a p-value, that's on you.
+            </div>
+          </div>
+
+          <h5 class="fw-bold mt-4">The good stuff (please do this)</h5>
+          <ul>
+            <li>Use AI to write <strong>boilerplate code</strong> (file I/O, argument parsing, logging) that you understand and review</li>
+            <li>Use AI to <strong>explain concepts</strong> in plain language before diving into papers</li>
+            <li>Use AI to <strong>debug errors</strong> faster — you still validate the fix</li>
+            <li>Use AI to <strong>generate first drafts</strong> of scripts that you then edit and test</li>
+            <li>Use AI to <strong>review your code</strong> for common statistical mistakes</li>
+            <li>Use AI to <strong>summarise papers</strong> — just read the abstract and methods yourself too</li>
+          </ul>
+
+          <h5 class="fw-bold mt-4">The bad stuff (please don't)</h5>
+          <ul>
+            <li>Submitting AI-generated figures you don't understand</li>
+            <li>Using AI to fake Results sections in papers</li>
+            <li>Copy-pasting AI code into production pipelines without testing it on known inputs</li>
+            <li>Using AI to write grant applications and passing it off as entirely your own intellectual work (check your institution's policy)</li>
+            <li>Asking AI "is my data significant?" without understanding what statistical significance means</li>
+          </ul>
+
+          <div class="byte-callout byte-info">
+            <img src="../img/Byte3.png" alt="Byte">
+            <div>
+              <strong>The real transformation:</strong> Vibe science doesn't replace expertise — it removes the friction between having an idea and testing it. A skilled bioinformatician with AI CLIs can explore 10× more hypotheses per day. The bottleneck shifts from "can I code this?" to "do I understand the biology well enough to ask the right question?" That's actually a better bottleneck to have.
+            </div>
+          </div>
+        </section>
+
+        <section id="summary" class="mb-5">
+          <h2 class="fw-bold">Summary</h2>
+          <div class="byte-callout byte-tip">
+            <img src="../img/Byte1.png" alt="Byte summary">
+            <div>
+              <strong>The Vibe Science toolkit:</strong>
+              <ul class="mb-0 mt-1">
+                <li><strong>Claude CLI</strong> — best for reasoning, code review, long-document analysis. The thoughtful one.</li>
+                <li><strong>Codex / GPT-4o</strong> — best for rapid code generation and boilerplate. The fast one.</li>
+                <li><strong>Gemini CLI</strong> — best for massive context (1M tokens!), free tier available. The big one.</li>
+                <li>Use the <strong>expert persona + format constraint + specific example</strong> prompt pattern for best results</li>
+                <li>Always <strong>review, test, and understand</strong> AI-generated code before using it</li>
+                <li>Disclose AI use in publications per your journal's policy</li>
+                <li>The future of bioinformatics is <strong>you + AI</strong>, not AI replacing you. Probably. Ask again in 5 years.</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="alert alert-secondary small mt-4">
+            <strong>Community note:</strong> Bioinformatics is being transformed faster than any subfield of biology right now. Join the <a href="../community.html">IndianElucidBiology Discord</a> — we have a dedicated <strong>#vibe-science</strong> channel where we share prompts, workflows, and commiserate about the time AI confidently wrote us a script that called a function that doesn't exist. We call it "hallucination bingo."
+          </div>
+
+          <div class="d-flex justify-content-between mt-5">
+            <a href="multiome-atac-rna-joint-analysis-tutorial.html" class="btn btn-outline-secondary rounded-pill px-4"><i class="bi bi-arrow-left me-2"></i>Previous: Multiome ATAC+RNA</a>
+            <a href="index.html" class="btn btn-primary rounded-pill px-4">All Tutorials <i class="bi bi-arrow-right ms-2"></i></a>
+          </div>
+        </section>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-lg-6">
+        <h5 class="text-white fw-bold mb-3"><span style="color:#ff9933;">Indian</span><span style="color:var(--ieb-primary);">Elucid</span><span style="color:var(--ieb-accent);">Biology</span></h5>
+        <p class="small">Free, interactive bioinformatics tutorials. Open source and community-driven.</p>
+      </div>
+      <div class="col-lg-6 text-lg-end">
+        <p class="small mb-1">Founded by <strong>Ankush Sharma</strong></p>
+        <div class="d-flex gap-3 justify-content-lg-end">
+          <a href="https://github.com/ank-man" target="_blank" class="text-white fs-5" title="GitHub"><i class="bi bi-github"></i></a>
+          <a href="https://www.linkedin.com/in/ankush-sharma-290307/" target="_blank" class="text-white fs-5" title="LinkedIn"><i class="bi bi-linkedin"></i></a>
+          <a href="mailto:mr.ank2999@gmail.com" class="text-white fs-5" title="Email"><i class="bi bi-envelope"></i></a>
+        </div>
+      </div>
+    </div>
+    <hr class="border-secondary mt-4 mb-3">
+    <p class="text-center small mb-0">&copy; 2025 IndianElucidBiology &mdash; Founded by <a href="https://www.linkedin.com/in/ankush-sharma-290307/" class="text-white-50" target="_blank">Ankush Sharma</a>. Made with <span style="color:#e25555;">&#9829;</span> for the bioinformatics community.</p>
+  </div>
+</footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/main.js"></script>
+</body>
+</html>
