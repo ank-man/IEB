@@ -1582,6 +1582,167 @@ h2:hover .step-number { transform: scale(1.2) rotate(-10deg); }
 .footer-links a:hover { color: #fff; }
 
 /* ================================================================
+   NEWS HUB SECTION
+   ================================================================ */
+
+/* Section header pill */
+.hub-eyebrow {
+  display: inline-block;
+  background: linear-gradient(135deg, var(--ieb-primary), var(--ieb-accent));
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  padding: 4px 14px;
+  border-radius: 999px;
+  margin-bottom: 10px;
+}
+
+/* News card */
+.news-card {
+  background: var(--ieb-glass);
+  border: 1px solid var(--ieb-glass-border);
+  border-radius: 16px;
+  overflow: hidden;
+  transition: transform 0.22s, box-shadow 0.22s;
+  height: 100%;
+}
+.news-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 36px rgba(13,110,253,0.12);
+}
+.news-card-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  padding: 3px 10px;
+  border-radius: 999px;
+  margin-bottom: 10px;
+}
+.news-label-new      { background: rgba(25,200,120,0.15); color: #19c878; }
+.news-label-feature  { background: rgba(13,110,253,0.13); color: var(--ieb-primary); }
+.news-label-news     { background: rgba(253,126,20,0.13); color: #fd7e14; }
+.news-label-tutorial { background: rgba(111,66,193,0.13); color: #6f42c1; }
+.news-label-ai       { background: rgba(83,52,131,0.15);  color: #533483; }
+
+.news-card-date {
+  font-size: 0.75rem;
+  color: var(--ieb-muted);
+  margin-bottom: 6px;
+}
+.news-card-title {
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.35;
+  margin-bottom: 8px;
+  color: var(--ieb-text);
+}
+.news-card-body { font-size: 0.875rem; color: var(--ieb-muted); }
+.news-card-link {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ieb-primary);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 12px;
+  transition: gap 0.18s;
+}
+.news-card-link:hover { gap: 8px; color: var(--ieb-primary); }
+
+/* Contributor of the Month card */
+.cotm-card {
+  background: linear-gradient(135deg, rgba(13,110,253,0.07) 0%, rgba(32,201,151,0.07) 100%);
+  border: 1px solid rgba(13,110,253,0.18);
+  border-radius: 20px;
+  padding: 32px;
+}
+.cotm-avatar {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--ieb-primary), var(--ieb-accent));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: #fff;
+  flex-shrink: 0;
+  box-shadow: 0 6px 20px rgba(13,110,253,0.3);
+}
+.cotm-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(135deg, #ffd700, #ffb700);
+  color: #1a1a2e;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: 999px;
+  margin-bottom: 8px;
+}
+
+/* Pinned feature banner */
+.feature-banner {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  border-radius: 20px;
+  padding: 36px 40px;
+  position: relative;
+  overflow: hidden;
+}
+.feature-banner::before {
+  content: '';
+  position: absolute;
+  top: -60px; right: -60px;
+  width: 220px; height: 220px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(13,110,253,0.25), transparent 70%);
+  pointer-events: none;
+}
+.feature-banner-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255,255,255,0.12);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 4px 12px;
+  border-radius: 999px;
+  margin-bottom: 14px;
+}
+
+/* New additions list */
+.new-addition-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--ieb-glass-border);
+}
+.new-addition-item:last-child { border-bottom: none; }
+.new-addition-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+/* ================================================================
    RESPONSIVE — Mobile-first overrides
    ================================================================ */
 
