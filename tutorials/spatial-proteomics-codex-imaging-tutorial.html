@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Spatial Proteomics: CODEX, IMC & Phenocycler Analysis — Tutorial | IndianElucidBiology</title>
+  <meta name="description" content="Step-by-step tutorial for spatial proteomics analysis using CODEX, IMC, and Phenocycler data. Nature Methods Method of the Year 2024. Covers cell segmentation, phenotyping, and spatial statistics.">
+  <meta name="keywords" content="spatial proteomics tutorial, CODEX, IMC, Phenocycler, MIBI, cell segmentation, deepcell, scimap, Nature Methods 2024 Method of the Year, IndianElucidBiology">
+  <meta name="author" content="IndianElucidBiology">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="../css/style.css" rel="stylesheet">
+</head>
+<body>
+<div class="progress-tracker"></div>
+<nav class="navbar navbar-expand-lg fixed-top">
+  <div class="container">
+    <a class="navbar-brand" href="../index.html"><img src="../indian_elucid_biology.png" alt="IndianElucidBiology" class="navbar-logo"></a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav"><span class="navbar-toggler-icon"></span></button>
+    <div class="collapse navbar-collapse" id="mainNav">
+      <ul class="navbar-nav ms-auto me-3 align-items-lg-center gap-lg-1">
+        <li class="nav-item"><a class="nav-link" href="../index.html"><i class="bi bi-house-door me-1"></i>Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="index.html"><i class="bi bi-grid-3x3-gap me-1"></i>All Tutorials</a></li>
+        <li class="nav-item"><a class="nav-link" href="../community.html"><i class="bi bi-discord me-1"></i>Community</a></li>
+      </ul>
+      <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode">&#9790;</button>
+    </div>
+  </div>
+</nav>
+
+<section class="tutorial-hero">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-lg-8">
+        <nav aria-label="breadcrumb"><ol class="breadcrumb mb-3" style="--bs-breadcrumb-divider-color:rgba(255,255,255,0.5);">
+          <li class="breadcrumb-item"><a href="../index.html" class="text-white-50 text-decoration-none">Home</a></li>
+          <li class="breadcrumb-item"><a href="index.html" class="text-white-50 text-decoration-none">Tutorials</a></li>
+          <li class="breadcrumb-item active text-white">Spatial Proteomics</li>
+        </ol></nav>
+        <div class="mb-3">
+          <span class="badge px-3 py-2 rounded-pill me-2" style="background:rgba(255,200,0,0.35);color:#fff;font-size:0.78rem;"><i class="bi bi-trophy me-1"></i>Method of the Year 2024 — Nature Methods</span>
+        </div>
+        <h1 class="display-5 fw-bold text-white mb-3">Spatial Proteomics: CODEX, IMC &amp; Phenocycler Analysis</h1>
+        <p class="lead text-white-50 mb-4">Analyse multiplexed tissue imaging data — profile 40–60 proteins simultaneously with single-cell spatial resolution. Covers image preprocessing, cell segmentation with DeepCell, phenotyping, neighbourhood analysis, and cell-cell interaction mapping.</p>
+        <div class="d-flex gap-3 flex-wrap">
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-clock me-1"></i>~55 min</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-bar-chart me-1"></i>Intermediate</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-terminal me-1"></i>Python</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-layers me-1"></i>Multi-omics</span>
+        </div>
+      </div>
+      <div class="col-lg-4 text-center d-none d-lg-block">
+        <img src="../img/Byte1.png" alt="Byte" class="img-fluid" style="max-height:220px;filter:drop-shadow(0 10px 30px rgba(0,0,0,0.4));">
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="container py-5">
+  <div class="row">
+    <div class="col-lg-3 d-none d-lg-block">
+      <div class="toc-sidebar">
+        <h6 class="fw-bold text-muted text-uppercase small mb-3">On this page</h6>
+        <nav class="nav flex-column">
+          <a class="nav-link" href="#overview">Overview</a>
+          <a class="nav-link" href="#platforms">Platforms Compared</a>
+          <a class="nav-link" href="#install">Installation</a>
+          <a class="nav-link" href="#step1">1. Load Image Data</a>
+          <a class="nav-link" href="#step2">2. Cell Segmentation</a>
+          <a class="nav-link" href="#step3">3. Marker Quantification</a>
+          <a class="nav-link" href="#step4">4. Cell Phenotyping</a>
+          <a class="nav-link" href="#step5">5. Spatial Analysis</a>
+          <a class="nav-link" href="#step6">6. Cell Interactions</a>
+          <a class="nav-link" href="#step7">7. Visualisation</a>
+          <a class="nav-link" href="#summary">Summary</a>
+        </nav>
+      </div>
+    </div>
+    <div class="col-lg-9">
+      <div class="tutorial-content">
+
+        <section id="overview" class="mb-5">
+          <h2 class="fw-bold">What is Spatial Proteomics?</h2>
+          <p>Spatial proteomics measures protein expression at single-cell resolution within intact tissue sections, preserving the spatial context of cell-cell interactions. Selected as <strong>Nature Methods Method of the Year 2024</strong>, it enables:</p>
+          <ul>
+            <li>Simultaneous detection of 40–100+ protein markers per cell in situ</li>
+            <li>Mapping of tumour microenvironments, immune cell infiltration, and tissue architecture</li>
+            <li>Linking cell identity, function, and spatial organisation in disease tissue</li>
+            <li>Integration with spatial transcriptomics for multi-modal tissue atlases</li>
+          </ul>
+
+          <h5 class="fw-bold mt-4">Key platforms in 2024–2025</h5>
+          <div class="row g-3">
+            <div class="col-md-6"><div class="card border-0 shadow-sm h-100"><div class="card-body"><h6 class="fw-bold text-primary">CODEX / Phenocycler (Akoya)</h6><p class="small mb-0">Cyclic immunofluorescence on FFPE. 40–100 markers. Standard confocal hardware. Good tissue preservation.</p></div></div></div>
+            <div class="col-md-6"><div class="card border-0 shadow-sm h-100"><div class="card-body"><h6 class="fw-bold text-success">IMC — Imaging Mass Cytometry (Fluidigm)</h6><p class="small mb-0">Metal isotope-labelled antibodies + laser ablation + mass spec. 40 markers, no background fluorescence.</p></div></div></div>
+            <div class="col-md-6"><div class="card border-0 shadow-sm h-100"><div class="card-body"><h6 class="fw-bold text-warning">MIBI-TOF (IonPath)</h6><p class="small mb-0">Ion beam imaging. Up to 40+ markers, high sensitivity. Used for cancer/immune profiling.</p></div></div></div>
+            <div class="col-md-6"><div class="card border-0 shadow-sm h-100"><div class="card-body"><h6 class="fw-bold text-danger">MICS (Miltenyi)</h6><p class="small mb-0">Fluorescent tyramide amplification. 100+ markers on FFPE. High throughput.</p></div></div></div>
+          </div>
+
+          <div class="byte-callout byte-info mt-4">
+            <img src="../img/Byte3.png" alt="Byte">
+            <div><strong>Computational workflow:</strong> All platforms share the same analysis pipeline — image preprocessing → cell segmentation → marker quantification → cell phenotyping → spatial analysis. Tools like <strong>scimap</strong> and <strong>MCMICRO</strong> handle all steps in a unified framework.</div>
+          </div>
+        </section>
+
+        <section id="install" class="mb-5">
+          <h2 class="fw-bold">Installation</h2>
+          <pre><code class="language-bash">conda create -n spatprot python=3.10 -y
+conda activate spatprot
+
+# Core analysis
+pip install scimap anndata scanpy napari
+
+# Cell segmentation
+pip install deepcell tensorflow
+
+# Image processing
+pip install tifffile imageio scikit-image
+
+# Verify
+python -c "import scimap; print(scimap.__version__)"</code></pre>
+        </section>
+
+        <section id="step1" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">1</span>Load Multiplexed Image Data</h2>
+          <pre><code class="language-python">import tifffile
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
+
+# Load a multiplexed TIFF (channels × height × width)
+# CODEX/Phenocycler output is typically a multi-channel TIFF
+image = tifffile.imread("codex_tissue.tiff")
+print(f"Image shape: {image.shape}")  # (C, H, W) — C channels
+
+# Load channel names (antibody panel)
+panel = pd.read_csv("panel.csv")
+# panel columns: channel_number, marker_name, target
+print(f"Markers: {panel['marker_name'].tolist()}")
+
+# Example panel for a tumour immunology study:
+# DAPI, CD3, CD4, CD8, CD20, CD56, CD68, CD163, CK, PD-L1,
+# Ki67, FOXP3, CD45, CD11b, HLA-DR, VISTA, TIM3, LAG3...
+
+# Extract specific channels by marker name
+def get_channel(image, panel, marker):
+    idx = panel[panel["marker_name"] == marker].index[0]
+    return image[idx]
+
+dapi = get_channel(image, panel, "DAPI")
+cd8  = get_channel(image, panel, "CD8")
+ck   = get_channel(image, panel, "CK")   # cytokeratin (tumour cells)
+
+# Visualise composite (RGB overlay)
+fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+axes[0].imshow(dapi, cmap="Blues",  vmax=np.percentile(dapi, 99))
+axes[0].set_title("DAPI (nuclei)", fontweight="bold")
+axes[1].imshow(cd8,  cmap="Greens", vmax=np.percentile(cd8, 99))
+axes[1].set_title("CD8 (cytotoxic T cells)", fontweight="bold")
+axes[2].imshow(ck,   cmap="Reds",   vmax=np.percentile(ck, 99))
+axes[2].set_title("CK (tumour cells)", fontweight="bold")
+for ax in axes: ax.axis("off")
+plt.tight_layout()
+plt.savefig("channel_overview.pdf", dpi=300, bbox_inches="tight")
+plt.show()</code></pre>
+        </section>
+
+        <section id="step2" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">2</span>Cell Segmentation with DeepCell</h2>
+          <p>Cell segmentation identifies individual cell boundaries from the DAPI (nuclear) and membrane markers. <strong>DeepCell Mesmer</strong> is the gold-standard deep learning segmentation model for multiplexed tissue imaging.</p>
+          <pre><code class="language-python">from deepcell.applications import Mesmer
+import numpy as np
+
+# Initialise Mesmer (downloads weights on first run ~500 MB)
+app = Mesmer()
+
+# Prepare input: Mesmer needs [batch, H, W, 2]
+# Channel 0: nuclear marker (DAPI)
+# Channel 1: membrane/cytoplasm marker (e.g. CD45 or CK)
+nuclear = dapi
+membrane = get_channel(image, panel, "CD45")
+
+# Stack and add batch + channel dimensions
+X = np.stack([nuclear, membrane], axis=-1)
+X = np.expand_dims(X, axis=0)  # add batch dim -> (1, H, W, 2)
+
+# Normalise
+X = X.astype(np.float32)
+X[..., 0] = X[..., 0] / np.percentile(X[..., 0], 99.9)
+X[..., 1] = X[..., 1] / np.percentile(X[..., 1], 99.9)
+X = np.clip(X, 0, 1)
+
+# Run segmentation
+# Returns (1, H, W, 2): channel 0 = whole cell, channel 1 = nuclear
+segmentation_predictions = app.predict(
+    X,
+    image_mpp=0.5,           # microns per pixel (check your microscope settings)
+    compartment="whole-cell" # or "nuclear" or "both"
+)
+
+cell_mask = segmentation_predictions[0, ..., 0]
+print(f"Cells detected: {cell_mask.max()}")
+
+# Visualise segmentation
+fig, axes = plt.subplots(1, 2, figsize=(12, 6))
+axes[0].imshow(dapi, cmap="Blues", vmax=np.percentile(dapi, 99))
+axes[0].set_title("DAPI", fontweight="bold")
+axes[1].imshow(cell_mask, cmap="tab20")
+axes[1].set_title(f"Cell segmentation ({cell_mask.max()} cells)", fontweight="bold")
+for ax in axes: ax.axis("off")
+plt.savefig("segmentation.pdf", dpi=300, bbox_inches="tight")
+plt.show()</code></pre>
+        </section>
+
+        <section id="step3" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">3</span>Marker Quantification per Cell</h2>
+          <pre><code class="language-python">from skimage.measure import regionprops_table
+
+# Extract mean intensity per cell per channel
+props = regionprops_table(
+    cell_mask.astype(int),
+    intensity_image=image.transpose(1, 2, 0),   # H × W × C
+    properties=["label", "centroid", "area",
+                 "intensity_mean"]
+)
+
+df = pd.DataFrame(props)
+
+# Rename intensity columns to marker names
+intensity_cols = [c for c in df.columns if "intensity_mean" in c]
+rename_map = {intensity_cols[i]: panel["marker_name"].iloc[i]
+              for i in range(min(len(intensity_cols), len(panel)))}
+df = df.rename(columns=rename_map)
+df = df.rename(columns={"centroid-0": "y", "centroid-1": "x"})
+
+print(f"Cell table shape: {df.shape}")
+print(df[["label","x","y","area","CD3","CD8","CK","CD68"]].head())
+
+# Save cell table
+df.to_csv("cell_table.csv", index=False)</code></pre>
+        </section>
+
+        <section id="step4" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">4</span>Cell Phenotyping with scimap</h2>
+          <pre><code class="language-python">import scimap as sm
+import anndata as ad
+import scanpy as sc
+
+# Build AnnData from cell table
+marker_cols = panel["marker_name"].tolist()
+X = df[marker_cols].values
+
+adata = ad.AnnData(X=X)
+adata.var_names = marker_cols
+adata.obs = df[["label","x","y","area"]].reset_index(drop=True)
+adata.obs.index = adata.obs["label"].astype(str)
+adata.obsm["spatial"] = df[["x","y"]].values
+
+# Arcsinh normalisation (standard for mass cytometry data)
+sm.pp.rescale(adata, gate=0.5)
+
+# Automated phenotyping using marker thresholds
+# Define phenotyping hierarchy
+phenotype_rules = {
+    "T cell":      {"CD3": "pos"},
+    "CD4 T cell":  {"CD3": "pos", "CD4": "pos"},
+    "CD8 T cell":  {"CD3": "pos", "CD8": "pos"},
+    "Treg":        {"CD3": "pos", "FOXP3": "pos"},
+    "B cell":      {"CD20": "pos"},
+    "NK cell":     {"CD56": "pos", "CD3": "neg"},
+    "Macrophage":  {"CD68": "pos"},
+    "M2 Macro":    {"CD68": "pos", "CD163": "pos"},
+    "Tumour":      {"CK": "pos"},
+    "Endothelial": {"CD31": "pos"},
+}
+
+sm.tl.phenotype_cells(
+    adata,
+    phenotype=phenotype_rules,
+    gate=0.5,
+    label="phenotype"
+)
+
+# Check phenotype distribution
+counts = adata.obs["phenotype"].value_counts()
+print("Cell type counts:")
+print(counts.to_string())
+
+# Plot pie chart of cell composition
+fig, ax = plt.subplots(figsize=(8, 8))
+wedges, texts, autotexts = ax.pie(
+    counts.values,
+    labels=counts.index,
+    autopct="%1.1f%%",
+    startangle=90,
+    pctdistance=0.82
+)
+ax.set_title("Cell type composition", fontsize=14, fontweight="bold")
+plt.tight_layout()
+plt.savefig("cell_composition_pie.pdf", dpi=300, bbox_inches="tight")
+plt.show()</code></pre>
+        </section>
+
+        <section id="step5" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">5</span>Spatial Neighbourhood Analysis</h2>
+          <pre><code class="language-python"># Build spatial KNN graph
+sm.tl.spatial_interaction(
+    adata,
+    phenotype="phenotype",
+    method="knn",
+    knn=10,
+    label="spatial_interaction"
+)
+
+# Visualise interaction heatmap
+sm.pl.spatial_interaction(
+    adata,
+    spatial_interaction="spatial_interaction",
+    figsize=(10, 8),
+    title="Cell-cell spatial interactions"
+)
+plt.savefig("spatial_interactions.pdf", dpi=300, bbox_inches="tight")
+
+# Find spatial communities (tissue niches)
+sm.tl.spatial_cluster(
+    adata,
+    df_name="spatial_interaction",
+    cluster_method="kmeans",
+    k=5,
+    label="tissue_niche"
+)
+
+# Map niches back to tissue
+sm.pl.image_viewer(
+    adata,
+    imageid="tissue",
+    overlay="tissue_niche",
+    point_size=5
+)</code></pre>
+        </section>
+
+        <section id="step6" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">6</span>Cell-Cell Interaction Proximity Analysis</h2>
+          <pre><code class="language-python">import scipy.spatial as spatial
+import seaborn as sns
+
+# For each cell type pair: is the distance shorter than expected by chance?
+# (permutation-based spatial enrichment test)
+
+coords = adata.obsm["spatial"]
+phenotypes = adata.obs["phenotype"].values
+
+cell_types = list(counts.index)
+n_types = len(cell_types)
+
+# Build KDTree for efficient distance queries
+tree = spatial.cKDTree(coords)
+
+# Count observed neighbours within radius r
+r = 50  # micrometers (adjust for your image scale)
+
+interaction_matrix = np.zeros((n_types, n_types))
+
+for i, ct_source in enumerate(cell_types):
+    source_idx = np.where(phenotypes == ct_source)[0]
+    source_coords = coords[source_idx]
+
+    for j, ct_target in enumerate(cell_types):
+        target_idx = np.where(phenotypes == ct_target)[0]
+        target_coords = coords[target_idx]
+
+        # Count target cells within radius r of each source cell
+        target_tree = spatial.cKDTree(target_coords)
+        neighbours = tree.query_ball_point(source_coords, r)
+        avg_neighbours = np.mean([len(n) for n in neighbours])
+        interaction_matrix[i, j] = avg_neighbours
+
+# Plot interaction heatmap
+fig, ax = plt.subplots(figsize=(10, 8))
+sns.heatmap(
+    pd.DataFrame(interaction_matrix, index=cell_types, columns=cell_types),
+    cmap="Reds", annot=True, fmt=".1f",
+    linewidths=0.5, ax=ax
+)
+ax.set_title(f"Mean neighbours within {r}μm radius", fontsize=13, fontweight="bold")
+ax.set_xlabel("Target cell type")
+ax.set_ylabel("Source cell type")
+plt.tight_layout()
+plt.savefig("interaction_proximity.pdf", dpi=300, bbox_inches="tight")
+plt.show()</code></pre>
+        </section>
+
+        <section id="step7" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">7</span>Spatial Scatter Visualisation</h2>
+          <pre><code class="language-python"># Plot cell phenotypes overlaid on tissue
+fig, axes = plt.subplots(1, 2, figsize=(16, 8))
+
+# Left: DAPI background with phenotype overlay
+axes[0].imshow(dapi, cmap="Greys_r", vmax=np.percentile(dapi, 99))
+
+# Define colours per phenotype
+colours = {
+    "CD8 T cell":  "#2196F3",
+    "CD4 T cell":  "#4CAF50",
+    "Treg":        "#8BC34A",
+    "B cell":      "#9C27B0",
+    "NK cell":     "#FF9800",
+    "Macrophage":  "#F44336",
+    "M2 Macro":    "#E91E63",
+    "Tumour":      "#FFEB3B",
+    "Endothelial": "#00BCD4",
+    "Other":       "#9E9E9E"
+}
+
+for ct, colour in colours.items():
+    mask = adata.obs["phenotype"] == ct
+    if mask.sum() > 0:
+        xy = adata.obsm["spatial"][mask.values]
+        axes[0].scatter(xy[:, 0], xy[:, 1], s=2, c=colour, label=ct, alpha=0.7)
+
+axes[0].legend(loc="upper right", markerscale=5, fontsize=7,
+               framealpha=0.8, ncol=2)
+axes[0].set_title("Cell phenotypes on tissue", fontweight="bold")
+axes[0].axis("off")
+
+# Right: same plot coloured by tissue niche
+niche_colours = plt.cm.Set2(np.linspace(0, 1, 5))
+for i, niche in enumerate(adata.obs["tissue_niche"].unique()):
+    mask = adata.obs["tissue_niche"] == niche
+    xy = adata.obsm["spatial"][mask.values]
+    axes[1].scatter(xy[:, 0], xy[:, 1], s=2,
+                    c=[niche_colours[i]], label=f"Niche {niche}", alpha=0.7)
+axes[1].set_title("Tissue niches", fontweight="bold")
+axes[1].legend(markerscale=5, fontsize=8)
+axes[1].axis("off")
+
+plt.tight_layout()
+plt.savefig("spatial_phenotype_map.pdf", dpi=300, bbox_inches="tight")
+plt.show()</code></pre>
+        </section>
+
+        <section id="summary" class="mb-5">
+          <h2 class="fw-bold">Summary</h2>
+          <div class="byte-callout byte-success">
+            <img src="../img/Byte1.png" alt="Byte">
+            <div>
+              <strong>Full spatial proteomics pipeline:</strong>
+              <ol class="mb-0 mt-1">
+                <li>Load multiplexed TIFF + antibody panel CSV</li>
+                <li>Segment cells with <strong>DeepCell Mesmer</strong> (nuclear + membrane channels)</li>
+                <li>Quantify mean marker intensity per cell using <code>regionprops_table</code></li>
+                <li>Phenotype cells with <strong>scimap</strong> using marker threshold rules</li>
+                <li>Spatial neighbourhood analysis — tissue niches and co-localisation</li>
+                <li>Cell-cell proximity testing — which cell types cluster together?</li>
+                <li>Visualise phenotype maps overlaid on tissue image</li>
+              </ol>
+            </div>
+          </div>
+          <h5 class="fw-bold mt-4">Cite</h5>
+          <div class="alert alert-secondary small">
+            <strong>Method of the Year 2024:</strong> <em>Spatial proteomics.</em> Nature Methods 22, 1 (2025). <a href="https://doi.org/10.1038/s41592-024-02565-3" target="_blank" rel="noopener">https://doi.org/10.1038/s41592-024-02565-3</a>
+          </div>
+        </section>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<section class="py-4" style="background:linear-gradient(135deg,#5865F2 0%,#4752c4 100%);">
+  <div class="container text-center">
+    <p class="text-white mb-2 fw-bold">Questions about spatial proteomics? Ask in the community!</p>
+    <a href="https://discord.gg/nbwDxTbz" target="_blank" rel="noopener" class="btn btn-light rounded-pill px-4 fw-bold" style="color:#5865F2;">
+      <i class="bi bi-discord me-2"></i>Join Discord — #proteomics
+    </a>
+  </div>
+</section>
+<footer class="site-footer"><div class="container text-center"><p class="small mb-0">&copy; 2025 IndianElucidBiology</p></div></footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/main.js"></script>
+</body>
+</html>

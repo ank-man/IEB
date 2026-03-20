@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Single-Cell Multiome: Joint ATAC + RNA Analysis — Tutorial | IndianElucidBiology</title>
+  <meta name="description" content="Step-by-step tutorial for 10x Genomics Multiome ATAC + Gene Expression joint analysis using Seurat, Signac, and ArchR. Covers peak calling, gene activity scores, WNN integration, and cis-regulatory analysis.">
+  <meta name="keywords" content="single cell multiome, ATAC-seq RNA-seq joint, Signac tutorial, ArchR tutorial, WNN integration, chromatin accessibility, cis-regulatory, IndianElucidBiology">
+  <meta name="author" content="IndianElucidBiology">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="../css/style.css" rel="stylesheet">
+</head>
+<body>
+<div class="progress-tracker"></div>
+<nav class="navbar navbar-expand-lg fixed-top">
+  <div class="container">
+    <a class="navbar-brand" href="../index.html"><img src="../indian_elucid_biology.png" alt="IndianElucidBiology" class="navbar-logo"></a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav"><span class="navbar-toggler-icon"></span></button>
+    <div class="collapse navbar-collapse" id="mainNav">
+      <ul class="navbar-nav ms-auto me-3 align-items-lg-center gap-lg-1">
+        <li class="nav-item"><a class="nav-link" href="../index.html"><i class="bi bi-house-door me-1"></i>Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="index.html"><i class="bi bi-grid-3x3-gap me-1"></i>All Tutorials</a></li>
+        <li class="nav-item"><a class="nav-link" href="../community.html"><i class="bi bi-discord me-1"></i>Community</a></li>
+      </ul>
+      <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode">&#9790;</button>
+    </div>
+  </div>
+</nav>
+
+<section class="tutorial-hero">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-lg-8">
+        <nav aria-label="breadcrumb"><ol class="breadcrumb mb-3" style="--bs-breadcrumb-divider-color:rgba(255,255,255,0.5);">
+          <li class="breadcrumb-item"><a href="../index.html" class="text-white-50 text-decoration-none">Home</a></li>
+          <li class="breadcrumb-item"><a href="index.html" class="text-white-50 text-decoration-none">Tutorials</a></li>
+          <li class="breadcrumb-item active text-white">Multiome ATAC+RNA</li>
+        </ol></nav>
+        <h1 class="display-5 fw-bold text-white mb-3">Single-Cell Multiome: Joint ATAC + RNA Analysis</h1>
+        <p class="lead text-white-50 mb-4">Simultaneously profile chromatin accessibility (ATAC-seq) and gene expression (RNA-seq) in the same single cell. Covers Cell Ranger ARC output, Signac + Seurat WNN integration, peak calling, motif enrichment, and gene regulatory network inference linking peaks to genes.</p>
+        <div class="d-flex gap-3 flex-wrap">
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-clock me-1"></i>~60 min</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-bar-chart me-1"></i>Advanced</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-filetype-r me-1"></i>R / Seurat / Signac</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-layers me-1"></i>Multi-omics</span>
+        </div>
+      </div>
+      <div class="col-lg-4 text-center d-none d-lg-block">
+        <img src="../img/Byte1.png" alt="Byte" class="img-fluid" style="max-height:220px;filter:drop-shadow(0 10px 30px rgba(0,0,0,0.4));">
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="container py-5">
+  <div class="row">
+    <div class="col-lg-3 d-none d-lg-block">
+      <div class="toc-sidebar">
+        <h6 class="fw-bold text-muted text-uppercase small mb-3">On this page</h6>
+        <nav class="nav flex-column">
+          <a class="nav-link" href="#overview">Overview</a>
+          <a class="nav-link" href="#install">Installation</a>
+          <a class="nav-link" href="#step1">1. Load Data</a>
+          <a class="nav-link" href="#step2">2. RNA Processing</a>
+          <a class="nav-link" href="#step3">3. ATAC Processing</a>
+          <a class="nav-link" href="#step4">4. WNN Integration</a>
+          <a class="nav-link" href="#step5">5. Peak Calling</a>
+          <a class="nav-link" href="#step6">6. Motif Analysis</a>
+          <a class="nav-link" href="#step7">7. Peak-Gene Links</a>
+          <a class="nav-link" href="#step8">8. Differential Peaks</a>
+          <a class="nav-link" href="#summary">Summary</a>
+        </nav>
+      </div>
+    </div>
+    <div class="col-lg-9">
+      <div class="tutorial-content">
+
+        <section id="overview" class="mb-5">
+          <h2 class="fw-bold">Why Joint ATAC + RNA?</h2>
+          <p>Single-cell ATAC-seq alone tells you which genomic regions are open (accessible) in each cell — a proxy for regulatory activity. RNA-seq alone tells you gene expression. Combining them in the <strong>same cell</strong> with 10x Multiome (or SHARE-seq, PAIRED-seq) lets you:</p>
+          <ul>
+            <li>Directly link cis-regulatory elements (enhancers) to the genes they regulate</li>
+            <li>Identify transcription factor (TF) binding sites driving cell-type-specific expression</li>
+            <li>Study chromatin remodelling during differentiation trajectories</li>
+            <li>Infer gene regulatory networks with chromatin evidence</li>
+            <li>Better resolve ambiguous cell types using both modalities via WNN (Weighted Nearest Neighbours)</li>
+          </ul>
+          <div class="byte-callout byte-info">
+            <img src="../img/Byte3.png" alt="Byte">
+            <div><strong>WNN integration</strong> (Hao et al., Cell 2021) weights each modality per cell based on its information content — if RNA is noisy in a cell, it up-weights ATAC. This gives more accurate clustering than either modality alone.</div>
+          </div>
+        </section>
+
+        <section id="install" class="mb-5">
+          <h2 class="fw-bold">Installation</h2>
+          <pre><code class="language-r"># In R:
+install.packages(c("Seurat", "Signac", "ggplot2", "dplyr", "patchwork"))
+BiocManager::install(c("GenomicRanges", "BSgenome.Hsapiens.UCSC.hg38",
+                        "EnsDb.Hsapiens.v86", "chromVAR", "motifmatchr",
+                        "TFBSTools", "JASPAR2020"))
+
+# Verify
+library(Seurat)
+library(Signac)
+packageVersion("Signac")  # should be >= 1.12</code></pre>
+
+          <pre><code class="language-bash"># MACS2 for peak calling (Python)
+pip install macs2
+macs2 --version</code></pre>
+        </section>
+
+        <section id="step1" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">1</span>Load Cell Ranger ARC Output</h2>
+          <pre><code class="language-r">library(Seurat)
+library(Signac)
+library(EnsDb.Hsapiens.v86)
+library(GenomicRanges)
+
+# Cell Ranger ARC output directory structure:
+# outs/
+# ├── filtered_feature_bc_matrix/    (RNA counts)
+# ├── atac_fragments.tsv.gz          (ATAC fragments)
+# ├── atac_peaks.bed                 (called peaks)
+# └── per_barcode_metrics.csv        (QC per cell)
+
+# Read RNA counts
+rna_counts <- Read10X_h5("outs/filtered_feature_bc_matrix.h5")
+rna_mat <- rna_counts$`Gene Expression`
+
+# Read ATAC peak counts
+atac_counts <- rna_counts$Peaks
+
+# Get genome annotations for hg38
+annotations <- GetGRangesFromEnsDb(ensdb = EnsDb.Hsapiens.v86)
+seqlevelsStyle(annotations) <- "UCSC"
+genome(annotations) <- "hg38"
+
+# Create ChromatinAssay for ATAC data
+chrom_assay <- CreateChromatinAssay(
+  counts    = atac_counts,
+  sep       = c(":", "-"),
+  genome    = "hg38",
+  fragments = "outs/atac_fragments.tsv.gz",
+  min.cells = 10,
+  annotation = annotations
+)
+
+# Create Seurat object with both modalities
+pbmc <- CreateSeuratObject(
+  counts    = rna_mat,
+  assay     = "RNA",
+  min.cells = 10
+)
+pbmc[["ATAC"]] <- chrom_assay
+
+cat("Cells:", ncol(pbmc), "\n")
+cat("RNA features:", nrow(pbmc[["RNA"]]), "\n")
+cat("ATAC peaks:", nrow(pbmc[["ATAC"]]), "\n")</code></pre>
+        </section>
+
+        <section id="step2" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">2</span>RNA QC &amp; Processing</h2>
+          <pre><code class="language-r">library(dplyr)
+
+# QC metrics
+pbmc[["percent.mt"]] <- PercentageFeatureSet(pbmc, pattern = "^MT-")
+
+# Filter cells
+pbmc <- subset(
+  pbmc,
+  subset = nFeature_RNA > 200 &
+           nFeature_RNA < 5000 &
+           percent.mt < 20
+)
+
+# Normalise and find variable features
+DefaultAssay(pbmc) <- "RNA"
+pbmc <- NormalizeData(pbmc)
+pbmc <- FindVariableFeatures(pbmc, nfeatures = 3000)
+pbmc <- ScaleData(pbmc)
+pbmc <- RunPCA(pbmc, npcs = 50)
+
+cat("After QC:", ncol(pbmc), "cells\n")</code></pre>
+        </section>
+
+        <section id="step3" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">3</span>ATAC QC &amp; Processing</h2>
+          <pre><code class="language-r">DefaultAssay(pbmc) <- "ATAC"
+
+# ATAC-specific QC metrics
+pbmc <- NucleosomeSignal(pbmc)
+pbmc <- TSSEnrichment(pbmc, fast = FALSE)
+
+# Visualise ATAC QC
+VlnPlot(
+  pbmc,
+  features = c("nCount_ATAC", "TSS.enrichment", "nucleosome_signal"),
+  ncol = 3,
+  pt.size = 0
+)
+
+# Filter cells based on ATAC QC
+pbmc <- subset(
+  pbmc,
+  subset = nCount_ATAC > 1000 &
+           nCount_ATAC < 100000 &
+           nucleosome_signal < 2 &
+           TSS.enrichment > 1
+)
+
+# Term-frequency inverse-document-frequency (TF-IDF) normalisation
+pbmc <- RunTFIDF(pbmc)
+
+# Feature selection — top accessible peaks
+pbmc <- FindTopFeatures(pbmc, min.cutoff = "q5")
+
+# SVD (LSI) dimensionality reduction
+pbmc <- RunSVD(pbmc)
+
+# Check if first LSI component correlates with depth (should be excluded)
+DepthCor(pbmc)
+# If component 1 correlates strongly with depth, exclude it in downstream steps</code></pre>
+        </section>
+
+        <section id="step4" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">4</span>WNN Joint Clustering</h2>
+          <p>Weighted Nearest Neighbours (WNN) combines RNA PCA and ATAC LSI embeddings, weighting each modality adaptively per cell.</p>
+          <pre><code class="language-r">library(patchwork)
+
+# Build WNN graph using both modalities
+pbmc <- FindMultiModalNeighbors(
+  pbmc,
+  reduction.list = list("pca", "lsi"),
+  dims.list      = list(1:50, 2:50),   # exclude LSI dim 1 (depth correlated)
+  modality.weight.name = "RNA.weight"
+)
+
+# UMAP from WNN
+pbmc <- RunUMAP(
+  pbmc,
+  nn.name  = "weighted.nn",
+  reduction.name = "wnn.umap",
+  reduction.key  = "wnnUMAP_"
+)
+
+# Also make RNA-only and ATAC-only UMAPs for comparison
+pbmc <- RunUMAP(pbmc, reduction="pca",  dims=1:50,
+                reduction.name="rna.umap", reduction.key="rnaUMAP_")
+pbmc <- RunUMAP(pbmc, reduction="lsi",  dims=2:50,
+                reduction.name="atac.umap", reduction.key="atacUMAP_")
+
+# Cluster on WNN graph
+pbmc <- FindClusters(pbmc, graph.name = "wsnn",
+                     algorithm = 3, resolution = 0.8)
+
+# Compare UMAPs side by side
+p1 <- DimPlot(pbmc, reduction="rna.umap",  group.by="seurat_clusters",
+              label=TRUE) + ggtitle("RNA only") + NoLegend()
+p2 <- DimPlot(pbmc, reduction="atac.umap", group.by="seurat_clusters",
+              label=TRUE) + ggtitle("ATAC only") + NoLegend()
+p3 <- DimPlot(pbmc, reduction="wnn.umap",  group.by="seurat_clusters",
+              label=TRUE) + ggtitle("WNN (joint)") + NoLegend()
+
+p1 | p2 | p3
+ggsave("wnn_comparison_umap.pdf", width=18, height=6)</code></pre>
+        </section>
+
+        <section id="step5" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">5</span>Peak Calling per Cell Type with MACS2</h2>
+          <p>Cell Ranger ARC calls peaks globally. Re-calling peaks per cell type gives higher-resolution, cluster-specific accessibility profiles.</p>
+          <pre><code class="language-r"># Assign cell type labels first (from RNA markers)
+pbmc <- RenameIdents(
+  pbmc,
+  "0"  = "CD14 Mono",
+  "1"  = "CD4 T",
+  "2"  = "CD8 T",
+  "3"  = "B cell",
+  "4"  = "NK",
+  "5"  = "CD16 Mono",
+  "6"  = "DC",
+  "7"  = "Platelet"
+)
+pbmc$cell_type <- Idents(pbmc)
+
+# Call peaks per cell type using MACS2
+peaks <- CallPeaks(
+  pbmc,
+  group.by = "cell_type",
+  macs2.path = "/path/to/macs2"
+)
+
+# Keep only standard chromosomes
+peaks <- keepStandardChromosomes(peaks, pruning.mode = "coarse")
+
+# Quantify fragments in new peaks
+macs2_counts <- FeatureMatrix(
+  fragments = Fragments(pbmc),
+  features  = peaks,
+  cells     = colnames(pbmc)
+)
+
+# Create new ATAC assay with MACS2 peaks
+pbmc[["MACS2"]] <- CreateChromatinAssay(
+  counts     = macs2_counts,
+  fragments  = Fragments(pbmc),
+  annotation = Annotation(pbmc)
+)
+
+cat("MACS2 peaks called:", nrow(peaks), "\n")
+cat("Original peaks:", nrow(pbmc[["ATAC"]]), "\n")</code></pre>
+        </section>
+
+        <section id="step6" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">6</span>Transcription Factor Motif Enrichment</h2>
+          <pre><code class="language-r">library(JASPAR2020)
+library(TFBSTools)
+library(chromVAR)
+library(motifmatchr)
+library(BSgenome.Hsapiens.UCSC.hg38)
+
+DefaultAssay(pbmc) <- "MACS2"
+
+# Get JASPAR 2020 motif database (vertebrates)
+pfm <- getMatrixSet(
+  JASPAR2020,
+  opts = list(collection = "CORE", tax_group = "vertebrates",
+              all_versions = FALSE)
+)
+
+# Scan peaks for TF motif matches
+pbmc <- AddMotifs(pbmc, genome = BSgenome.Hsapiens.UCSC.hg38, pfm = pfm)
+
+# Run chromVAR to compute per-cell TF activity scores
+pbmc <- RunChromVAR(
+  object = pbmc,
+  genome = BSgenome.Hsapiens.UCSC.hg38
+)
+
+# Differential TF activity between cell types
+DefaultAssay(pbmc) <- "chromvar"
+da_tf <- FindMarkers(
+  pbmc,
+  ident.1  = "CD8 T",
+  ident.2  = "CD4 T",
+  only.pos = TRUE,
+  mean.fxn = rowMeans,
+  fc.name  = "avg_diff"
+)
+
+# Map motif IDs to TF names
+motif_names <- GetMotifData(pbmc, slot = "motif.names")
+da_tf$tf_name <- motif_names[rownames(da_tf)]
+
+cat("Top TFs enriched in CD8 T vs CD4 T:\n")
+print(head(da_tf[, c("tf_name","avg_diff","p_val_adj")], 15))
+
+# Visualise TF activity
+DefaultAssay(pbmc) <- "chromvar"
+FeaturePlot(
+  pbmc,
+  features = c("MA0080.5", "MA0105.4"),   # IRF4, RUNX1
+  reduction = "wnn.umap",
+  min.cutoff = "q10",
+  max.cutoff = "q90",
+  ncol = 2
+) &
+scale_color_gradient2(low="blue", mid="lightgrey", high="red") &
+ggtitle(c("IRF4 motif activity", "RUNX1 motif activity"))
+ggsave("tf_motif_activity.pdf", width=12, height=5)</code></pre>
+        </section>
+
+        <section id="step7" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">7</span>Peak-to-Gene Linkage</h2>
+          <p>Linking open chromatin peaks to the genes they regulate is the core multiome analysis — enabled by having ATAC and RNA from the same cell.</p>
+          <pre><code class="language-r">DefaultAssay(pbmc) <- "MACS2"
+
+# Link peaks to genes using co-variation across cells
+# (peaks that open/close together with gene expression → likely regulatory)
+pbmc <- LinkPeaks(
+  object     = pbmc,
+  peak.assay = "MACS2",
+  expression.assay = "RNA",
+  genes.use  = VariableFeatures(pbmc)
+)
+
+# View links
+links <- Links(pbmc)
+cat("Total peak-gene links:", length(links), "\n")
+
+# Filter to strong, significant links
+strong_links <- links[links$score > 0.1 & links$pvalue < 0.05]
+cat("Strong links (score>0.1, p<0.05):", length(strong_links), "\n")
+
+# Visualise coverage plot for a specific gene
+CoveragePlot(
+  object    = pbmc,
+  region    = "CD8A",
+  features  = "CD8A",
+  expression.assay = "RNA",
+  idents    = c("CD8 T", "CD4 T", "CD14 Mono"),
+  extend.upstream   = 5000,
+  extend.downstream = 5000
+)
+ggsave("CD8A_coverage_plot.pdf", width=10, height=8)</code></pre>
+        </section>
+
+        <section id="step8" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">8</span>Differential Accessibility Analysis</h2>
+          <pre><code class="language-r">DefaultAssay(pbmc) <- "MACS2"
+
+# Find differentially accessible peaks between cell types
+da_peaks <- FindMarkers(
+  pbmc,
+  ident.1  = "CD8 T",
+  ident.2  = "CD4 T",
+  only.pos = TRUE,
+  test.use = "LR",          # logistic regression (recommended for ATAC)
+  latent.vars = "nCount_ATAC"   # control for sequencing depth
+)
+
+# Annotate peaks (nearest gene, peak type: promoter/enhancer/intron)
+da_peaks_annotated <- ClosestFeature(pbmc, regions = rownames(da_peaks))
+da_peaks <- cbind(da_peaks, da_peaks_annotated)
+
+cat("Differentially accessible peaks (CD8 > CD4):", nrow(da_peaks), "\n")
+
+# Promoter vs enhancer breakdown
+table(da_peaks$type)
+
+# Volcano plot
+library(ggplot2)
+library(ggrepel)
+
+da_peaks$neg_log10_padj <- -log10(da_peaks$p_val_adj + 1e-300)
+da_peaks$label <- ifelse(da_peaks$p_val_adj < 1e-10 & abs(da_peaks$avg_log2FC) > 1,
+                          da_peaks$gene_name, "")
+
+ggplot(da_peaks, aes(x=avg_log2FC, y=neg_log10_padj)) +
+  geom_point(aes(colour=type), alpha=0.6, size=1.2) +
+  geom_text_repel(aes(label=label), size=3, max.overlaps=20) +
+  geom_vline(xintercept=c(-1,1), linetype="dashed", colour="grey50") +
+  geom_hline(yintercept=-log10(0.05), linetype="dashed", colour="grey50") +
+  scale_colour_manual(values=c("Promoter"="#4CAF50","Distal Intergenic"="#F44336","Intron"="#FF9800")) +
+  labs(x="Average log2 fold change", y="-log10(adjusted p-value)",
+       title="Differentially accessible peaks: CD8 T vs CD4 T",
+       colour="Peak type") +
+  theme_classic(base_size=13)
+ggsave("da_peaks_volcano.pdf", width=10, height=7, dpi=300)</code></pre>
+        </section>
+
+        <section id="summary" class="mb-5">
+          <h2 class="fw-bold">Summary</h2>
+          <div class="byte-callout byte-success">
+            <img src="../img/Byte1.png" alt="Byte">
+            <div>
+              <strong>Full Multiome pipeline:</strong>
+              <ol class="mb-0 mt-1">
+                <li>Load Cell Ranger ARC output → create Seurat object with RNA + ATAC assays</li>
+                <li>Process RNA (NormalizeData → PCA) and ATAC (TF-IDF → LSI) independently</li>
+                <li>Join with <strong>WNN</strong> for better clustering than either modality alone</li>
+                <li>Re-call peaks per cell type with <strong>MACS2</strong> for higher resolution</li>
+                <li>TF motif enrichment with <strong>chromVAR</strong> + JASPAR2020</li>
+                <li><strong>LinkPeaks</strong> to identify cis-regulatory elements driving gene expression</li>
+                <li>Differential accessibility with logistic regression controlling for depth</li>
+              </ol>
+            </div>
+          </div>
+          <h5 class="fw-bold mt-4">Related Tutorials</h5>
+          <div class="row g-3">
+            <div class="col-md-6"><a href="scrna-cell-ranger-seurat.html" class="text-decoration-none"><div class="p-3 rounded-3 border"><i class="bi bi-arrow-right-circle text-primary me-2"></i><strong>scRNA-Seq with Seurat v5</strong></div></a></div>
+            <div class="col-md-6"><a href="epigenomics-atac-chip-tutorial.html" class="text-decoration-none"><div class="p-3 rounded-3 border"><i class="bi bi-arrow-right-circle text-primary me-2"></i><strong>Bulk ATAC-Seq Analysis</strong></div></a></div>
+          </div>
+        </section>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<section class="py-4" style="background:linear-gradient(135deg,#5865F2 0%,#4752c4 100%);">
+  <div class="container text-center">
+    <p class="text-white mb-2 fw-bold">Questions about multiome analysis? Ask in the community!</p>
+    <a href="https://discord.gg/nbwDxTbz" target="_blank" rel="noopener" class="btn btn-light rounded-pill px-4 fw-bold" style="color:#5865F2;">
+      <i class="bi bi-discord me-2"></i>Join Discord — #atac-seq-chip-seq
+    </a>
+  </div>
+</section>
+<footer class="site-footer"><div class="container text-center"><p class="small mb-0">&copy; 2025 IndianElucidBiology</p></div></footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Long-Read RNA-Seq: Transcript Discovery with Oxford Nanopore & PacBio — Tutorial | IndianElucidBiology</title>
+  <meta name="description" content="Step-by-step tutorial for long-read RNA-Seq transcript discovery and quantification using Minimap2, FLAMES, IsoQuant, and StringTie2. Based on Nature Methods 2024 LRGASP consortium benchmark.">
+  <meta name="keywords" content="long read RNA-Seq, Oxford Nanopore, PacBio, transcript discovery, FLAMES, IsoQuant, StringTie2, Minimap2, Nature Methods 2024, IndianElucidBiology">
+  <meta name="author" content="IndianElucidBiology">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="../css/style.css" rel="stylesheet">
+</head>
+<body>
+<div class="progress-tracker"></div>
+<nav class="navbar navbar-expand-lg fixed-top">
+  <div class="container">
+    <a class="navbar-brand" href="../index.html"><img src="../indian_elucid_biology.png" alt="IndianElucidBiology" class="navbar-logo"></a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav"><span class="navbar-toggler-icon"></span></button>
+    <div class="collapse navbar-collapse" id="mainNav">
+      <ul class="navbar-nav ms-auto me-3 align-items-lg-center gap-lg-1">
+        <li class="nav-item"><a class="nav-link" href="../index.html"><i class="bi bi-house-door me-1"></i>Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="index.html"><i class="bi bi-grid-3x3-gap me-1"></i>All Tutorials</a></li>
+        <li class="nav-item"><a class="nav-link" href="../community.html"><i class="bi bi-discord me-1"></i>Community</a></li>
+      </ul>
+      <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode">&#9790;</button>
+    </div>
+  </div>
+</nav>
+
+<section class="tutorial-hero">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-lg-8">
+        <nav aria-label="breadcrumb"><ol class="breadcrumb mb-3" style="--bs-breadcrumb-divider-color:rgba(255,255,255,0.5);">
+          <li class="breadcrumb-item"><a href="../index.html" class="text-white-50 text-decoration-none">Home</a></li>
+          <li class="breadcrumb-item"><a href="index.html" class="text-white-50 text-decoration-none">Tutorials</a></li>
+          <li class="breadcrumb-item active text-white">Long-Read RNA-Seq</li>
+        </ol></nav>
+        <div class="mb-3">
+          <span class="badge px-3 py-2 rounded-pill me-2" style="background:rgba(255,255,255,0.15);color:#fff;font-size:0.78rem;"><i class="bi bi-journal-text me-1"></i>Nature Methods 2024 (LRGASP)</span>
+        </div>
+        <h1 class="display-5 fw-bold text-white mb-3">Long-Read RNA-Seq: Transcript Discovery &amp; Quantification</h1>
+        <p class="lead text-white-50 mb-4">Full-length transcript sequencing with Oxford Nanopore (ONT) and PacBio HiFi — covering basecalling, alignment with Minimap2, transcript assembly with IsoQuant/FLAMES/StringTie2, and differential isoform analysis with DEXSeq.</p>
+        <div class="d-flex gap-3 flex-wrap">
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-clock me-1"></i>~60 min</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-bar-chart me-1"></i>Intermediate–Advanced</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-terminal me-1"></i>CLI / Python / R</span>
+        </div>
+      </div>
+      <div class="col-lg-4 text-center d-none d-lg-block">
+        <img src="../img/Byte1.png" alt="Byte" class="img-fluid" style="max-height:220px;filter:drop-shadow(0 10px 30px rgba(0,0,0,0.4));">
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="container py-5">
+  <div class="row">
+    <div class="col-lg-3 d-none d-lg-block">
+      <div class="toc-sidebar">
+        <h6 class="fw-bold text-muted text-uppercase small mb-3">On this page</h6>
+        <nav class="nav flex-column">
+          <a class="nav-link" href="#overview">Overview</a>
+          <a class="nav-link" href="#platforms">ONT vs PacBio HiFi</a>
+          <a class="nav-link" href="#install">Tools & Installation</a>
+          <a class="nav-link" href="#basecall">1. Basecalling (ONT)</a>
+          <a class="nav-link" href="#qc">2. QC with NanoStat</a>
+          <a class="nav-link" href="#align">3. Align with Minimap2</a>
+          <a class="nav-link" href="#assembly">4. Transcript Assembly</a>
+          <a class="nav-link" href="#quant">5. Quantification</a>
+          <a class="nav-link" href="#dtu">6. Differential Isoform Use</a>
+          <a class="nav-link" href="#lrgasp">LRGASP Benchmarks</a>
+          <a class="nav-link" href="#summary">Summary</a>
+        </nav>
+      </div>
+    </div>
+    <div class="col-lg-9">
+      <div class="tutorial-content">
+
+        <section id="overview" class="mb-5">
+          <h2 class="fw-bold">Why Long-Read RNA-Seq?</h2>
+          <p>Short-read RNA-Seq (Illumina) measures gene expression well but struggles to resolve full-length transcript isoforms — a single gene can produce dozens of distinct transcripts with different exon compositions, affecting protein function. Long-read sequencing platforms (Oxford Nanopore and PacBio) can sequence entire mRNA molecules (1–15+ kb) in a single read, enabling:</p>
+          <ul>
+            <li><strong>Novel isoform discovery</strong> — find transcripts not in reference annotations</li>
+            <li><strong>Alternative splicing characterisation</strong> — resolve exon skipping, intron retention, alternative 5'/3' ends</li>
+            <li><strong>Fusion transcript detection</strong> — in cancer or following genomic rearrangements</li>
+            <li><strong>Direct RNA sequencing (ONT)</strong> — detect RNA modifications (m6A, pseudouridine) without conversion</li>
+          </ul>
+          <div class="byte-callout byte-info">
+            <img src="../img/Byte3.png" alt="Byte">
+            <div><strong>LRGASP (Nature Methods 2024):</strong> The Long-read RNA-Seq Genome Annotation Assessment Project benchmarked 10+ tools on 427M+ long reads. Key finding: IsoQuant and FLAMES outperform StringTie2 for novel transcript discovery, while StringTie2 remains competitive for well-annotated genomes.</div>
+          </div>
+        </section>
+
+        <section id="platforms" class="mb-5">
+          <h2 class="fw-bold">ONT vs PacBio HiFi</h2>
+          <div class="table-responsive">
+            <table class="table table-bordered">
+              <thead class="table-dark">
+                <tr><th>Feature</th><th>Oxford Nanopore (ONT)</th><th>PacBio HiFi (CCS)</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>Read length</td><td>Avg 5–20 kb (up to 4 Mb)</td><td>Avg 10–20 kb</td></tr>
+                <tr><td>Accuracy</td><td>Q20+ (R10 chemistry)</td><td>Q30+ (HiFi)</td></tr>
+                <tr><td>Throughput</td><td>Very high (PromethION: ~290 Gb/run)</td><td>High (Revio: ~90 Gb/run)</td></tr>
+                <tr><td>Cost per Gb</td><td>Lower</td><td>Higher</td></tr>
+                <tr><td>Direct RNA</td><td>Yes (no RT step)</td><td>No</td></tr>
+                <tr><td>Best for</td><td>Discovery, high throughput, direct RNA</td><td>High accuracy, diploid isoforms</td></tr>
+                <tr><td>Recommended aligner</td><td>Minimap2 (<code>-ax splice</code>)</td><td>Minimap2 (<code>-ax splice:hq</code>)</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="install" class="mb-5">
+          <h2 class="fw-bold">Tools &amp; Installation</h2>
+          <pre><code class="language-bash">conda create -n lrrnaseq python=3.10 -y
+conda activate lrrnaseq
+
+# Core tools
+conda install -c bioconda minimap2 samtools nanostat isoquant flames stringtie -y
+
+# Python packages
+pip install pyranges pandas matplotlib seaborn
+
+# R packages (run in R)
+# BiocManager::install(c("DEXSeq", "tximeta", "fishpond", "bambu"))</code></pre>
+        </section>
+
+        <section id="basecall" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">1</span>Basecalling ONT Raw Data</h2>
+          <p>Raw ONT data (FAST5/POD5) must be basecalled to produce FASTQ. Use Dorado (the current ONT basecaller, replacing Guppy).</p>
+          <pre><code class="language-bash"># Install Dorado (ONT's current basecaller)
+# Download from: https://github.com/nanoporetech/dorado/releases
+
+# Download model (super-accurate for RNA)
+dorado download --model rna004_130bps_sup@v5.0.0
+
+# Basecall POD5 files
+dorado basecaller \
+    rna004_130bps_sup@v5.0.0 \
+    pod5_pass/ \
+    --emit-fastq \
+    --reference genome.fa \   # optional: for alignment during basecalling
+    > reads.fastq
+
+# For cDNA (not direct RNA):
+dorado basecaller \
+    dna_r10.4.1_e8.2_400bps_sup@v4.3.0 \
+    pod5_pass/ \
+    --emit-fastq > cdna_reads.fastq
+
+echo "Basecalling done"
+wc -l reads.fastq  # should be 4x number of reads</code></pre>
+        </section>
+
+        <section id="qc" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">2</span>Quality Control with NanoStat</h2>
+          <pre><code class="language-bash"># QC summary statistics
+NanoStat --fastq reads.fastq --outdir nanostat_qc/ -t 8
+
+# NanoPlot for visualisation
+pip install NanoPlot
+NanoPlot --fastq reads.fastq \
+         --outdir nanoplot_qc/ \
+         --plots dot --N50 \
+         -t 8
+
+# Key metrics to check:
+# - Mean read length (aim: >1 kb for mRNA)
+# - Mean quality score (aim: Q15+ for ONT R10, Q30+ for PacBio HiFi)
+# - N50 read length (median of longest reads covering 50% of data)
+# - Total bases sequenced</code></pre>
+
+          <pre><code class="language-python"># Parse NanoStat output in Python
+import pandas as pd
+
+with open("nanostat_qc/NanoStats.txt") as f:
+    lines = f.readlines()
+
+stats = {}
+for line in lines:
+    parts = line.strip().split(":")
+    if len(parts) == 2:
+        stats[parts[0].strip()] = parts[1].strip()
+
+print(f"Total reads:      {stats.get('Number of reads', 'N/A')}")
+print(f"Mean length:      {stats.get('Mean read length', 'N/A')} bp")
+print(f"Mean quality:     {stats.get('Mean read quality', 'N/A')}")
+print(f"N50 length:       {stats.get('Read length N50', 'N/A')} bp")
+print(f"Total bases:      {stats.get('Total bases', 'N/A')}")</code></pre>
+        </section>
+
+        <section id="align" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">3</span>Splice-Aware Alignment with Minimap2</h2>
+          <div class="byte-callout byte-warning">
+            <img src="../img/Byte2.png" alt="Byte warning">
+            <div><strong>Critical:</strong> Use <code>-ax splice</code> for cDNA/mRNA (not <code>-ax map-ont</code> which is for genomic DNA). For PacBio HiFi, use <code>-ax splice:hq</code>. Missing this causes massive misalignment rates.</div>
+          </div>
+          <pre><code class="language-bash"># Index genome
+minimap2 -d genome.mmi genome.fa
+
+# Align ONT cDNA reads (splice-aware)
+minimap2 \
+    -ax splice \
+    -uf \              # forward-strand only for stranded libraries
+    --secondary=no \   # suppress secondary alignments
+    -C 5 \             # cost for non-canonical splicing
+    -t 16 \
+    genome.mmi \
+    reads.fastq \
+| samtools sort -@ 8 -o aligned.bam
+
+samtools index aligned.bam
+
+# Align PacBio HiFi (higher accuracy mode)
+minimap2 \
+    -ax splice:hq \
+    --secondary=no \
+    -t 16 \
+    genome.mmi \
+    hifi_reads.fastq \
+| samtools sort -@ 8 -o aligned_hifi.bam
+
+# Check alignment statistics
+samtools flagstat aligned.bam</code></pre>
+        </section>
+
+        <section id="assembly" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">4</span>Transcript Assembly</h2>
+          <p>Three tools benchmarked by LRGASP — choose based on your use case:</p>
+
+          <h5 class="fw-bold mt-4">Option A: IsoQuant (recommended for novel isoform discovery)</h5>
+          <pre><code class="language-bash">conda install -c bioconda isoquant -y
+
+isoquant.py \
+    --reference genome.fa \
+    --genedb annotation.gtf \
+    --bam aligned.bam \
+    --data_type nanopore \        # or 'pacbio_ccs' for HiFi
+    --output isoquant_output/ \
+    --threads 16 \
+    --transcript_quantification unique_only \
+    --gene_quantification unique_only
+
+# Key outputs:
+# isoquant_output/sample/sample.transcript_models.gtf  — novel transcripts
+# isoquant_output/sample/sample.transcript_counts.tsv  — counts per transcript
+# isoquant_output/sample/sample.gene_counts.tsv        — counts per gene</code></pre>
+
+          <h5 class="fw-bold mt-4">Option B: FLAMES (for single-cell long-read RNA-Seq)</h5>
+          <pre><code class="language-bash"># FLAMES is particularly powerful for scRNA-Seq + long reads
+# Install via conda or R/Bioconductor
+pip install flames
+
+python - &lt;&lt;'EOF'
+from flames import bulk_long_pipeline
+
+bulk_long_pipeline(
+    annotation="annotation.gtf",
+    fastq_dir="fastq/",
+    out_dir="flames_output/",
+    genome_fa="genome.fa",
+    minimap2="minimap2",
+    k=5,              # minimum splice count
+    strand_specific=1
+)
+EOF</code></pre>
+
+          <h5 class="fw-bold mt-4">Option C: StringTie2 (fast, good for known-genome annotation)</h5>
+          <pre><code class="language-bash">stringtie \
+    aligned.bam \
+    -G annotation.gtf \
+    -L \                 # long-read mode
+    -o stringtie_output.gtf \
+    -e \                 # estimate expression of known transcripts only
+    -B \                 # output Ballgown-compatible tables
+    -p 16</code></pre>
+        </section>
+
+        <section id="quant" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">5</span>Quantification &amp; Downstream Analysis</h2>
+          <pre><code class="language-python">import pandas as pd
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+
+# Load IsoQuant transcript counts
+counts = pd.read_csv(
+    "isoquant_output/sample/sample.transcript_counts.tsv",
+    sep="\t", index_col=0
+)
+
+# Load novel vs known transcript classification
+models = pd.read_csv(
+    "isoquant_output/sample/sample.transcript_models.tsv",
+    sep="\t"
+)
+
+# Count novel transcripts by category
+category_counts = models["transcript_type"].value_counts()
+print("Transcript categories:")
+print(category_counts.to_string())
+
+# Plot transcript categories
+fig, ax = plt.subplots(figsize=(8, 5))
+colours = {
+    "known": "#4CAF50",
+    "novel_not_in_catalog": "#F44336",
+    "novel_in_catalog": "#FF9800",
+    "antisense": "#9C27B0",
+    "intergenic": "#607D8B"
+}
+bars = ax.barh(
+    category_counts.index,
+    category_counts.values,
+    color=[colours.get(c, "#90A4AE") for c in category_counts.index]
+)
+ax.set_xlabel("Number of transcripts", fontsize=12)
+ax.set_title("Transcript categories from IsoQuant", fontsize=14, fontweight="bold")
+ax.bar_label(bars, padding=3, fontsize=9)
+plt.tight_layout()
+plt.savefig("transcript_categories.pdf", dpi=300, bbox_inches="tight")
+plt.show()</code></pre>
+        </section>
+
+        <section id="dtu" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">6</span>Differential Transcript Usage (DTU) with DEXSeq</h2>
+          <pre><code class="language-r">library(DEXSeq)
+library(tximeta)
+library(fishpond)
+
+# Load transcript-level counts from IsoQuant (or Salmon for short reads)
+# Using fishpond/swish for DTU (better than DEXSeq for long reads)
+se <- tximeta(
+  coldata = data.frame(
+    names = c("sample1","sample2","sample3","sample4"),
+    files = c("s1/quant.sf","s2/quant.sf","s3/quant.sf","s4/quant.sf"),
+    condition = c("ctrl","ctrl","treat","treat")
+  ),
+  type = "salmon",
+  txOut = TRUE   # transcript-level, not gene-level
+)
+
+# Aggregate to gene level for DTU testing
+gse <- summarizeToGene(se)
+
+# Scale inferential replicates
+se <- scaleInfReps(se)
+
+# Test for DTU using Swish
+se <- labelKeep(se, minCount=10, minN=3)
+se <- swish(se, x="condition", level="isoform")
+
+# Results
+res <- data.frame(mcols(se)) |>
+  dplyr::filter(!is.na(qvalue)) |>
+  dplyr::arrange(qvalue)
+
+cat("Significant DTU transcripts (q < 0.05):", sum(res$qvalue < 0.05, na.rm=TRUE), "\n")
+head(res[, c("tx_id","gene_id","log2FC","pvalue","qvalue")], 20)</code></pre>
+        </section>
+
+        <section id="lrgasp" class="mb-5">
+          <h2 class="fw-bold">LRGASP Benchmark Findings</h2>
+          <p>Key takeaways from the Nature Methods 2024 LRGASP consortium paper (<a href="https://www.nature.com/articles/s41592-024-02298-3" target="_blank" rel="noopener">Pardo-Palacios et al., 2024</a>):</p>
+          <div class="table-responsive">
+            <table class="table table-bordered">
+              <thead class="table-dark">
+                <tr><th>Tool</th><th>Novel isoform sensitivity</th><th>Precision</th><th>Best for</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><strong>IsoQuant</strong></td><td>High</td><td>High</td><td>Novel isoform discovery, bulk &amp; single-cell</td></tr>
+                <tr><td><strong>FLAMES</strong></td><td>High</td><td>Medium–High</td><td>Single-cell long-read RNA-Seq</td></tr>
+                <tr><td><strong>StringTie2</strong></td><td>Medium</td><td>High</td><td>Well-annotated genomes, fast pipelines</td></tr>
+                <tr><td><strong>Bambu</strong></td><td>Medium–High</td><td>Medium</td><td>R-based workflows, multi-sample</td></tr>
+                <tr><td><strong>FLAIR</strong></td><td>Medium</td><td>Medium</td><td>Direct RNA, modification-aware</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="summary" class="mb-5">
+          <h2 class="fw-bold">Summary</h2>
+          <div class="byte-callout byte-success">
+            <img src="../img/Byte1.png" alt="Byte">
+            <div>
+              <strong>Key pipeline:</strong>
+              <ol class="mb-0 mt-1">
+                <li>Basecall: <strong>Dorado</strong> (ONT) or CCS (PacBio)</li>
+                <li>QC: <strong>NanoStat + NanoPlot</strong></li>
+                <li>Align: <strong>Minimap2</strong> with <code>-ax splice</code> / <code>-ax splice:hq</code></li>
+                <li>Assemble: <strong>IsoQuant</strong> (novel discovery) or StringTie2 (known genome)</li>
+                <li>Quantify: IsoQuant counts or Salmon for short + long hybrid</li>
+                <li>DTU: <strong>fishpond/Swish</strong> or DEXSeq in R</li>
+              </ol>
+            </div>
+          </div>
+          <h5 class="fw-bold mt-4">Cite</h5>
+          <div class="alert alert-secondary small">
+            Pardo-Palacios FJ, Jiang D, Colby M, et al. <em>Systematic assessment of long-read RNA-seq methods for transcript identification and quantification.</em> Nature Methods. 2024. <a href="https://doi.org/10.1038/s41592-024-02298-3" target="_blank" rel="noopener">https://doi.org/10.1038/s41592-024-02298-3</a>
+          </div>
+        </section>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<section class="py-4" style="background:linear-gradient(135deg,#5865F2 0%,#4752c4 100%);">
+  <div class="container text-center">
+    <p class="text-white mb-2 fw-bold">Questions about long-read RNA-Seq? Ask in the community!</p>
+    <a href="https://discord.gg/nbwDxTbz" target="_blank" rel="noopener" class="btn btn-light rounded-pill px-4 fw-bold" style="color:#5865F2;">
+      <i class="bi bi-discord me-2"></i>Join Discord — #splicing-and-isoforms
+    </a>
+  </div>
+</section>
+<footer class="site-footer"><div class="container text-center"><p class="small mb-0">&copy; 2025 IndianElucidBiology</p></div></footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/main.js"></script>
+</body>
+</html>

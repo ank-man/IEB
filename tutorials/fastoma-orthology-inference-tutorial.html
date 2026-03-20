@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FastOMA Orthology Inference at Scale — Tutorial | IndianElucidBiology</title>
+  <meta name="description" content="Step-by-step tutorial for FastOMA, a fast and accurate orthology inference tool published in Nature Methods 2024. Learn to infer orthologs across thousands of species genomes.">
+  <meta name="keywords" content="FastOMA tutorial, orthology inference, OMA, hierarchical orthologous groups, comparative genomics, Nature Methods 2024, IndianElucidBiology">
+  <meta name="author" content="IndianElucidBiology">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="../css/style.css" rel="stylesheet">
+</head>
+<body>
+<div class="progress-tracker"></div>
+
+<nav class="navbar navbar-expand-lg fixed-top">
+  <div class="container">
+    <a class="navbar-brand" href="../index.html">
+      <img src="../indian_elucid_biology.png" alt="IndianElucidBiology" class="navbar-logo">
+    </a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav"><span class="navbar-toggler-icon"></span></button>
+    <div class="collapse navbar-collapse" id="mainNav">
+      <ul class="navbar-nav ms-auto me-3 align-items-lg-center gap-lg-1">
+        <li class="nav-item"><a class="nav-link" href="../index.html"><i class="bi bi-house-door me-1"></i>Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="index.html"><i class="bi bi-grid-3x3-gap me-1"></i>All Tutorials</a></li>
+        <li class="nav-item"><a class="nav-link" href="../community.html"><i class="bi bi-discord me-1"></i>Community</a></li>
+      </ul>
+      <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode">&#9790;</button>
+    </div>
+  </div>
+</nav>
+
+<section class="tutorial-hero">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-lg-8">
+        <nav aria-label="breadcrumb"><ol class="breadcrumb mb-3" style="--bs-breadcrumb-divider-color:rgba(255,255,255,0.5);">
+          <li class="breadcrumb-item"><a href="../index.html" class="text-white-50 text-decoration-none">Home</a></li>
+          <li class="breadcrumb-item"><a href="index.html" class="text-white-50 text-decoration-none">Tutorials</a></li>
+          <li class="breadcrumb-item active text-white">FastOMA</li>
+        </ol></nav>
+        <div class="mb-3">
+          <span class="badge px-3 py-2 rounded-pill me-2" style="background:rgba(255,255,255,0.15);color:#fff;font-size:0.78rem;">
+            <i class="bi bi-journal-text me-1"></i> Nature Methods 2024
+          </span>
+        </div>
+        <h1 class="display-5 fw-bold text-white mb-3">FastOMA: Orthology Inference at Scale</h1>
+        <p class="lead text-white-50 mb-4">Infer orthologs and hierarchical orthologous groups (HOGs) across thousands of species — orders of magnitude faster than traditional OMA, with benchmarked accuracy from the Quest for Orthologs consortium.</p>
+        <div class="d-flex gap-3 flex-wrap">
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-clock me-1"></i> ~40 min</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-bar-chart me-1"></i> Intermediate</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-terminal me-1"></i> Python / CLI</span>
+          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-diagram-3 me-1"></i> Comparative Genomics</span>
+        </div>
+      </div>
+      <div class="col-lg-4 text-center d-none d-lg-block">
+        <img src="../img/Byte1.png" alt="Byte" class="img-fluid" style="max-height:220px;filter:drop-shadow(0 10px 30px rgba(0,0,0,0.4));">
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="container py-5">
+  <div class="row">
+    <div class="col-lg-3 d-none d-lg-block">
+      <div class="toc-sidebar">
+        <h6 class="fw-bold text-muted text-uppercase small mb-3">On this page</h6>
+        <nav class="nav flex-column">
+          <a class="nav-link" href="#overview">Overview</a>
+          <a class="nav-link" href="#concepts">Key Concepts</a>
+          <a class="nav-link" href="#install">Installation</a>
+          <a class="nav-link" href="#input">Input Data</a>
+          <a class="nav-link" href="#step1">1. Prepare Proteomes</a>
+          <a class="nav-link" href="#step2">2. Run FastOMA</a>
+          <a class="nav-link" href="#step3">3. Understand Output</a>
+          <a class="nav-link" href="#step4">4. HOG Analysis</a>
+          <a class="nav-link" href="#step5">5. Species Tree</a>
+          <a class="nav-link" href="#visualize">Visualisation</a>
+          <a class="nav-link" href="#vs-orthofinder">vs OrthoFinder</a>
+          <a class="nav-link" href="#summary">Summary</a>
+        </nav>
+      </div>
+    </div>
+
+    <div class="col-lg-9">
+      <div class="tutorial-content">
+
+        <section id="overview" class="mb-5">
+          <h2 class="fw-bold">What is FastOMA?</h2>
+          <p>Orthology is the relationship between genes in different species that descended from a common ancestor by speciation (not gene duplication). Identifying orthologs is foundational for:</p>
+          <ul>
+            <li>Functional annotation of newly sequenced genomes (transferring known gene function)</li>
+            <li>Building species trees from single-copy orthologs</li>
+            <li>Studying gene family evolution, duplication, and loss</li>
+            <li>Cross-species comparative transcriptomics</li>
+          </ul>
+          <p><strong>FastOMA</strong> (<a href="https://www.nature.com/articles/s41592-024-02552-8" target="_blank" rel="noopener">Majidian et al., Nature Methods 2024</a>) is a scalable reimplementation of the OMA (Orthologous MAtrix) algorithm. It uses a hierarchical approach — leveraging the OMA knowledge base and species tree topology — to infer orthologous groups orders of magnitude faster than the original, enabling genome-scale analyses across thousands of species.</p>
+
+          <div class="byte-callout byte-info">
+            <img src="../img/Byte3.png" alt="Byte key point">
+            <div>
+              <strong>Key result from the paper:</strong> FastOMA achieves accuracy comparable to OMA Standalone on Quest for Orthologs benchmarks while being ~700x faster on large datasets. It can handle 1,000+ species in hours on a standard server.
+            </div>
+          </div>
+        </section>
+
+        <section id="concepts" class="mb-5">
+          <h2 class="fw-bold">Key Concepts</h2>
+
+          <h5 class="fw-bold mt-4">Ortholog vs Paralog vs Homeolog</h5>
+          <div class="table-responsive mb-4">
+            <table class="table table-bordered">
+              <thead class="table-dark">
+                <tr><th>Term</th><th>Definition</th><th>Origin event</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><strong>Orthologs</strong></td><td>Same gene, different species, separated by speciation</td><td>Speciation</td></tr>
+                <tr><td><strong>Paralogs</strong></td><td>Gene copies within or across species from duplication</td><td>Gene duplication</td></tr>
+                <tr><td><strong>Homeologs</strong></td><td>Genes from polyploidization events (subgenomes)</td><td>Whole genome duplication</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h5 class="fw-bold mt-3">Hierarchical Orthologous Groups (HOGs)</h5>
+          <p>HOGs are a richer representation than pairwise orthologs. A HOG at a given taxonomic level (e.g., Vertebrata) groups all genes that descended from a single ancestral gene at that level. This captures the full duplication/loss history of a gene family.</p>
+
+          <h5 class="fw-bold mt-3">OrthoXML Output</h5>
+          <p>FastOMA outputs HOGs in OrthoXML format, which is the standard for orthology databases (OMA, OrthoFinder, PANTHER). It's parseable with Python's <code>pyHam</code> library for downstream HOG analysis.</p>
+        </section>
+
+        <section id="install" class="mb-5">
+          <h2 class="fw-bold">Installation</h2>
+          <p>FastOMA is installable via pip or conda. A Snakemake workflow is also available for large-scale runs.</p>
+
+          <h5 class="fw-bold mt-3">Option 1 — pip (recommended for small/medium runs)</h5>
+          <pre><code class="language-bash"># Create a dedicated environment
+conda create -n fastoma python=3.10 -y
+conda activate fastoma
+
+# Install FastOMA and dependencies
+pip install FastOMA
+
+# Verify installation
+fastoma --version</code></pre>
+
+          <h5 class="fw-bold mt-3">Option 2 — conda</h5>
+          <pre><code class="language-bash">conda install -c bioconda fastoma -y</code></pre>
+
+          <h5 class="fw-bold mt-3">Option 3 — Docker (for reproducibility)</h5>
+          <pre><code class="language-bash">docker pull dessimozlab/fastoma:latest
+docker run -v $(pwd):/data dessimozlab/fastoma:latest fastoma --help</code></pre>
+
+          <h5 class="fw-bold mt-3">Dependencies</h5>
+          <pre><code class="language-bash"># FastOMA requires these tools in PATH:
+conda install -c bioconda diamond mmseqs2 mafft fasttree -y</code></pre>
+        </section>
+
+        <section id="input" class="mb-5">
+          <h2 class="fw-bold">Input Data</h2>
+          <p>FastOMA needs two things:</p>
+          <ol>
+            <li><strong>Protein FASTA files</strong> — one per species, containing all predicted protein sequences</li>
+            <li><strong>A species tree</strong> (Newick format) — optional but strongly recommended for accuracy; FastOMA can also infer a rough tree internally</li>
+          </ol>
+
+          <h5 class="fw-bold mt-3">Download example proteomes from UniProt</h5>
+          <pre><code class="language-bash"># Create project directory
+mkdir fastoma_project && cd fastoma_project
+mkdir proteomes
+
+# Download 5 example proteomes (Arabidopsis, Rice, Maize, Sorghum, Tomato)
+# Arabidopsis thaliana
+wget -O proteomes/ARATH.fa "https://rest.uniprot.org/uniprotkb/stream?format=fasta&query=organism_id:3702+AND+reviewed:true"
+
+# Oryza sativa (Rice)
+wget -O proteomes/ORYSJ.fa "https://rest.uniprot.org/uniprotkb/stream?format=fasta&query=organism_id:39947+AND+reviewed:true"
+
+# Or use any genome annotation protein output (e.g., MAKER .proteins.fasta)
+# Naming convention: species_code.fa (important for FastOMA parsing)</code></pre>
+
+          <div class="byte-callout byte-warning">
+            <img src="../img/Byte2.png" alt="Byte warning">
+            <div>
+              <strong>File naming is critical:</strong> Each FASTA file must be named with a 5-letter species code (e.g., <code>HUMAN.fa</code>, <code>MOUSE.fa</code>). Sequence headers must start with <code>&gt;species_code|proteinID</code> (e.g., <code>&gt;HUMAN|P53_HUMAN</code>).
+            </div>
+          </div>
+
+          <h5 class="fw-bold mt-3">Format protein FASTA headers correctly</h5>
+          <pre><code class="language-bash"># If your headers are plain gene IDs, reformat them:
+# Input: >AT1G01010.1 protein
+# Output: >ARATH|AT1G01010.1
+
+python3 - &lt;&lt;'EOF'
+import sys, re
+
+species_code = "ARATH"
+with open("proteomes/arabidopsis_raw.fa") as f, open("proteomes/ARATH.fa", "w") as out:
+    for line in f:
+        if line.startswith(">"):
+            gene_id = line.strip().split()[0].lstrip(">")
+            out.write(f">{species_code}|{gene_id}\n")
+        else:
+            out.write(line)
+print("Done reformatting headers")
+EOF</code></pre>
+        </section>
+
+        <section id="step1" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">1</span>Prepare the Species Tree</h2>
+          <p>A species tree in Newick format constrains HOG inference to biologically meaningful evolutionary relationships. You can use a published tree from TimeTree or NCBI taxonomy.</p>
+
+          <pre><code class="language-bash"># Example species tree for 5 plant species (Newick format)
+# Save as species_tree.nwk
+
+cat &gt; species_tree.nwk &lt;&lt;'EOF'
+((((ARATH,LYCES),SOLLC),(ORYSJ,SORBI)),MAIZE);
+EOF
+
+# Verify tree format
+python3 -c "
+from ete3 import Tree
+t = Tree('species_tree.nwk')
+print('Species in tree:', [l.name for l in t.get_leaves()])
+print('Tree looks valid!')
+"</code></pre>
+
+          <div class="byte-callout byte-info">
+            <img src="../img/Byte3.png" alt="Byte tip">
+            <div>
+              <strong>Tip:</strong> Get a dated species tree instantly from <a href="https://timetree.org" target="_blank" rel="noopener">TimeTree.org</a> — paste your species names and download Newick. For prokaryotes, use NCBI taxonomy or a 16S-based tree.
+            </div>
+          </div>
+        </section>
+
+        <section id="step2" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">2</span>Run FastOMA</h2>
+          <p>FastOMA is run in a single command. It will perform all-vs-all protein comparisons, compute pairwise orthologs, then hierarchically infer HOGs.</p>
+
+          <pre><code class="language-bash"># Basic run — FastOMA auto-detects all .fa files in the proteomes/ folder
+fastoma \
+  --proteomes proteomes/ \
+  --species-tree species_tree.nwk \
+  --output-folder fastoma_output/ \
+  --threads 8
+
+# With additional options for large datasets
+fastoma \
+  --proteomes proteomes/ \
+  --species-tree species_tree.nwk \
+  --output-folder fastoma_output/ \
+  --threads 32 \
+  --low-mem \
+  --aligner diamond \     # faster than default for large proteomes
+  --min-length 50 \       # filter short proteins
+  --verbose</code></pre>
+
+          <h5 class="fw-bold mt-4">Expected runtime</h5>
+          <div class="table-responsive">
+            <table class="table table-bordered table-sm">
+              <thead class="table-dark">
+                <tr><th>Dataset size</th><th>Threads</th><th>Approx. time</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>5–10 species</td><td>8</td><td>5–15 minutes</td></tr>
+                <tr><td>50–100 species</td><td>16</td><td>30–90 minutes</td></tr>
+                <tr><td>500 species</td><td>32</td><td>3–6 hours</td></tr>
+                <tr><td>1,000+ species</td><td>64</td><td>12–24 hours</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="step3" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">3</span>Understand Output Files</h2>
+          <pre><code class="language-bash">fastoma_output/
+├── OrthologousGroups.tsv       # Pairwise orthologs (tab-separated)
+├── HierarchicalGroups.orthoxml # HOGs in standard OrthoXML format
+├── OrthologousMatrix.tsv       # Presence/absence matrix per HOG per species
+├── speciestree_checked.nwk     # Validated/reconciled species tree
+├── RootHOG_summary.tsv         # Summary stats per HOG at root level
+└── logs/                       # Detailed run logs</code></pre>
+
+          <h5 class="fw-bold mt-4">Explore the orthologous groups file</h5>
+          <pre><code class="language-python">import pandas as pd
+
+# Load pairwise orthologs
+orthos = pd.read_csv("fastoma_output/OrthologousGroups.tsv", sep="\t",
+                     names=["protein1","protein2","type","score"])
+
+print(f"Total orthologous pairs: {len(orthos):,}")
+print(orthos["type"].value_counts())
+# type column values:
+#   1-1: strict one-to-one orthologs (best for phylogenomics)
+#   1-m: one-to-many (gene duplication in one lineage)
+#   m-1: many-to-one
+#   m-m: many-to-many (complex duplication history)
+
+# Filter to 1-1 orthologs only
+one_to_one = orthos[orthos["type"] == "1:1"]
+print(f"\nOne-to-one orthologs: {len(one_to_one):,}")
+
+# Example output:
+# protein1           protein2          type  score
+# ARATH|AT1G01010   ORYSJ|Os01g0100   1:1   187.3
+</code></pre>
+        </section>
+
+        <section id="step4" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">4</span>HOG Analysis with pyHam</h2>
+          <p>pyHam is the official Python library for parsing and visualising HOG evolution from FastOMA/OMA output.</p>
+
+          <pre><code class="language-bash">pip install pyham</code></pre>
+
+          <pre><code class="language-python">import pyham
+
+# Load HOGs
+ham = pyham.Ham(
+    tree_file="fastoma_output/speciestree_checked.nwk",
+    hog_file="fastoma_output/HierarchicalGroups.orthoxml",
+    use_internal_name=True
+)
+
+# Get all HOGs at root level
+all_hogs = ham.get_list_top_level_hogs()
+print(f"Total root HOGs: {len(all_hogs)}")
+
+# Analyse a single HOG
+hog = all_hogs[0]
+print(f"HOG ID: {hog.hog_id}")
+print(f"Genes: {[g.unique_id for g in hog.get_all_descendant_genes()]}")
+
+# Count single-copy conserved HOGs (useful for species tree inference)
+single_copy = [h for h in all_hogs if h.is_single_copy()]
+print(f"Single-copy conserved HOGs: {len(single_copy)}")
+
+# Get duplication/loss events
+for hog in all_hogs[:5]:
+    events = ham.create_iHam(hog)
+    print(f"HOG {hog.hog_id}: duplications={events.count_duplication()}, "
+          f"losses={events.count_loss()}")</code></pre>
+
+          <h5 class="fw-bold mt-4">Presence/absence matrix — gene content evolution</h5>
+          <pre><code class="language-python">import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+# Load orthologous matrix (HOGs × species)
+mat = pd.read_csv("fastoma_output/OrthologousMatrix.tsv", sep="\t", index_col=0)
+
+# Replace gene IDs with 1/0 presence-absence
+pa_mat = mat.applymap(lambda x: 0 if pd.isna(x) or x == "" else 1)
+
+# Plot heatmap of gene family presence/absence
+fig, ax = plt.subplots(figsize=(10, 8))
+sns.heatmap(pa_mat.head(100),
+            cmap="Blues", linewidths=0.3,
+            cbar_kws={"label": "Gene present"},
+            ax=ax)
+ax.set_xlabel("Species", fontsize=12)
+ax.set_ylabel("HOG (top 100)", fontsize=12)
+ax.set_title("Gene family presence/absence across species", fontsize=14, fontweight="bold")
+plt.tight_layout()
+plt.savefig("gene_content_heatmap.pdf", dpi=300, bbox_inches="tight")
+plt.show()</code></pre>
+        </section>
+
+        <section id="step5" class="mb-5">
+          <h2 class="fw-bold"><span class="step-number me-2">5</span>Build a Species Tree from Single-Copy Orthologs</h2>
+          <p>Single-copy orthologs inferred by FastOMA are ideal markers for species tree inference using concatenation or coalescent methods.</p>
+
+          <pre><code class="language-bash"># Extract single-copy HOG sequences for phylogenomics
+python3 - &lt;&lt;'EOF'
+import pyham, os
+
+ham = pyham.Ham("fastoma_output/speciestree_checked.nwk",
+                "fastoma_output/HierarchicalGroups.orthoxml",
+                use_internal_name=True)
+
+os.makedirs("single_copy_fastas", exist_ok=True)
+count = 0
+for hog in ham.get_list_top_level_hogs():
+    if hog.is_single_copy() and len(hog.get_all_descendant_genes()) >= 4:
+        genes = hog.get_all_descendant_genes()
+        with open(f"single_copy_fastas/HOG{hog.hog_id}.fa", "w") as f:
+            for g in genes:
+                f.write(f">{g.genome.name}\n{g.sequence}\n")
+        count += 1
+        if count >= 200:   # use top 200 for concatenation
+            break
+print(f"Extracted {count} single-copy HOGs")
+EOF
+
+# Align each HOG with MAFFT
+for f in single_copy_fastas/*.fa; do
+    mafft --auto --quiet "$f" > "${f%.fa}_aln.fa"
+done
+
+# Concatenate alignments for IQ-TREE
+python3 - &lt;&lt;'EOF'
+from Bio import SeqIO, AlignIO
+from Bio.Align import MultipleSeqAlignment
+from Bio.SeqRecord import SeqRecord
+from Bio.Seq import Seq
+import os, glob
+
+alignments = sorted(glob.glob("single_copy_fastas/*_aln.fa"))
+all_species = set()
+for aln_file in alignments:
+    for rec in SeqIO.parse(aln_file, "fasta"):
+        all_species.add(rec.id)
+
+concat = {sp: "" for sp in all_species}
+for aln_file in alignments:
+    aln = {r.id: str(r.seq) for r in SeqIO.parse(aln_file, "fasta")}
+    aln_len = len(next(iter(aln.values())))
+    for sp in all_species:
+        concat[sp] += aln.get(sp, "-" * aln_len)
+
+with open("concatenated_alignment.fa", "w") as f:
+    for sp, seq in concat.items():
+        f.write(f">{sp}\n{seq}\n")
+print(f"Concatenated {len(alignments)} loci, {len(all_species)} species")
+EOF
+
+# Run IQ-TREE on concatenated alignment
+iqtree2 -s concatenated_alignment.fa \
+        -m TEST \
+        -B 1000 \
+        -T AUTO \
+        --prefix species_tree_fastoma \
+        --quiet</code></pre>
+        </section>
+
+        <section id="visualize" class="mb-5">
+          <h2 class="fw-bold">Visualise the Results</h2>
+
+          <h5 class="fw-bold mt-3">Plot the inferred species tree with bootstrap values</h5>
+          <pre><code class="language-python">from ete3 import Tree, TreeStyle, NodeStyle, TextFace
+import matplotlib.pyplot as plt
+
+t = Tree("species_tree_fastoma.treefile")
+
+# Style the tree
+ts = TreeStyle()
+ts.show_leaf_name = True
+ts.show_branch_support = True
+ts.branch_vertical_margin = 15
+ts.scale = 100
+
+for node in t.traverse():
+    ns = NodeStyle()
+    if node.is_leaf():
+        ns["size"] = 8
+        ns["fgcolor"] = "#2196F3"
+    else:
+        ns["size"] = 5
+        ns["fgcolor"] = "#FF5722"
+    node.set_style(ns)
+
+t.render("species_tree.pdf", tree_style=ts, w=200, units="mm")
+print("Tree saved to species_tree.pdf")</code></pre>
+
+          <h5 class="fw-bold mt-4">Plot HOG duplication/loss statistics across lineages</h5>
+          <pre><code class="language-python">import matplotlib.pyplot as plt
+import numpy as np
+
+# Simulate stats from a real FastOMA run
+species = ["ARATH","ORYSJ","SORBI","MAIZE","LYCES"]
+duplications = [1243, 1876, 2341, 3102, 987]
+losses = [456, 678, 890, 1203, 312]
+
+x = np.arange(len(species))
+width = 0.35
+fig, ax = plt.subplots(figsize=(8, 5))
+bars1 = ax.bar(x - width/2, duplications, width, label="Duplications", color="#4CAF50", alpha=0.85)
+bars2 = ax.bar(x + width/2, losses, width, label="Losses", color="#F44336", alpha=0.85)
+ax.set_xlabel("Species", fontsize=12)
+ax.set_ylabel("Gene family events", fontsize=12)
+ax.set_title("HOG duplication and loss events per lineage", fontsize=14, fontweight="bold")
+ax.set_xticks(x)
+ax.set_xticklabels(species, rotation=20)
+ax.legend()
+ax.bar_label(bars1, padding=3, fontsize=9)
+ax.bar_label(bars2, padding=3, fontsize=9)
+plt.tight_layout()
+plt.savefig("hog_events.pdf", dpi=300, bbox_inches="tight")
+plt.show()</code></pre>
+        </section>
+
+        <section id="vs-orthofinder" class="mb-5">
+          <h2 class="fw-bold">FastOMA vs OrthoFinder vs OMA Standalone</h2>
+          <div class="table-responsive">
+            <table class="table table-bordered">
+              <thead class="table-dark">
+                <tr><th>Feature</th><th>FastOMA</th><th>OrthoFinder</th><th>OMA Standalone</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>Publication</td><td>Nature Methods 2024</td><td>Genome Biology 2019</td><td>Bioinformatics 2019</td></tr>
+                <tr><td>Speed (1000 spp)</td><td><span class="text-success fw-bold">Hours</span></td><td>Days</td><td>Weeks</td></tr>
+                <tr><td>HOG inference</td><td>Yes (hierarchical)</td><td>Yes (rooted)</td><td>Yes (hierarchical)</td></tr>
+                <tr><td>OrthoXML output</td><td>Yes</td><td>No</td><td>Yes</td></tr>
+                <tr><td>Species tree input</td><td>Optional</td><td>Required for HOGs</td><td>Required</td></tr>
+                <tr><td>Quest for Orthologs accuracy</td><td>High (comparable to OMA)</td><td>High</td><td>Highest</td></tr>
+                <tr><td>Best for</td><td>Large-scale (100–10,000 spp)</td><td>10–200 spp</td><td>&lt;100 spp, maximum accuracy</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="summary" class="mb-5">
+          <h2 class="fw-bold">Summary</h2>
+          <div class="byte-callout byte-success">
+            <img src="../img/Byte1.png" alt="Byte summary">
+            <div>
+              <strong>What you learned:</strong>
+              <ul class="mb-0 mt-1">
+                <li>FastOMA infers orthologs and HOGs at scale — handling thousands of species in hours</li>
+                <li>Input: protein FASTAs with standardised species-code headers + optional species tree</li>
+                <li>Output: pairwise orthologs (TSV), HOGs (OrthoXML), presence/absence matrix</li>
+                <li>pyHam parses HOGs for downstream evolution analysis</li>
+                <li>Single-copy HOGs from FastOMA are ideal input for species tree inference with IQ-TREE</li>
+              </ul>
+            </div>
+          </div>
+
+          <h5 class="fw-bold mt-4">Cite this tool</h5>
+          <div class="alert alert-secondary small">
+            Majidian S, Nevers Y, Yazdizadeh Kharrazi A, et al. <em>Orthology inference at scale with FastOMA.</em> Nature Methods. 2024. <a href="https://doi.org/10.1038/s41592-024-02552-8" target="_blank" rel="noopener">https://doi.org/10.1038/s41592-024-02552-8</a>
+          </div>
+
+          <h5 class="fw-bold mt-4">Related Tutorials</h5>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <a href="comparative-genomics-mcscanx-synmap.html" class="text-decoration-none">
+                <div class="channel-card p-3 rounded-3 border">
+                  <i class="bi bi-arrow-right-circle text-primary me-2"></i>
+                  <strong>Comparative Genomics with MCScanX</strong>
+                </div>
+              </a>
+            </div>
+            <div class="col-md-6">
+              <a href="phylogenetics-deep-dive-module1.html" class="text-decoration-none">
+                <div class="channel-card p-3 rounded-3 border">
+                  <i class="bi bi-arrow-right-circle text-primary me-2"></i>
+                  <strong>Phylogenetics with IQ-TREE</strong>
+                </div>
+              </a>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<section class="py-4" style="background:linear-gradient(135deg,#5865F2 0%,#4752c4 100%);">
+  <div class="container text-center">
+    <p class="text-white mb-2 fw-bold">Stuck on FastOMA? Ask in the community!</p>
+    <a href="https://discord.gg/nbwDxTbz" target="_blank" rel="noopener" class="btn btn-light rounded-pill px-4 fw-bold" style="color:#5865F2;">
+      <i class="bi bi-discord me-2"></i>Join Discord — #comparative-genomics
+    </a>
+  </div>
+</section>
+
+<footer class="site-footer">
+  <div class="container text-center">
+    <p class="small mb-0">&copy; 2025 IndianElucidBiology &mdash; Free bioinformatics tutorials</p>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/main.js"></script>
+</body>
+</html>
