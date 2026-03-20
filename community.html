@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Community — IndianElucidBiology | Ask Questions, Share Results, Learn Together</title>
+  <meta name="description" content="Join the IndianElucidBiology Discord community. Ask bioinformatics questions, get help with RNA-Seq, GWAS, scRNA-Seq, population genetics, genome assembly, and more.">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="css/style.css" rel="stylesheet">
+  <style>
+    .community-hero {
+      background: linear-gradient(135deg, #3c1f6b 0%, #5865F2 50%, #20c997 100%);
+      padding: 110px 0 60px;
+    }
+    .channel-card {
+      border: 1px solid var(--ieb-border);
+      border-radius: 14px;
+      background: var(--ieb-card-bg);
+      padding: 20px 22px;
+      transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+      height: 100%;
+    }
+    .channel-card:hover {
+      transform: translateY(-3px);
+      box-shadow: var(--ieb-shadow-md);
+      border-color: var(--ieb-primary);
+    }
+    .channel-hash {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #5865F2;
+      margin-right: 4px;
+    }
+    .channel-name {
+      font-weight: 700;
+      font-size: 1rem;
+      color: var(--ieb-text);
+    }
+    .channel-desc {
+      font-size: 0.84rem;
+      color: var(--ieb-text-muted);
+      margin-top: 6px;
+      margin-bottom: 0;
+    }
+    .channel-tag {
+      display: inline-block;
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 20px;
+      margin-top: 8px;
+      margin-right: 4px;
+    }
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 20px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid var(--ieb-border);
+    }
+    .section-header-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.15rem;
+      color: #fff;
+      flex-shrink: 0;
+    }
+    .rule-card {
+      border-left: 4px solid var(--ieb-primary);
+      background: var(--ieb-card-bg);
+      border-radius: 0 10px 10px 0;
+      padding: 14px 18px;
+      margin-bottom: 12px;
+    }
+    .rule-num {
+      font-size: 1.3rem;
+      font-weight: 900;
+      color: var(--ieb-primary);
+      margin-right: 10px;
+      line-height: 1;
+    }
+    .discord-join-card {
+      background: linear-gradient(135deg, #5865F2, #4752c4);
+      border-radius: 20px;
+      padding: 40px;
+      text-align: center;
+      color: #fff;
+    }
+    .faq-item {
+      border: 1px solid var(--ieb-border);
+      border-radius: 10px;
+      overflow: hidden;
+      margin-bottom: 10px;
+    }
+    .faq-item .faq-q {
+      padding: 14px 18px;
+      font-weight: 600;
+      cursor: pointer;
+      background: var(--ieb-card-bg);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.95rem;
+    }
+    .faq-item .faq-a {
+      padding: 0 18px;
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease, padding 0.3s ease;
+      background: var(--ieb-body-bg);
+      font-size: 0.88rem;
+      color: var(--ieb-text-muted);
+    }
+    .faq-item.open .faq-a {
+      max-height: 300px;
+      padding: 12px 18px;
+    }
+    .faq-item.open .faq-chevron { transform: rotate(180deg); }
+    .faq-chevron { transition: transform 0.3s; }
+  </style>
+</head>
+<body>
+<div class="progress-tracker"></div>
+
+<nav class="navbar navbar-expand-lg fixed-top">
+  <div class="container">
+    <a class="navbar-brand" href="index.html" aria-label="IndianElucidBiology Home">
+      <img src="indian_elucid_biology.png" alt="IndianElucidBiology" class="navbar-logo">
+    </a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="mainNav">
+      <ul class="navbar-nav ms-auto me-3 align-items-lg-center gap-lg-1">
+        <li class="nav-item"><a class="nav-link" href="index.html"><i class="bi bi-house-door me-1"></i>Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="tutorials/index.html"><i class="bi bi-grid-3x3-gap me-1"></i>All Tutorials</a></li>
+        <li class="nav-item"><a class="nav-link active" href="community.html"><i class="bi bi-discord me-1"></i>Community</a></li>
+        <li class="nav-item"><a class="nav-link" href="tutorials/bioinformatics-101-beginners-guide.html"><i class="bi bi-book me-1"></i>101</a></li>
+      </ul>
+      <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode">&#9790;</button>
+    </div>
+  </div>
+</nav>
+
+<!-- ===== HERO ===== -->
+<section class="community-hero">
+  <div class="container">
+    <div class="row align-items-center g-5">
+      <div class="col-lg-7">
+        <span class="badge px-3 py-2 rounded-pill mb-3 d-inline-block" style="background:rgba(255,255,255,0.15);color:#fff;font-size:0.82rem;">
+          <i class="bi bi-discord me-1"></i> Free Discord Community
+        </span>
+        <h1 class="display-5 fw-bold text-white mb-3">Learn Together.<br>Grow Together.</h1>
+        <p class="lead mb-4" style="color:rgba(255,255,255,0.85);">
+          Ask questions, share your analysis results, get unstuck on pipelines, and connect with bioinformatics learners at every level — from complete beginners to PhD researchers.
+        </p>
+        <a href="https://discord.gg/nbwDxTbz" target="_blank" rel="noopener"
+           class="btn btn-light btn-lg px-5 rounded-pill fw-bold me-3"
+           style="color:#5865F2;">
+          <i class="bi bi-discord me-2"></i>Join Discord — Free
+        </a>
+      </div>
+      <div class="col-lg-5 d-none d-lg-block text-center">
+        <div style="background:rgba(255,255,255,0.1);border-radius:20px;padding:28px;backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.2);">
+          <div class="d-flex align-items-center gap-2 mb-3 pb-3" style="border-bottom:1px solid rgba(255,255,255,0.15);">
+            <div style="width:12px;height:12px;border-radius:50%;background:#23a55a;"></div>
+            <span class="text-white fw-bold small">IndianElucidBiology Discord</span>
+          </div>
+          <div class="text-start">
+            <div class="small text-white mb-1" style="opacity:0.6;font-size:0.72rem;font-weight:700;letter-spacing:1px;">TEXT CHANNELS</div>
+            <div class="py-1" style="color:rgba(255,255,255,0.8);font-size:0.88rem;"><span style="opacity:0.5;">#</span> welcome-and-rules</div>
+            <div class="py-1" style="color:rgba(255,255,255,0.8);font-size:0.88rem;"><span style="opacity:0.5;">#</span> introductions</div>
+            <div class="py-1" style="color:rgba(255,255,255,0.8);font-size:0.88rem;"><span style="opacity:0.5;">#</span> general-bioinformatics</div>
+            <div class="py-1" style="color:rgba(255,255,255,0.8);font-size:0.88rem;"><span style="opacity:0.5;">#</span> rna-seq-help</div>
+            <div class="py-1" style="color:rgba(255,255,255,0.8);font-size:0.88rem;"><span style="opacity:0.5;">#</span> single-cell-scrna</div>
+            <div class="py-1" style="color:rgba(255,255,255,0.8);font-size:0.88rem;"><span style="opacity:0.5;">#</span> gwas-population-genetics</div>
+            <div class="py-1" style="color:rgba(255,255,255,0.8);font-size:0.88rem;"><span style="opacity:0.5;">#</span> genome-assembly</div>
+            <div class="py-1" style="color:rgba(255,255,255,0.8);font-size:0.88rem; opacity:0.5;">+ 12 more channels...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== CHANNELS ===== -->
+<div class="container py-5">
+
+  <!-- General -->
+  <div class="mb-5">
+    <div class="section-header">
+      <div class="section-header-icon" style="background:#5865F2;"><i class="bi bi-hash"></i></div>
+      <div>
+        <h4 class="fw-bold mb-0">General Channels</h4>
+        <small class="text-muted">Start here when you join</small>
+      </div>
+    </div>
+    <div class="row g-3">
+      <div class="col-md-6 col-lg-4">
+        <div class="channel-card">
+          <div><span class="channel-hash">#</span><span class="channel-name">welcome-and-rules</span></div>
+          <p class="channel-desc">Server rules, how to ask good questions, and links to resources. Read before posting.</p>
+          <span class="channel-tag" style="background:#e8f0fe;color:#3c4fa6;">📌 Pinned</span>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <div class="channel-card">
+          <div><span class="channel-hash">#</span><span class="channel-name">introductions</span></div>
+          <p class="channel-desc">Introduce yourself — your background, what you're working on, and what you hope to learn.</p>
+          <span class="channel-tag" style="background:#e8f0fe;color:#3c4fa6;">👋 New members</span>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <div class="channel-card">
+          <div><span class="channel-hash">#</span><span class="channel-name">general-bioinformatics</span></div>
+          <p class="channel-desc">Open discussion — tools, papers, career advice, software recommendations, and anything bioinformatics.</p>
+          <span class="channel-tag" style="background:#e8f5e9;color:#2e7d32;">💬 Active</span>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <div class="channel-card">
+          <div><span class="channel-hash">#</span><span class="channel-name">show-your-work</span></div>
+          <p class="channel-desc">Share your completed analyses, plots, and results. Celebrate your wins and get feedback from the community.</p>
+          <span class="channel-tag" style="background:#fff3e0;color:#e65100;">🏆 Showcase</span>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <div class="channel-card">
+          <div><span class="channel-hash">#</span><span class="channel-name">resources-and-papers</span></div>
+          <p class="channel-desc">Share useful papers, datasets, tools, databases, and learning materials with the community.</p>
+          <span class="channel-tag" style="background:#f3e5f5;color:#6a1b9a;">📚 Resources</span>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <div class="channel-card">
+          <div><span class="channel-hash">#</span><span class="channel-name">jobs-and-opportunities</span></div>
+          <p class="channel-desc">PhD positions, postdocs, internships, and bioinformatics job postings. Also for CV/resume advice.</p>
+          <span class="channel-tag" style="background:#e8f5e9;color:#2e7d32;">💼 Careers</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Transcriptomics -->
+  <div class="mb-5">
+    <div class="section-header">
+      <div class="section-header-icon" style="background:#0d6efd;"><i class="bi bi-bar-chart-steps"></i></div>
+      <div>
+        <h4 class="fw-bold mb-0">Transcriptomics</h4>
+        <small class="text-muted">RNA-Seq, scRNA-Seq, WGCNA, splicing</small>
+      </div>
+    </div>
+    <div class="row g-3">
+      <div class="col-md-6 col-lg-4">
+        <div class="channel-card">
+          <div><span class="channel-hash">#</span><span class="channel-name">rna-seq-help</span></div>
+          <p class="channel-desc">Questions about bulk RNA-Seq — alignment (HISAT2, STAR), quantification (featureCounts, salmon), DESeq2, edgeR.</p>
+          <span class="channel-tag" style="background:#e3f2fd;color:#0d47a1;">DESeq2</span>
+          <span class="channel-tag" style="background:#e3f2fd;color:#0d47a1;">STAR</span>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <div class="channel-card">
+          <div><span class="channel-hash">#</span><span class="channel-name">single-cell-scrna</span></div>
+          <p class="channel-desc">scRNA-Seq with Seurat, Scanpy, Cell Ranger. Clustering, trajectory, doublet detection, integration, cell type annotation.</p>
+          <span class="channel-tag" style="background:#e3f2fd;color:#0d47a1;">Seurat</span>
+          <span class="channel-tag" style="background:#e3f2fd;color:#0d47a1;">Scanpy</span>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <div class="channel-card">
+          <div><span class="channel-hash">#</span><span class="channel-name">wgcna-coexpression</span></div>
+          <p class="channel-desc">Co-expression networks using WGCNA, hdWGCNA, and related tools. Module-trait relationships, hub genes.</p>
+          <span class="channel-tag" style="background:#e3f2fd;color:#0d47a1;">WGCNA</span>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <div class="channel-card">
+          <div><span class="channel-hash">#</span><span class="channel-name">splicing-and-isoforms</span></div>
+          <p class="channel-desc">Differential splicing with rMATS, LeafCutter, SUPPA2. Long-read RNA-Seq with Minimap2 and NanoStat.</p>
+          <span class="channel-tag" style="background:#e3f2fd;color:#0d47a1;">rMATS</span>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <div class="channel-card">
+          <div><span class="channel-hash">#</span><span class="channel-name">functional-enrichment</span></div>
+          <p class="channel-desc">GO enrichment, GSEA, pathway analysis with clusterProfiler, KEGG, Reactome. Interpretation and visualisation.</p>
+          <span class="channel-tag" style="background:#e3f2fd;color:#0d47a1;">clusterProfiler</span>
+          <span class="channel-tag" style="background:#e3f2fd;color:#0d47a1;">GSEA</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Genomics -->
+  <div class="mb-5">
+    <div class="section-header">
+      <div class="section-header-icon" style="background:#6f42c1;"><i class="bi bi-dna"></i></div>
+      <div>
+        <h4 class="fw-bold mb-0">Genomics</h4>
+        <small class="text-muted">Variant calling, assembly, annotation, CNV</small>
+      </div>
+    </div>
+    <div class="row g-3">
+      <div class="col-md-6 col-lg-4">
+        <div class="channel-card">
+          <div><span class="channel-hash">#</span><span class="channel-name">variant-calling</span></div>
+          <p class="channel-desc">GATK HaplotypeCaller, BCFtools, DeepVariant. GVCF, joint genotyping, VQSR, hard filtering. Short and long-read variants.</p>
+          <span class="channel-tag" style="background:#ede7f6;color:#4527a0;">GATK</span>
+          <span class="channel-tag" style="background:#ede7f6;color:#4527a0;">BCFtools</span>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <div class="channel-card">
+          <div><span class="channel-hash">#</span><span class="channel-name">variant-annotation</span></div>
+          <p class="channel-desc">SnpEff, SnpSift, VEP, ANNOVAR. Functional annotation, filtering by impact, ClinVar, dbSNP lookups.</p>
+          <span class="channel-tag" style="background:#ede7f6;color:#4527a0;">SnpEff</span>
+          <span class="channel-tag" style="background:#ede7f6;color:#4527a0;">VEP</span>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <div class="channel-card">
+          <div><span class="channel-hash">#</span><span class="channel-name">genome-assembly</span></div>
+          <p class="channel-desc">Hifiasm, Flye, SPAdes, Canu. Short vs long-read assembly, scaffolding with Hi-C, polishing with Medaka/Pilon.</p>
+          <span class="channel-tag" style="background:#ede7f6;color:#4527a0;">Hifiasm</span>
+          <span class="channel-tag" style="background:#ede7f6;color:#4527a0;">Flye</span>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <div class="channel-card">
+          <div><span class="channel-hash">#</span><span class="channel-name">genome-annotation</span></div>
+          <p class="channel-desc">MAKER, BRAKER2, Augustus, BUSCO quality assessment. Repeat masking with RepeatMasker and RepeatModeler.</p>
+          <span class="channel-tag" style="background:#ede7f6;color:#4527a0;">MAKER</span>
+          <span class="channel-tag" style="background:#ede7f6;color:#4527a0;">BRAKER2</span>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <div class="channel-card">
+          <div><span class="channel-hash">#</span><span class="channel-name">cnv-and-sv</span></div>
+          <p class="channel-desc">Copy number variation from WGS/WES. Structural variants with Delly, Lumpy, Manta. CNVnator, Control-FREEC.</p>
+          <span class="channel-tag" style="background:#ede7f6;color:#4527a0;">CNV</span>
+          <span class="channel-tag" style="background:#ede7f6;color:#4527a0;">SV</span>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <div class="channel-card">
+          <div><span class="channel-hash">#</span><span class="channel-name">somatic-cancer-genomics</span></div>
+          <p class="channel-desc">Somatic mutation calling with Mutect2, Strelka2. Tumour-normal pairs, mutational signatures, cancer driver analysis.</p>
+          <span class="channel-tag" style="background:#ede7f6;color:#4527a0;">Mutect2</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Population Genomics -->
+  <div class="mb-5">
+    <div class="section-header">
+      <div class="section-header-icon" style="background:#20c997;"><i class="bi bi-globe2"></i></div>
+      <div>
+        <h4 class="fw-bold mb-0">Population Genomics</h4>
+        <small class="text-muted">GWAS, pop gen stats, linkage, QTL</small>
+      </div>
+    </div>
+    <div class="row g-3">
+      <div class="col-md-6 col-lg-4">
+        <div class="channel-card">
+          <div><span class="channel-hash">#</span><span class="channel-name">gwas-population-genetics</span></div>
+          <p class="channel-desc">GWAS with PLINK, GEMMA, SAIGE. Population structure, kinship matrices, mixed models, Manhattan plots.</p>
+          <span class="channel-tag" style="background:#e0f2f1;color:#004d40;">PLINK</span>
+          <span class="channel-tag" style="background:#e0f2f1;color:#004d40;">GEMMA</span>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <div class="channel-card">
+          <div><span class="channel-hash">#</span><span class="channel-name">fst-and-popgen-stats</span></div>
+          <p class="channel-desc">Fst, π (nucleotide diversity), Tajima's D, XP-EHH selective sweeps. VCFtools, PopLDdecay, iHS.</p>
+          <span class="channel-tag" style="background:#e0f2f1;color:#004d40;">VCFtools</span>
+          <span class="channel-tag" style="background:#e0f2f1;color:#004d40;">Fst</span>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <div class="channel-card">
+          <div><span class="channel-hash">#</span><span class="channel-name">haplotype-and-phasing</span></div>
+          <p class="channel-desc">Haplotype phasing with SHAPEIT4, BEAGLE, WhatsHap. LD analysis, haploview, introgression with ABBA-BABA.</p>
+          <span class="channel-tag" style="background:#e0f2f1;color:#004d40;">SHAPEIT4</span>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <div class="channel-card">
+          <div><span class="channel-hash">#</span><span class="channel-name">linkage-and-qtl</span></div>
+          <p class="channel-desc">Linkage map construction with JoinMap, R/qtl2, ASMap. QTL interval mapping, composite interval mapping, multi-QTL models.</p>
+          <span class="channel-tag" style="background:#e0f2f1;color:#004d40;">R/qtl2</span>
+          <span class="channel-tag" style="background:#e0f2f1;color:#004d40;">JoinMap</span>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <div class="channel-card">
+          <div><span class="channel-hash">#</span><span class="channel-name">admixture-and-structure</span></div>
+          <p class="channel-desc">Population structure with ADMIXTURE, STRUCTURE, fastSTRUCTURE, PCA. TreeMix migration graphs, EIGENSOFT.</p>
+          <span class="channel-tag" style="background:#e0f2f1;color:#004d40;">ADMIXTURE</span>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <div class="channel-card">
+          <div><span class="channel-hash">#</span><span class="channel-name">demographic-history</span></div>
+          <p class="channel-desc">PSMC, SMC++, MSMC for population size history. Coalescent simulations with msprime, SLiM.</p>
+          <span class="channel-tag" style="background:#e0f2f1;color:#004d40;">PSMC</span>
+          <span class="channel-tag" style="background:#e0f2f1;color:#004d40;">msprime</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Phylogenetics & Comparative -->
+  <div class="mb-5">
+    <div class="section-header">
+      <div class="section-header-icon" style="background:#fd7e14;"><i class="bi bi-diagram-3"></i></div>
+      <div>
+        <h4 class="fw-bold mb-0">Phylogenetics &amp; Comparative Genomics</h4>
+        <small class="text-muted">Trees, synteny, orthology, selection</small>
+      </div>
+    </div>
+    <div class="row g-3">
+      <div class="col-md-6 col-lg-4">
+        <div class="channel-card">
+          <div><span class="channel-hash">#</span><span class="channel-name">phylogenetics</span></div>
+          <p class="channel-desc">IQ-TREE, RAxML, MrBayes, BEAST. Model selection, bootstrap, concordance factors, time-calibrated trees.</p>
+          <span class="channel-tag" style="background:#fff3e0;color:#bf360c;">IQ-TREE</span>
+          <span class="channel-tag" style="background:#fff3e0;color:#bf360c;">RAxML</span>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <div class="channel-card">
+          <div><span class="channel-hash">#</span><span class="channel-name">comparative-genomics</span></div>
+          <p class="channel-desc">Synteny with MCScanX, MUMmer, SyRI. Orthology with OrthoFinder, OrthoMCL. Gene family evolution.</p>
+          <span class="channel-tag" style="background:#fff3e0;color:#bf360c;">OrthoFinder</span>
+          <span class="channel-tag" style="background:#fff3e0;color:#bf360c;">MCScanX</span>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <div class="channel-card">
+          <div><span class="channel-hash">#</span><span class="channel-name">positive-selection</span></div>
+          <p class="channel-desc">dN/dS with PAML codeml, HyPhy. Branch-site models, RELAX, FEL/MEME for episodic selection.</p>
+          <span class="channel-tag" style="background:#fff3e0;color:#bf360c;">PAML</span>
+          <span class="channel-tag" style="background:#fff3e0;color:#bf360c;">HyPhy</span>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <div class="channel-card">
+          <div><span class="channel-hash">#</span><span class="channel-name">wgd-and-polyploidy</span></div>
+          <p class="channel-desc">Whole genome duplication analysis, polyploidy, Ks distributions, subgenome phasing, WGDdetector.</p>
+          <span class="channel-tag" style="background:#fff3e0;color:#bf360c;">Ks plots</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Epigenomics -->
+  <div class="mb-5">
+    <div class="section-header">
+      <div class="section-header-icon" style="background:#d63384;"><i class="bi bi-layers"></i></div>
+      <div>
+        <h4 class="fw-bold mb-0">Epigenomics &amp; Multi-omics</h4>
+        <small class="text-muted">ATAC-seq, ChIP-seq, methylation, proteomics</small>
+      </div>
+    </div>
+    <div class="row g-3">
+      <div class="col-md-6 col-lg-4">
+        <div class="channel-card">
+          <div><span class="channel-hash">#</span><span class="channel-name">atac-seq-chip-seq</span></div>
+          <p class="channel-desc">Peak calling with MACS2/3, HOMER. ATACseqQC, ChIPseeker, motif analysis, differential accessibility.</p>
+          <span class="channel-tag" style="background:#fce4ec;color:#880e4f;">MACS2</span>
+          <span class="channel-tag" style="background:#fce4ec;color:#880e4f;">HOMER</span>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <div class="channel-card">
+          <div><span class="channel-hash">#</span><span class="channel-name">methylation-analysis</span></div>
+          <p class="channel-desc">Bismark for WGBS, differential methylation with DSS, methylKit. CpG islands, DMRs, methylation heatmaps.</p>
+          <span class="channel-tag" style="background:#fce4ec;color:#880e4f;">Bismark</span>
+          <span class="channel-tag" style="background:#fce4ec;color:#880e4f;">DSS</span>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <div class="channel-card">
+          <div><span class="channel-hash">#</span><span class="channel-name">proteomics</span></div>
+          <p class="channel-desc">MaxQuant, Perseus, MSFragger for mass spectrometry proteomics. LFQ normalisation, volcano plots, protein networks.</p>
+          <span class="channel-tag" style="background:#fce4ec;color:#880e4f;">MaxQuant</span>
+          <span class="channel-tag" style="background:#fce4ec;color:#880e4f;">Perseus</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Metagenomics -->
+  <div class="mb-5">
+    <div class="section-header">
+      <div class="section-header-icon" style="background:#198754;"><i class="bi bi-bug"></i></div>
+      <div>
+        <h4 class="fw-bold mb-0">Metagenomics &amp; Microbiome</h4>
+        <small class="text-muted">QIIME2, Kraken2, MAGs, diversity</small>
+      </div>
+    </div>
+    <div class="row g-3">
+      <div class="col-md-6 col-lg-4">
+        <div class="channel-card">
+          <div><span class="channel-hash">#</span><span class="channel-name">qiime2-amplicon</span></div>
+          <p class="channel-desc">16S/ITS amplicon sequencing with QIIME2. DADA2, taxonomy assignment, alpha/beta diversity, PCoA plots.</p>
+          <span class="channel-tag" style="background:#e8f5e9;color:#1b5e20;">QIIME2</span>
+          <span class="channel-tag" style="background:#e8f5e9;color:#1b5e20;">DADA2</span>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <div class="channel-card">
+          <div><span class="channel-hash">#</span><span class="channel-name">shotgun-metagenomics</span></div>
+          <p class="channel-desc">Kraken2, Bracken taxonomic profiling. MetaPhlAn4, HUMAnN3. Functional profiling and community composition.</p>
+          <span class="channel-tag" style="background:#e8f5e9;color:#1b5e20;">Kraken2</span>
+          <span class="channel-tag" style="background:#e8f5e9;color:#1b5e20;">MetaPhlAn</span>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <div class="channel-card">
+          <div><span class="channel-hash">#</span><span class="channel-name">mags-and-binning</span></div>
+          <p class="channel-desc">Metagenome-assembled genomes with MetaBAT2, MaxBin, CONCOCT. CheckM quality, GTDB-Tk taxonomy.</p>
+          <span class="channel-tag" style="background:#e8f5e9;color:#1b5e20;">MetaBAT2</span>
+          <span class="channel-tag" style="background:#e8f5e9;color:#1b5e20;">CheckM</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tools & Coding -->
+  <div class="mb-5">
+    <div class="section-header">
+      <div class="section-header-icon" style="background:#0dcaf0;"><i class="bi bi-terminal"></i></div>
+      <div>
+        <h4 class="fw-bold mb-0">Tools, Coding &amp; HPC</h4>
+        <small class="text-muted">R, Python, Linux, Snakemake, containers</small>
+      </div>
+    </div>
+    <div class="row g-3">
+      <div class="col-md-6 col-lg-4">
+        <div class="channel-card">
+          <div><span class="channel-hash">#</span><span class="channel-name">r-programming</span></div>
+          <p class="channel-desc">ggplot2, Bioconductor, tidyverse, data wrangling. Package installation issues, StackOverflow-style R help.</p>
+          <span class="channel-tag" style="background:#e0f7fa;color:#006064;">R</span>
+          <span class="channel-tag" style="background:#e0f7fa;color:#006064;">ggplot2</span>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <div class="channel-card">
+          <div><span class="channel-hash">#</span><span class="channel-name">python-for-bioinformatics</span></div>
+          <p class="channel-desc">Biopython, Pandas, Scanpy, scikit-learn. Jupyter notebooks, scripting pipelines, parsing FASTA/VCF/GFF.</p>
+          <span class="channel-tag" style="background:#e0f7fa;color:#006064;">Python</span>
+          <span class="channel-tag" style="background:#e0f7fa;color:#006064;">Biopython</span>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <div class="channel-card">
+          <div><span class="channel-hash">#</span><span class="channel-name">linux-and-hpc</span></div>
+          <p class="channel-desc">Bash, SLURM, PBS, conda/mamba environments. SSH, file transfer, cluster job arrays, shell scripting tips.</p>
+          <span class="channel-tag" style="background:#e0f7fa;color:#006064;">Linux</span>
+          <span class="channel-tag" style="background:#e0f7fa;color:#006064;">SLURM</span>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <div class="channel-card">
+          <div><span class="channel-hash">#</span><span class="channel-name">snakemake-and-nextflow</span></div>
+          <p class="channel-desc">Workflow management with Snakemake and Nextflow/nf-core. DAG construction, cloud execution, reproducibility.</p>
+          <span class="channel-tag" style="background:#e0f7fa;color:#006064;">Snakemake</span>
+          <span class="channel-tag" style="background:#e0f7fa;color:#006064;">Nextflow</span>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <div class="channel-card">
+          <div><span class="channel-hash">#</span><span class="channel-name">docker-and-singularity</span></div>
+          <p class="channel-desc">Containerised bioinformatics — Docker, Singularity/Apptainer, Conda environments, reproducible research.</p>
+          <span class="channel-tag" style="background:#e0f7fa;color:#006064;">Docker</span>
+          <span class="channel-tag" style="background:#e0f7fa;color:#006064;">Conda</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Rules & FAQ side by side -->
+  <div class="row g-4 mt-2 mb-5">
+    <!-- Rules -->
+    <div class="col-lg-6">
+      <h4 class="fw-bold mb-4"><i class="bi bi-shield-check me-2 text-primary"></i>Community Rules</h4>
+      <div class="rule-card">
+        <div class="d-flex align-items-start">
+          <span class="rule-num">1</span>
+          <div><strong>Be kind and respectful.</strong> No harassment, discrimination, or toxic behaviour. Everyone is learning.</div>
+        </div>
+      </div>
+      <div class="rule-card" style="border-left-color:#20c997;">
+        <div class="d-flex align-items-start">
+          <span class="rule-num" style="color:#20c997;">2</span>
+          <div><strong>Post in the right channel.</strong> RNA-Seq questions in <code>#rna-seq-help</code>, GWAS in <code>#gwas-population-genetics</code>, etc.</div>
+        </div>
+      </div>
+      <div class="rule-card" style="border-left-color:#6f42c1;">
+        <div class="d-flex align-items-start">
+          <span class="rule-num" style="color:#6f42c1;">3</span>
+          <div><strong>Share your error message and code.</strong> "It doesn't work" is not enough. Paste the exact error and what you tried.</div>
+        </div>
+      </div>
+      <div class="rule-card" style="border-left-color:#fd7e14;">
+        <div class="d-flex align-items-start">
+          <span class="rule-num" style="color:#fd7e14;">4</span>
+          <div><strong>No spam, self-promotion, or off-topic links.</strong> Use <code>#resources-and-papers</code> for sharing tools and papers.</div>
+        </div>
+      </div>
+      <div class="rule-card" style="border-left-color:#d63384;">
+        <div class="d-flex align-items-start">
+          <span class="rule-num" style="color:#d63384;">5</span>
+          <div><strong>Mark questions resolved.</strong> Reply with ✅ when your issue is solved so others can find the answer later.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FAQ -->
+    <div class="col-lg-6">
+      <h4 class="fw-bold mb-4"><i class="bi bi-question-circle me-2 text-primary"></i>FAQ</h4>
+
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">
+          Is this community completely free? <i class="bi bi-chevron-down faq-chevron"></i>
+        </div>
+        <div class="faq-a">Yes, 100% free forever. Discord is free, and this server will never have paid tiers or paywalled channels. All tutorials on IndianElucidBiology are also free.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">
+          I'm a complete beginner — is this community for me? <i class="bi bi-chevron-down faq-chevron"></i>
+        </div>
+        <div class="faq-a">Absolutely. Start with the <strong>#welcome-and-rules</strong> channel, introduce yourself in <strong>#introductions</strong>, and then head to the <a href="tutorials/bioinformatics-101-beginners-guide.html">Bioinformatics 101 tutorial</a>. Ask any question — no question is too basic.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">
+          How do I ask a good bioinformatics question? <i class="bi bi-chevron-down faq-chevron"></i>
+        </div>
+        <div class="faq-a">Share: (1) What you're trying to do, (2) The exact command you ran, (3) The exact error message, (4) Your OS, tool version, and input data format. The more context you give, the faster you'll get a useful answer.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">
+          Can I share my own tutorials or scripts? <i class="bi bi-chevron-down faq-chevron"></i>
+        </div>
+        <div class="faq-a">Yes! Post scripts in <strong>#show-your-work</strong> and tutorials/resources in <strong>#resources-and-papers</strong>. We encourage community contributions.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFaq(this)">
+          What if my question isn't answered? <i class="bi bi-chevron-down faq-chevron"></i>
+        </div>
+        <div class="faq-a">Be patient — the community is growing. You can also email <a href="mailto:mr.ank2999@gmail.com">mr.ank2999@gmail.com</a> for direct help from Ankush.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Join CTA card -->
+  <div class="discord-join-card mb-5">
+    <i class="bi bi-discord" style="font-size:3rem;opacity:0.9;"></i>
+    <h2 class="fw-bold mt-3 mb-2">Ready to join?</h2>
+    <p class="mb-4" style="opacity:0.88;max-width:500px;margin:0 auto 24px;">One click. No email needed. Just click Join Discord and pick a username.</p>
+    <a href="https://discord.gg/nbwDxTbz" target="_blank" rel="noopener"
+       class="btn btn-light btn-lg px-5 rounded-pill fw-bold"
+       style="color:#5865F2;font-size:1.05rem;">
+      <i class="bi bi-discord me-2"></i>Join IndianElucidBiology Discord
+    </a>
+  </div>
+
+</div>
+
+<!-- FOOTER -->
+<footer class="site-footer">
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-lg-6">
+        <a href="index.html" class="d-inline-block mb-3">
+          <img src="indian_elucid_biology.png" alt="IndianElucidBiology" class="footer-logo">
+        </a>
+        <p class="small">Free, interactive bioinformatics tutorials. Open source and community-driven.</p>
+      </div>
+      <div class="col-lg-6 text-lg-end">
+        <p class="small mb-2">Founded by <strong>Ankush Sharma</strong></p>
+        <div class="d-flex gap-3 justify-content-lg-end">
+          <a href="https://github.com/ank-man" target="_blank" class="text-white fs-5"><i class="bi bi-github"></i></a>
+          <a href="https://www.linkedin.com/in/ankush-sharma-290307/" target="_blank" class="text-white fs-5"><i class="bi bi-linkedin"></i></a>
+          <a href="mailto:mr.ank2999@gmail.com" class="text-white fs-5"><i class="bi bi-envelope"></i></a>
+          <a href="https://discord.gg/nbwDxTbz" target="_blank" rel="noopener" class="fs-5" style="color:#5865F2;"><i class="bi bi-discord"></i></a>
+        </div>
+      </div>
+    </div>
+    <hr class="border-secondary mt-4 mb-3">
+    <p class="text-center small mb-0">&copy; 2025 IndianElucidBiology &mdash; Made with <span style="color:#e25555;">&#9829;</span> for the bioinformatics community.</p>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="js/main.js"></script>
+<script>
+function toggleFaq(el) {
+  const item = el.closest('.faq-item');
+  const isOpen = item.classList.contains('open');
+  document.querySelectorAll('.faq-item').forEach(i => i.classList.remove('open'));
+  if (!isOpen) item.classList.add('open');
+}
+</script>
+</body>
+</html>
