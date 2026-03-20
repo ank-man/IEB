@@ -14,15 +14,27 @@
 </head>
 <body>
 <div class="progress-tracker"></div>
-<nav class="navbar navbar-expand-lg fixed-top">
+<nav class="navbar navbar-expand-lg fixed-top bg-body-tertiary">
   <div class="container">
-    <a class="navbar-brand" href="../index.html"><img src="../indian_elucid_biology.png" alt="IndianElucidBiology" class="navbar-logo"></a>
+    <a class="navbar-brand" href="../index.html">
+      <span class="brand-indian">Indian</span><span class="brand-elucid">Elucid</span><span class="brand-biology">Biology</span>
+    </a>
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav"><span class="navbar-toggler-icon"></span></button>
     <div class="collapse navbar-collapse" id="mainNav">
-      <ul class="navbar-nav ms-auto me-3 align-items-lg-center gap-lg-1">
-        <li class="nav-item"><a class="nav-link" href="../index.html"><i class="bi bi-house-door me-1"></i>Home</a></li>
-        <li class="nav-item"><a class="nav-link" href="index.html"><i class="bi bi-grid-3x3-gap me-1"></i>All Tutorials</a></li>
-        <li class="nav-item"><a class="nav-link" href="../community.html"><i class="bi bi-discord me-1"></i>Community</a></li>
+      <ul class="navbar-nav ms-auto me-3">
+        <li class="nav-item"><a class="nav-link" href="../index.html">Home</a></li>
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle active" href="#" role="button" data-bs-toggle="dropdown">Tutorials</a>
+          <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="rnaseq-differential-expression-deseq2-guide.html">RNA-Seq &amp; DESeq2</a></li>
+            <li><a class="dropdown-item" href="long-read-rnaseq-transcript-discovery-tutorial.html">Long-Read RNA-Seq</a></li>
+            <li><a class="dropdown-item active" href="spatial-proteomics-codex-imaging-tutorial.html">Spatial Proteomics</a></li>
+            <li><a class="dropdown-item" href="multiome-atac-rna-joint-analysis-tutorial.html">Multiome ATAC+RNA</a></li>
+            <li><a class="dropdown-item" href="variant-calling-gatk-bcftools-pipeline.html">Variant Calling</a></li>
+          </ul>
+        </li>
+        <li class="nav-item"><a class="nav-link" href="../community.html">Community</a></li>
+        <li class="nav-item"><a class="nav-link" href="../contributors.html">Contributors</a></li>
       </ul>
       <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode">&#9790;</button>
     </div>
@@ -106,7 +118,9 @@
 
         <section id="install" class="mb-5">
           <h2 class="fw-bold">Installation</h2>
-          <pre><code class="language-bash">conda create -n spatprot python=3.10 -y
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash</span><button class="btn-copy">Copy</button></div>
+<pre>conda create -n spatprot python=3.10 -y
 conda activate spatprot
 
 # Core analysis
@@ -119,12 +133,15 @@ pip install deepcell tensorflow
 pip install tifffile imageio scikit-image
 
 # Verify
-python -c "import scimap; print(scimap.__version__)"</code></pre>
+python -c "import scimap; print(scimap.__version__)"</pre>
+          </div>
         </section>
 
         <section id="step1" class="mb-5">
           <h2 class="fw-bold"><span class="step-number me-2">1</span>Load Multiplexed Image Data</h2>
-          <pre><code class="language-python">import tifffile
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Python</span><button class="btn-copy">Copy</button></div>
+<pre>import tifffile
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -164,13 +181,16 @@ axes[2].set_title("CK (tumour cells)", fontweight="bold")
 for ax in axes: ax.axis("off")
 plt.tight_layout()
 plt.savefig("channel_overview.pdf", dpi=300, bbox_inches="tight")
-plt.show()</code></pre>
+plt.show()</pre>
+          </div>
         </section>
 
         <section id="step2" class="mb-5">
           <h2 class="fw-bold"><span class="step-number me-2">2</span>Cell Segmentation with DeepCell</h2>
           <p>Cell segmentation identifies individual cell boundaries from the DAPI (nuclear) and membrane markers. <strong>DeepCell Mesmer</strong> is the gold-standard deep learning segmentation model for multiplexed tissue imaging.</p>
-          <pre><code class="language-python">from deepcell.applications import Mesmer
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Python</span><button class="btn-copy">Copy</button></div>
+<pre>from deepcell.applications import Mesmer
 import numpy as np
 
 # Initialise Mesmer (downloads weights on first run ~500 MB)
@@ -211,12 +231,15 @@ axes[1].imshow(cell_mask, cmap="tab20")
 axes[1].set_title(f"Cell segmentation ({cell_mask.max()} cells)", fontweight="bold")
 for ax in axes: ax.axis("off")
 plt.savefig("segmentation.pdf", dpi=300, bbox_inches="tight")
-plt.show()</code></pre>
+plt.show()</pre>
+          </div>
         </section>
 
         <section id="step3" class="mb-5">
           <h2 class="fw-bold"><span class="step-number me-2">3</span>Marker Quantification per Cell</h2>
-          <pre><code class="language-python">from skimage.measure import regionprops_table
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Python</span><button class="btn-copy">Copy</button></div>
+<pre>from skimage.measure import regionprops_table
 
 # Extract mean intensity per cell per channel
 props = regionprops_table(
@@ -239,12 +262,15 @@ print(f"Cell table shape: {df.shape}")
 print(df[["label","x","y","area","CD3","CD8","CK","CD68"]].head())
 
 # Save cell table
-df.to_csv("cell_table.csv", index=False)</code></pre>
+df.to_csv("cell_table.csv", index=False)</pre>
+          </div>
         </section>
 
         <section id="step4" class="mb-5">
           <h2 class="fw-bold"><span class="step-number me-2">4</span>Cell Phenotyping with scimap</h2>
-          <pre><code class="language-python">import scimap as sm
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Python</span><button class="btn-copy">Copy</button></div>
+<pre>import scimap as sm
 import anndata as ad
 import scanpy as sc
 
@@ -300,12 +326,15 @@ wedges, texts, autotexts = ax.pie(
 ax.set_title("Cell type composition", fontsize=14, fontweight="bold")
 plt.tight_layout()
 plt.savefig("cell_composition_pie.pdf", dpi=300, bbox_inches="tight")
-plt.show()</code></pre>
+plt.show()</pre>
+          </div>
         </section>
 
         <section id="step5" class="mb-5">
           <h2 class="fw-bold"><span class="step-number me-2">5</span>Spatial Neighbourhood Analysis</h2>
-          <pre><code class="language-python"># Build spatial KNN graph
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Python</span><button class="btn-copy">Copy</button></div>
+<pre># Build spatial KNN graph
 sm.tl.spatial_interaction(
     adata,
     phenotype="phenotype",
@@ -338,12 +367,15 @@ sm.pl.image_viewer(
     imageid="tissue",
     overlay="tissue_niche",
     point_size=5
-)</code></pre>
+)</pre>
+          </div>
         </section>
 
         <section id="step6" class="mb-5">
           <h2 class="fw-bold"><span class="step-number me-2">6</span>Cell-Cell Interaction Proximity Analysis</h2>
-          <pre><code class="language-python">import scipy.spatial as spatial
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Python</span><button class="btn-copy">Copy</button></div>
+<pre>import scipy.spatial as spatial
 import seaborn as sns
 
 # For each cell type pair: is the distance shorter than expected by chance?
@@ -389,12 +421,15 @@ ax.set_xlabel("Target cell type")
 ax.set_ylabel("Source cell type")
 plt.tight_layout()
 plt.savefig("interaction_proximity.pdf", dpi=300, bbox_inches="tight")
-plt.show()</code></pre>
+plt.show()</pre>
+          </div>
         </section>
 
         <section id="step7" class="mb-5">
           <h2 class="fw-bold"><span class="step-number me-2">7</span>Spatial Scatter Visualisation</h2>
-          <pre><code class="language-python"># Plot cell phenotypes overlaid on tissue
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Python</span><button class="btn-copy">Copy</button></div>
+<pre># Plot cell phenotypes overlaid on tissue
 fig, axes = plt.subplots(1, 2, figsize=(16, 8))
 
 # Left: DAPI background with phenotype overlay
@@ -438,12 +473,13 @@ axes[1].axis("off")
 
 plt.tight_layout()
 plt.savefig("spatial_phenotype_map.pdf", dpi=300, bbox_inches="tight")
-plt.show()</code></pre>
+plt.show()</pre>
+          </div>
         </section>
 
         <section id="summary" class="mb-5">
           <h2 class="fw-bold">Summary</h2>
-          <div class="byte-callout byte-success">
+          <div class="byte-callout byte-tip">
             <img src="../img/Byte1.png" alt="Byte">
             <div>
               <strong>Full spatial proteomics pipeline:</strong>
@@ -462,6 +498,10 @@ plt.show()</code></pre>
           <div class="alert alert-secondary small">
             <strong>Method of the Year 2024:</strong> <em>Spatial proteomics.</em> Nature Methods 22, 1 (2025). <a href="https://doi.org/10.1038/s41592-024-02565-3" target="_blank" rel="noopener">https://doi.org/10.1038/s41592-024-02565-3</a>
           </div>
+          <div class="d-flex justify-content-between mt-5">
+            <a href="long-read-rnaseq-transcript-discovery-tutorial.html" class="btn btn-outline-secondary rounded-pill px-4"><i class="bi bi-arrow-left me-2"></i>Previous: Long-Read RNA-Seq</a>
+            <a href="multiome-atac-rna-joint-analysis-tutorial.html" class="btn btn-primary rounded-pill px-4">Next: Multiome ATAC+RNA <i class="bi bi-arrow-right ms-2"></i></a>
+          </div>
         </section>
 
       </div>
@@ -469,15 +509,26 @@ plt.show()</code></pre>
   </div>
 </div>
 
-<section class="py-4" style="background:linear-gradient(135deg,#5865F2 0%,#4752c4 100%);">
-  <div class="container text-center">
-    <p class="text-white mb-2 fw-bold">Questions about spatial proteomics? Ask in the community!</p>
-    <a href="https://discord.gg/nbwDxTbz" target="_blank" rel="noopener" class="btn btn-light rounded-pill px-4 fw-bold" style="color:#5865F2;">
-      <i class="bi bi-discord me-2"></i>Join Discord — #proteomics
-    </a>
+<footer class="site-footer">
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-lg-6">
+        <h5 class="text-white fw-bold mb-3"><span style="color:#ff9933;">Indian</span><span style="color:var(--ieb-primary);">Elucid</span><span style="color:var(--ieb-accent);">Biology</span></h5>
+        <p class="small">Free, interactive bioinformatics tutorials. Open source and community-driven.</p>
+      </div>
+      <div class="col-lg-6 text-lg-end">
+        <p class="small mb-1">Founded by <strong>Ankush Sharma</strong></p>
+        <div class="d-flex gap-3 justify-content-lg-end">
+          <a href="https://github.com/ank-man" target="_blank" class="text-white fs-5" title="GitHub"><i class="bi bi-github"></i></a>
+          <a href="https://www.linkedin.com/in/ankush-sharma-290307/" target="_blank" class="text-white fs-5" title="LinkedIn"><i class="bi bi-linkedin"></i></a>
+          <a href="mailto:mr.ank2999@gmail.com" class="text-white fs-5" title="Email"><i class="bi bi-envelope"></i></a>
+        </div>
+      </div>
+    </div>
+    <hr class="border-secondary mt-4 mb-3">
+    <p class="text-center small mb-0">&copy; 2025 IndianElucidBiology &mdash; Founded by <a href="https://www.linkedin.com/in/ankush-sharma-290307/" class="text-white-50" target="_blank">Ankush Sharma</a>. Made with <span style="color:#e25555;">&#9829;</span> for the bioinformatics community.</p>
   </div>
-</section>
-<footer class="site-footer"><div class="container text-center"><p class="small mb-0">&copy; 2025 IndianElucidBiology</p></div></footer>
+</footer>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="../js/main.js"></script>
 </body>

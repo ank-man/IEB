@@ -14,15 +14,27 @@
 </head>
 <body>
 <div class="progress-tracker"></div>
-<nav class="navbar navbar-expand-lg fixed-top">
+<nav class="navbar navbar-expand-lg fixed-top bg-body-tertiary">
   <div class="container">
-    <a class="navbar-brand" href="../index.html"><img src="../indian_elucid_biology.png" alt="IndianElucidBiology" class="navbar-logo"></a>
+    <a class="navbar-brand" href="../index.html">
+      <span class="brand-indian">Indian</span><span class="brand-elucid">Elucid</span><span class="brand-biology">Biology</span>
+    </a>
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav"><span class="navbar-toggler-icon"></span></button>
     <div class="collapse navbar-collapse" id="mainNav">
-      <ul class="navbar-nav ms-auto me-3 align-items-lg-center gap-lg-1">
-        <li class="nav-item"><a class="nav-link" href="../index.html"><i class="bi bi-house-door me-1"></i>Home</a></li>
-        <li class="nav-item"><a class="nav-link" href="index.html"><i class="bi bi-grid-3x3-gap me-1"></i>All Tutorials</a></li>
-        <li class="nav-item"><a class="nav-link" href="../community.html"><i class="bi bi-discord me-1"></i>Community</a></li>
+      <ul class="navbar-nav ms-auto me-3">
+        <li class="nav-item"><a class="nav-link" href="../index.html">Home</a></li>
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle active" href="#" role="button" data-bs-toggle="dropdown">Tutorials</a>
+          <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="rnaseq-differential-expression-deseq2-guide.html">RNA-Seq &amp; DESeq2</a></li>
+            <li><a class="dropdown-item" href="spatial-proteomics-codex-imaging-tutorial.html">Spatial Proteomics</a></li>
+            <li><a class="dropdown-item active" href="multiome-atac-rna-joint-analysis-tutorial.html">Multiome ATAC+RNA</a></li>
+            <li><a class="dropdown-item" href="fastoma-orthology-inference-tutorial.html">FastOMA</a></li>
+            <li><a class="dropdown-item" href="variant-calling-gatk-bcftools-pipeline.html">Variant Calling</a></li>
+          </ul>
+        </li>
+        <li class="nav-item"><a class="nav-link" href="../community.html">Community</a></li>
+        <li class="nav-item"><a class="nav-link" href="../contributors.html">Contributors</a></li>
       </ul>
       <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode">&#9790;</button>
     </div>
@@ -95,7 +107,9 @@
 
         <section id="install" class="mb-5">
           <h2 class="fw-bold">Installation</h2>
-          <pre><code class="language-r"># In R:
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre># In R:
 install.packages(c("Seurat", "Signac", "ggplot2", "dplyr", "patchwork"))
 BiocManager::install(c("GenomicRanges", "BSgenome.Hsapiens.UCSC.hg38",
                         "EnsDb.Hsapiens.v86", "chromVAR", "motifmatchr",
@@ -104,16 +118,22 @@ BiocManager::install(c("GenomicRanges", "BSgenome.Hsapiens.UCSC.hg38",
 # Verify
 library(Seurat)
 library(Signac)
-packageVersion("Signac")  # should be >= 1.12</code></pre>
+packageVersion("Signac")  # should be >= 1.12</pre>
+          </div>
 
-          <pre><code class="language-bash"># MACS2 for peak calling (Python)
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash</span><button class="btn-copy">Copy</button></div>
+<pre># MACS2 for peak calling (Python)
 pip install macs2
-macs2 --version</code></pre>
+macs2 --version</pre>
+          </div>
         </section>
 
         <section id="step1" class="mb-5">
           <h2 class="fw-bold"><span class="step-number me-2">1</span>Load Cell Ranger ARC Output</h2>
-          <pre><code class="language-r">library(Seurat)
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre>library(Seurat)
 library(Signac)
 library(EnsDb.Hsapiens.v86)
 library(GenomicRanges)
@@ -157,12 +177,15 @@ pbmc[["ATAC"]] <- chrom_assay
 
 cat("Cells:", ncol(pbmc), "\n")
 cat("RNA features:", nrow(pbmc[["RNA"]]), "\n")
-cat("ATAC peaks:", nrow(pbmc[["ATAC"]]), "\n")</code></pre>
+cat("ATAC peaks:", nrow(pbmc[["ATAC"]]), "\n")</pre>
+          </div>
         </section>
 
         <section id="step2" class="mb-5">
           <h2 class="fw-bold"><span class="step-number me-2">2</span>RNA QC &amp; Processing</h2>
-          <pre><code class="language-r">library(dplyr)
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre>library(dplyr)
 
 # QC metrics
 pbmc[["percent.mt"]] <- PercentageFeatureSet(pbmc, pattern = "^MT-")
@@ -182,12 +205,15 @@ pbmc <- FindVariableFeatures(pbmc, nfeatures = 3000)
 pbmc <- ScaleData(pbmc)
 pbmc <- RunPCA(pbmc, npcs = 50)
 
-cat("After QC:", ncol(pbmc), "cells\n")</code></pre>
+cat("After QC:", ncol(pbmc), "cells\n")</pre>
+          </div>
         </section>
 
         <section id="step3" class="mb-5">
           <h2 class="fw-bold"><span class="step-number me-2">3</span>ATAC QC &amp; Processing</h2>
-          <pre><code class="language-r">DefaultAssay(pbmc) <- "ATAC"
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre>DefaultAssay(pbmc) <- "ATAC"
 
 # ATAC-specific QC metrics
 pbmc <- NucleosomeSignal(pbmc)
@@ -221,13 +247,16 @@ pbmc <- RunSVD(pbmc)
 
 # Check if first LSI component correlates with depth (should be excluded)
 DepthCor(pbmc)
-# If component 1 correlates strongly with depth, exclude it in downstream steps</code></pre>
+# If component 1 correlates strongly with depth, exclude it in downstream steps</pre>
+          </div>
         </section>
 
         <section id="step4" class="mb-5">
           <h2 class="fw-bold"><span class="step-number me-2">4</span>WNN Joint Clustering</h2>
           <p>Weighted Nearest Neighbours (WNN) combines RNA PCA and ATAC LSI embeddings, weighting each modality adaptively per cell.</p>
-          <pre><code class="language-r">library(patchwork)
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre>library(patchwork)
 
 # Build WNN graph using both modalities
 pbmc <- FindMultiModalNeighbors(
@@ -264,13 +293,16 @@ p3 <- DimPlot(pbmc, reduction="wnn.umap",  group.by="seurat_clusters",
               label=TRUE) + ggtitle("WNN (joint)") + NoLegend()
 
 p1 | p2 | p3
-ggsave("wnn_comparison_umap.pdf", width=18, height=6)</code></pre>
+ggsave("wnn_comparison_umap.pdf", width=18, height=6)</pre>
+          </div>
         </section>
 
         <section id="step5" class="mb-5">
           <h2 class="fw-bold"><span class="step-number me-2">5</span>Peak Calling per Cell Type with MACS2</h2>
           <p>Cell Ranger ARC calls peaks globally. Re-calling peaks per cell type gives higher-resolution, cluster-specific accessibility profiles.</p>
-          <pre><code class="language-r"># Assign cell type labels first (from RNA markers)
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre># Assign cell type labels first (from RNA markers)
 pbmc <- RenameIdents(
   pbmc,
   "0"  = "CD14 Mono",
@@ -309,12 +341,15 @@ pbmc[["MACS2"]] <- CreateChromatinAssay(
 )
 
 cat("MACS2 peaks called:", nrow(peaks), "\n")
-cat("Original peaks:", nrow(pbmc[["ATAC"]]), "\n")</code></pre>
+cat("Original peaks:", nrow(pbmc[["ATAC"]]), "\n")</pre>
+          </div>
         </section>
 
         <section id="step6" class="mb-5">
           <h2 class="fw-bold"><span class="step-number me-2">6</span>Transcription Factor Motif Enrichment</h2>
-          <pre><code class="language-r">library(JASPAR2020)
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre>library(JASPAR2020)
 library(TFBSTools)
 library(chromVAR)
 library(motifmatchr)
@@ -368,13 +403,16 @@ FeaturePlot(
 ) &
 scale_color_gradient2(low="blue", mid="lightgrey", high="red") &
 ggtitle(c("IRF4 motif activity", "RUNX1 motif activity"))
-ggsave("tf_motif_activity.pdf", width=12, height=5)</code></pre>
+ggsave("tf_motif_activity.pdf", width=12, height=5)</pre>
+          </div>
         </section>
 
         <section id="step7" class="mb-5">
           <h2 class="fw-bold"><span class="step-number me-2">7</span>Peak-to-Gene Linkage</h2>
           <p>Linking open chromatin peaks to the genes they regulate is the core multiome analysis — enabled by having ATAC and RNA from the same cell.</p>
-          <pre><code class="language-r">DefaultAssay(pbmc) <- "MACS2"
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre>DefaultAssay(pbmc) <- "MACS2"
 
 # Link peaks to genes using co-variation across cells
 # (peaks that open/close together with gene expression → likely regulatory)
@@ -403,12 +441,15 @@ CoveragePlot(
   extend.upstream   = 5000,
   extend.downstream = 5000
 )
-ggsave("CD8A_coverage_plot.pdf", width=10, height=8)</code></pre>
+ggsave("CD8A_coverage_plot.pdf", width=10, height=8)</pre>
+          </div>
         </section>
 
         <section id="step8" class="mb-5">
           <h2 class="fw-bold"><span class="step-number me-2">8</span>Differential Accessibility Analysis</h2>
-          <pre><code class="language-r">DefaultAssay(pbmc) <- "MACS2"
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre>DefaultAssay(pbmc) <- "MACS2"
 
 # Find differentially accessible peaks between cell types
 da_peaks <- FindMarkers(
@@ -447,12 +488,13 @@ ggplot(da_peaks, aes(x=avg_log2FC, y=neg_log10_padj)) +
        title="Differentially accessible peaks: CD8 T vs CD4 T",
        colour="Peak type") +
   theme_classic(base_size=13)
-ggsave("da_peaks_volcano.pdf", width=10, height=7, dpi=300)</code></pre>
+ggsave("da_peaks_volcano.pdf", width=10, height=7, dpi=300)</pre>
+          </div>
         </section>
 
         <section id="summary" class="mb-5">
           <h2 class="fw-bold">Summary</h2>
-          <div class="byte-callout byte-success">
+          <div class="byte-callout byte-tip">
             <img src="../img/Byte1.png" alt="Byte">
             <div>
               <strong>Full Multiome pipeline:</strong>
@@ -472,6 +514,10 @@ ggsave("da_peaks_volcano.pdf", width=10, height=7, dpi=300)</code></pre>
             <div class="col-md-6"><a href="scrna-cell-ranger-seurat.html" class="text-decoration-none"><div class="p-3 rounded-3 border"><i class="bi bi-arrow-right-circle text-primary me-2"></i><strong>scRNA-Seq with Seurat v5</strong></div></a></div>
             <div class="col-md-6"><a href="epigenomics-atac-chip-tutorial.html" class="text-decoration-none"><div class="p-3 rounded-3 border"><i class="bi bi-arrow-right-circle text-primary me-2"></i><strong>Bulk ATAC-Seq Analysis</strong></div></a></div>
           </div>
+          <div class="d-flex justify-content-between mt-5">
+            <a href="spatial-proteomics-codex-imaging-tutorial.html" class="btn btn-outline-secondary rounded-pill px-4"><i class="bi bi-arrow-left me-2"></i>Previous: Spatial Proteomics</a>
+            <a href="index.html" class="btn btn-primary rounded-pill px-4">All Tutorials <i class="bi bi-arrow-right ms-2"></i></a>
+          </div>
         </section>
 
       </div>
@@ -479,15 +525,26 @@ ggsave("da_peaks_volcano.pdf", width=10, height=7, dpi=300)</code></pre>
   </div>
 </div>
 
-<section class="py-4" style="background:linear-gradient(135deg,#5865F2 0%,#4752c4 100%);">
-  <div class="container text-center">
-    <p class="text-white mb-2 fw-bold">Questions about multiome analysis? Ask in the community!</p>
-    <a href="https://discord.gg/nbwDxTbz" target="_blank" rel="noopener" class="btn btn-light rounded-pill px-4 fw-bold" style="color:#5865F2;">
-      <i class="bi bi-discord me-2"></i>Join Discord — #atac-seq-chip-seq
-    </a>
+<footer class="site-footer">
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-lg-6">
+        <h5 class="text-white fw-bold mb-3"><span style="color:#ff9933;">Indian</span><span style="color:var(--ieb-primary);">Elucid</span><span style="color:var(--ieb-accent);">Biology</span></h5>
+        <p class="small">Free, interactive bioinformatics tutorials. Open source and community-driven.</p>
+      </div>
+      <div class="col-lg-6 text-lg-end">
+        <p class="small mb-1">Founded by <strong>Ankush Sharma</strong></p>
+        <div class="d-flex gap-3 justify-content-lg-end">
+          <a href="https://github.com/ank-man" target="_blank" class="text-white fs-5" title="GitHub"><i class="bi bi-github"></i></a>
+          <a href="https://www.linkedin.com/in/ankush-sharma-290307/" target="_blank" class="text-white fs-5" title="LinkedIn"><i class="bi bi-linkedin"></i></a>
+          <a href="mailto:mr.ank2999@gmail.com" class="text-white fs-5" title="Email"><i class="bi bi-envelope"></i></a>
+        </div>
+      </div>
+    </div>
+    <hr class="border-secondary mt-4 mb-3">
+    <p class="text-center small mb-0">&copy; 2025 IndianElucidBiology &mdash; Founded by <a href="https://www.linkedin.com/in/ankush-sharma-290307/" class="text-white-50" target="_blank">Ankush Sharma</a>. Made with <span style="color:#e25555;">&#9829;</span> for the bioinformatics community.</p>
   </div>
-</section>
-<footer class="site-footer"><div class="container text-center"><p class="small mb-0">&copy; 2025 IndianElucidBiology</p></div></footer>
+</footer>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="../js/main.js"></script>
 </body>

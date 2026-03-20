@@ -15,17 +15,27 @@
 <body>
 <div class="progress-tracker"></div>
 
-<nav class="navbar navbar-expand-lg fixed-top">
+<nav class="navbar navbar-expand-lg fixed-top bg-body-tertiary">
   <div class="container">
     <a class="navbar-brand" href="../index.html">
-      <img src="../indian_elucid_biology.png" alt="IndianElucidBiology" class="navbar-logo">
+      <span class="brand-indian">Indian</span><span class="brand-elucid">Elucid</span><span class="brand-biology">Biology</span>
     </a>
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav"><span class="navbar-toggler-icon"></span></button>
     <div class="collapse navbar-collapse" id="mainNav">
-      <ul class="navbar-nav ms-auto me-3 align-items-lg-center gap-lg-1">
-        <li class="nav-item"><a class="nav-link" href="../index.html"><i class="bi bi-house-door me-1"></i>Home</a></li>
-        <li class="nav-item"><a class="nav-link" href="index.html"><i class="bi bi-grid-3x3-gap me-1"></i>All Tutorials</a></li>
-        <li class="nav-item"><a class="nav-link" href="../community.html"><i class="bi bi-discord me-1"></i>Community</a></li>
+      <ul class="navbar-nav ms-auto me-3">
+        <li class="nav-item"><a class="nav-link" href="../index.html">Home</a></li>
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle active" href="#" role="button" data-bs-toggle="dropdown">Tutorials</a>
+          <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="rnaseq-differential-expression-deseq2-guide.html">RNA-Seq &amp; DESeq2</a></li>
+            <li><a class="dropdown-item" href="scrna-scanpy-python.html">scRNA-Seq (Scanpy)</a></li>
+            <li><a class="dropdown-item" href="scrna-cell-ranger-seurat.html">Cell Ranger + Seurat</a></li>
+            <li><a class="dropdown-item" href="variant-calling-gatk-bcftools-pipeline.html">Variant Calling</a></li>
+            <li><a class="dropdown-item active" href="fastoma-orthology-inference-tutorial.html">FastOMA</a></li>
+          </ul>
+        </li>
+        <li class="nav-item"><a class="nav-link" href="../community.html">Community</a></li>
+        <li class="nav-item"><a class="nav-link" href="../contributors.html">Contributors</a></li>
       </ul>
       <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode">&#9790;</button>
     </div>
@@ -135,7 +145,9 @@
           <p>FastOMA is installable via pip or conda. A Snakemake workflow is also available for large-scale runs.</p>
 
           <h5 class="fw-bold mt-3">Option 1 — pip (recommended for small/medium runs)</h5>
-          <pre><code class="language-bash"># Create a dedicated environment
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash</span><button class="btn-copy">Copy</button></div>
+<pre># Create a dedicated environment
 conda create -n fastoma python=3.10 -y
 conda activate fastoma
 
@@ -143,18 +155,28 @@ conda activate fastoma
 pip install FastOMA
 
 # Verify installation
-fastoma --version</code></pre>
+fastoma --version</pre>
+          </div>
 
           <h5 class="fw-bold mt-3">Option 2 — conda</h5>
-          <pre><code class="language-bash">conda install -c bioconda fastoma -y</code></pre>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash</span><button class="btn-copy">Copy</button></div>
+<pre>conda install -c bioconda fastoma -y</pre>
+          </div>
 
           <h5 class="fw-bold mt-3">Option 3 — Docker (for reproducibility)</h5>
-          <pre><code class="language-bash">docker pull dessimozlab/fastoma:latest
-docker run -v $(pwd):/data dessimozlab/fastoma:latest fastoma --help</code></pre>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash</span><button class="btn-copy">Copy</button></div>
+<pre>docker pull dessimozlab/fastoma:latest
+docker run -v $(pwd):/data dessimozlab/fastoma:latest fastoma --help</pre>
+          </div>
 
           <h5 class="fw-bold mt-3">Dependencies</h5>
-          <pre><code class="language-bash"># FastOMA requires these tools in PATH:
-conda install -c bioconda diamond mmseqs2 mafft fasttree -y</code></pre>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash</span><button class="btn-copy">Copy</button></div>
+<pre># FastOMA requires these tools in PATH:
+conda install -c bioconda diamond mmseqs2 mafft fasttree -y</pre>
+          </div>
         </section>
 
         <section id="input" class="mb-5">
@@ -166,7 +188,9 @@ conda install -c bioconda diamond mmseqs2 mafft fasttree -y</code></pre>
           </ol>
 
           <h5 class="fw-bold mt-3">Download example proteomes from UniProt</h5>
-          <pre><code class="language-bash"># Create project directory
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash</span><button class="btn-copy">Copy</button></div>
+<pre># Create project directory
 mkdir fastoma_project && cd fastoma_project
 mkdir proteomes
 
@@ -178,17 +202,20 @@ wget -O proteomes/ARATH.fa "https://rest.uniprot.org/uniprotkb/stream?format=fas
 wget -O proteomes/ORYSJ.fa "https://rest.uniprot.org/uniprotkb/stream?format=fasta&query=organism_id:39947+AND+reviewed:true"
 
 # Or use any genome annotation protein output (e.g., MAKER .proteins.fasta)
-# Naming convention: species_code.fa (important for FastOMA parsing)</code></pre>
+# Naming convention: species_code.fa (important for FastOMA parsing)</pre>
+          </div>
 
-          <div class="byte-callout byte-warning">
-            <img src="../img/Byte2.png" alt="Byte warning">
+          <div class="byte-callout byte-warn">
+            <img src="../img/Byte5.png" alt="Byte warning">
             <div>
               <strong>File naming is critical:</strong> Each FASTA file must be named with a 5-letter species code (e.g., <code>HUMAN.fa</code>, <code>MOUSE.fa</code>). Sequence headers must start with <code>&gt;species_code|proteinID</code> (e.g., <code>&gt;HUMAN|P53_HUMAN</code>).
             </div>
           </div>
 
           <h5 class="fw-bold mt-3">Format protein FASTA headers correctly</h5>
-          <pre><code class="language-bash"># If your headers are plain gene IDs, reformat them:
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash</span><button class="btn-copy">Copy</button></div>
+<pre># If your headers are plain gene IDs, reformat them:
 # Input: >AT1G01010.1 protein
 # Output: >ARATH|AT1G01010.1
 
@@ -204,14 +231,17 @@ with open("proteomes/arabidopsis_raw.fa") as f, open("proteomes/ARATH.fa", "w") 
         else:
             out.write(line)
 print("Done reformatting headers")
-EOF</code></pre>
+EOF</pre>
+          </div>
         </section>
 
         <section id="step1" class="mb-5">
           <h2 class="fw-bold"><span class="step-number me-2">1</span>Prepare the Species Tree</h2>
           <p>A species tree in Newick format constrains HOG inference to biologically meaningful evolutionary relationships. You can use a published tree from TimeTree or NCBI taxonomy.</p>
 
-          <pre><code class="language-bash"># Example species tree for 5 plant species (Newick format)
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash</span><button class="btn-copy">Copy</button></div>
+<pre># Example species tree for 5 plant species (Newick format)
 # Save as species_tree.nwk
 
 cat &gt; species_tree.nwk &lt;&lt;'EOF'
@@ -224,7 +254,8 @@ from ete3 import Tree
 t = Tree('species_tree.nwk')
 print('Species in tree:', [l.name for l in t.get_leaves()])
 print('Tree looks valid!')
-"</code></pre>
+"</pre>
+          </div>
 
           <div class="byte-callout byte-info">
             <img src="../img/Byte3.png" alt="Byte tip">
@@ -238,7 +269,9 @@ print('Tree looks valid!')
           <h2 class="fw-bold"><span class="step-number me-2">2</span>Run FastOMA</h2>
           <p>FastOMA is run in a single command. It will perform all-vs-all protein comparisons, compute pairwise orthologs, then hierarchically infer HOGs.</p>
 
-          <pre><code class="language-bash"># Basic run — FastOMA auto-detects all .fa files in the proteomes/ folder
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash</span><button class="btn-copy">Copy</button></div>
+<pre># Basic run — FastOMA auto-detects all .fa files in the proteomes/ folder
 fastoma \
   --proteomes proteomes/ \
   --species-tree species_tree.nwk \
@@ -254,10 +287,11 @@ fastoma \
   --low-mem \
   --aligner diamond \     # faster than default for large proteomes
   --min-length 50 \       # filter short proteins
-  --verbose</code></pre>
+  --verbose</pre>
+          </div>
 
           <h5 class="fw-bold mt-4">Expected runtime</h5>
-          <div class="table-responsive">
+          <div class="param-table"><div class="table-responsive">
             <table class="table table-bordered table-sm">
               <thead class="table-dark">
                 <tr><th>Dataset size</th><th>Threads</th><th>Approx. time</th></tr>
@@ -269,21 +303,26 @@ fastoma \
                 <tr><td>1,000+ species</td><td>64</td><td>12–24 hours</td></tr>
               </tbody>
             </table>
-          </div>
+          </div></div>
         </section>
 
         <section id="step3" class="mb-5">
           <h2 class="fw-bold"><span class="step-number me-2">3</span>Understand Output Files</h2>
-          <pre><code class="language-bash">fastoma_output/
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash</span><button class="btn-copy">Copy</button></div>
+<pre>fastoma_output/
 ├── OrthologousGroups.tsv       # Pairwise orthologs (tab-separated)
 ├── HierarchicalGroups.orthoxml # HOGs in standard OrthoXML format
 ├── OrthologousMatrix.tsv       # Presence/absence matrix per HOG per species
 ├── speciestree_checked.nwk     # Validated/reconciled species tree
 ├── RootHOG_summary.tsv         # Summary stats per HOG at root level
-└── logs/                       # Detailed run logs</code></pre>
+└── logs/                       # Detailed run logs</pre>
+          </div>
 
           <h5 class="fw-bold mt-4">Explore the orthologous groups file</h5>
-          <pre><code class="language-python">import pandas as pd
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Python</span><button class="btn-copy">Copy</button></div>
+<pre>import pandas as pd
 
 # Load pairwise orthologs
 orthos = pd.read_csv("fastoma_output/OrthologousGroups.tsv", sep="\t",
@@ -303,17 +342,22 @@ print(f"\nOne-to-one orthologs: {len(one_to_one):,}")
 
 # Example output:
 # protein1           protein2          type  score
-# ARATH|AT1G01010   ORYSJ|Os01g0100   1:1   187.3
-</code></pre>
+# ARATH|AT1G01010   ORYSJ|Os01g0100   1:1   187.3</pre>
+          </div>
         </section>
 
         <section id="step4" class="mb-5">
           <h2 class="fw-bold"><span class="step-number me-2">4</span>HOG Analysis with pyHam</h2>
           <p>pyHam is the official Python library for parsing and visualising HOG evolution from FastOMA/OMA output.</p>
 
-          <pre><code class="language-bash">pip install pyham</code></pre>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash</span><button class="btn-copy">Copy</button></div>
+<pre>pip install pyham</pre>
+          </div>
 
-          <pre><code class="language-python">import pyham
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Python</span><button class="btn-copy">Copy</button></div>
+<pre>import pyham
 
 # Load HOGs
 ham = pyham.Ham(
@@ -339,10 +383,13 @@ print(f"Single-copy conserved HOGs: {len(single_copy)}")
 for hog in all_hogs[:5]:
     events = ham.create_iHam(hog)
     print(f"HOG {hog.hog_id}: duplications={events.count_duplication()}, "
-          f"losses={events.count_loss()}")</code></pre>
+          f"losses={events.count_loss()}")</pre>
+          </div>
 
           <h5 class="fw-bold mt-4">Presence/absence matrix — gene content evolution</h5>
-          <pre><code class="language-python">import pandas as pd
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Python</span><button class="btn-copy">Copy</button></div>
+<pre>import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 
@@ -363,14 +410,17 @@ ax.set_ylabel("HOG (top 100)", fontsize=12)
 ax.set_title("Gene family presence/absence across species", fontsize=14, fontweight="bold")
 plt.tight_layout()
 plt.savefig("gene_content_heatmap.pdf", dpi=300, bbox_inches="tight")
-plt.show()</code></pre>
+plt.show()</pre>
+          </div>
         </section>
 
         <section id="step5" class="mb-5">
           <h2 class="fw-bold"><span class="step-number me-2">5</span>Build a Species Tree from Single-Copy Orthologs</h2>
           <p>Single-copy orthologs inferred by FastOMA are ideal markers for species tree inference using concatenation or coalescent methods.</p>
 
-          <pre><code class="language-bash"># Extract single-copy HOG sequences for phylogenomics
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash</span><button class="btn-copy">Copy</button></div>
+<pre># Extract single-copy HOG sequences for phylogenomics
 python3 - &lt;&lt;'EOF'
 import pyham, os
 
@@ -430,14 +480,17 @@ iqtree2 -s concatenated_alignment.fa \
         -B 1000 \
         -T AUTO \
         --prefix species_tree_fastoma \
-        --quiet</code></pre>
+        --quiet</pre>
+          </div>
         </section>
 
         <section id="visualize" class="mb-5">
           <h2 class="fw-bold">Visualise the Results</h2>
 
           <h5 class="fw-bold mt-3">Plot the inferred species tree with bootstrap values</h5>
-          <pre><code class="language-python">from ete3 import Tree, TreeStyle, NodeStyle, TextFace
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Python</span><button class="btn-copy">Copy</button></div>
+<pre>from ete3 import Tree, TreeStyle, NodeStyle, TextFace
 import matplotlib.pyplot as plt
 
 t = Tree("species_tree_fastoma.treefile")
@@ -460,10 +513,13 @@ for node in t.traverse():
     node.set_style(ns)
 
 t.render("species_tree.pdf", tree_style=ts, w=200, units="mm")
-print("Tree saved to species_tree.pdf")</code></pre>
+print("Tree saved to species_tree.pdf")</pre>
+          </div>
 
           <h5 class="fw-bold mt-4">Plot HOG duplication/loss statistics across lineages</h5>
-          <pre><code class="language-python">import matplotlib.pyplot as plt
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Python</span><button class="btn-copy">Copy</button></div>
+<pre>import matplotlib.pyplot as plt
 import numpy as np
 
 # Simulate stats from a real FastOMA run
@@ -486,7 +542,8 @@ ax.bar_label(bars1, padding=3, fontsize=9)
 ax.bar_label(bars2, padding=3, fontsize=9)
 plt.tight_layout()
 plt.savefig("hog_events.pdf", dpi=300, bbox_inches="tight")
-plt.show()</code></pre>
+plt.show()</pre>
+          </div>
         </section>
 
         <section id="vs-orthofinder" class="mb-5">
@@ -511,7 +568,7 @@ plt.show()</code></pre>
 
         <section id="summary" class="mb-5">
           <h2 class="fw-bold">Summary</h2>
-          <div class="byte-callout byte-success">
+          <div class="byte-callout byte-tip">
             <img src="../img/Byte1.png" alt="Byte summary">
             <div>
               <strong>What you learned:</strong>
@@ -549,6 +606,10 @@ plt.show()</code></pre>
               </a>
             </div>
           </div>
+          <div class="d-flex justify-content-between mt-5">
+            <a href="index.html" class="btn btn-outline-secondary rounded-pill px-4"><i class="bi bi-arrow-left me-2"></i>All Tutorials</a>
+            <a href="scgpt-single-cell-foundation-model-tutorial.html" class="btn btn-primary rounded-pill px-4">Next: scGPT Foundation Model <i class="bi bi-arrow-right ms-2"></i></a>
+          </div>
         </section>
 
       </div>
@@ -556,18 +617,24 @@ plt.show()</code></pre>
   </div>
 </div>
 
-<section class="py-4" style="background:linear-gradient(135deg,#5865F2 0%,#4752c4 100%);">
-  <div class="container text-center">
-    <p class="text-white mb-2 fw-bold">Stuck on FastOMA? Ask in the community!</p>
-    <a href="https://discord.gg/nbwDxTbz" target="_blank" rel="noopener" class="btn btn-light rounded-pill px-4 fw-bold" style="color:#5865F2;">
-      <i class="bi bi-discord me-2"></i>Join Discord — #comparative-genomics
-    </a>
-  </div>
-</section>
-
 <footer class="site-footer">
-  <div class="container text-center">
-    <p class="small mb-0">&copy; 2025 IndianElucidBiology &mdash; Free bioinformatics tutorials</p>
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-lg-6">
+        <h5 class="text-white fw-bold mb-3"><span style="color:#ff9933;">Indian</span><span style="color:var(--ieb-primary);">Elucid</span><span style="color:var(--ieb-accent);">Biology</span></h5>
+        <p class="small">Free, interactive bioinformatics tutorials. Open source and community-driven.</p>
+      </div>
+      <div class="col-lg-6 text-lg-end">
+        <p class="small mb-1">Founded by <strong>Ankush Sharma</strong></p>
+        <div class="d-flex gap-3 justify-content-lg-end">
+          <a href="https://github.com/ank-man" target="_blank" class="text-white fs-5" title="GitHub"><i class="bi bi-github"></i></a>
+          <a href="https://www.linkedin.com/in/ankush-sharma-290307/" target="_blank" class="text-white fs-5" title="LinkedIn"><i class="bi bi-linkedin"></i></a>
+          <a href="mailto:mr.ank2999@gmail.com" class="text-white fs-5" title="Email"><i class="bi bi-envelope"></i></a>
+        </div>
+      </div>
+    </div>
+    <hr class="border-secondary mt-4 mb-3">
+    <p class="text-center small mb-0">&copy; 2025 IndianElucidBiology &mdash; Founded by <a href="https://www.linkedin.com/in/ankush-sharma-290307/" class="text-white-50" target="_blank">Ankush Sharma</a>. Made with <span style="color:#e25555;">&#9829;</span> for the bioinformatics community.</p>
   </div>
 </footer>
 

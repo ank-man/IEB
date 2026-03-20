@@ -15,17 +15,27 @@
 <body>
 <div class="progress-tracker"></div>
 
-<nav class="navbar navbar-expand-lg fixed-top">
+<nav class="navbar navbar-expand-lg fixed-top bg-body-tertiary">
   <div class="container">
     <a class="navbar-brand" href="../index.html">
-      <img src="../indian_elucid_biology.png" alt="IndianElucidBiology" class="navbar-logo">
+      <span class="brand-indian">Indian</span><span class="brand-elucid">Elucid</span><span class="brand-biology">Biology</span>
     </a>
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav"><span class="navbar-toggler-icon"></span></button>
     <div class="collapse navbar-collapse" id="mainNav">
-      <ul class="navbar-nav ms-auto me-3 align-items-lg-center gap-lg-1">
-        <li class="nav-item"><a class="nav-link" href="../index.html"><i class="bi bi-house-door me-1"></i>Home</a></li>
-        <li class="nav-item"><a class="nav-link" href="index.html"><i class="bi bi-grid-3x3-gap me-1"></i>All Tutorials</a></li>
-        <li class="nav-item"><a class="nav-link" href="../community.html"><i class="bi bi-discord me-1"></i>Community</a></li>
+      <ul class="navbar-nav ms-auto me-3">
+        <li class="nav-item"><a class="nav-link" href="../index.html">Home</a></li>
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle active" href="#" role="button" data-bs-toggle="dropdown">Tutorials</a>
+          <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="rnaseq-differential-expression-deseq2-guide.html">RNA-Seq &amp; DESeq2</a></li>
+            <li><a class="dropdown-item" href="single-cell-rna-seq-seurat-analysis-tutorial.html">Single-Cell RNA-Seq</a></li>
+            <li><a class="dropdown-item active" href="scgpt-single-cell-foundation-model-tutorial.html">scGPT Foundation Model</a></li>
+            <li><a class="dropdown-item" href="fastoma-orthology-inference-tutorial.html">FastOMA</a></li>
+            <li><a class="dropdown-item" href="variant-calling-gatk-bcftools-pipeline.html">Variant Calling</a></li>
+          </ul>
+        </li>
+        <li class="nav-item"><a class="nav-link" href="../community.html">Community</a></li>
+        <li class="nav-item"><a class="nav-link" href="../contributors.html">Contributors</a></li>
       </ul>
       <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode">&#9790;</button>
     </div>
@@ -150,14 +160,16 @@
 
         <section id="install" class="mb-5">
           <h2 class="fw-bold">Installation</h2>
-          <div class="byte-callout byte-warning">
-            <img src="../img/Byte2.png" alt="Byte warning">
+          <div class="byte-callout byte-warn">
+            <img src="../img/Byte5.png" alt="Byte warning">
             <div>
               <strong>GPU recommended:</strong> scGPT inference is feasible on CPU for small datasets but a GPU (16GB+ VRAM) is strongly recommended for fine-tuning and large datasets.
             </div>
           </div>
 
-          <pre><code class="language-bash"># Create conda environment
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash</span><button class="btn-copy">Copy</button></div>
+<pre># Create conda environment
 conda create -n scgpt python=3.10 -y
 conda activate scgpt
 
@@ -171,10 +183,13 @@ pip install scgpt
 pip install scanpy anndata matplotlib seaborn wandb
 
 # Verify
-python -c "import scgpt; print(scgpt.__version__)"</code></pre>
+python -c "import scgpt; print(scgpt.__version__)"</pre>
+          </div>
 
           <h5 class="fw-bold mt-4">Download pre-trained model weights</h5>
-          <pre><code class="language-bash"># Download the whole-human-body pre-trained model (~1.5 GB)
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash</span><button class="btn-copy">Copy</button></div>
+<pre># Download the whole-human-body pre-trained model (~1.5 GB)
 # Model is hosted on HuggingFace
 pip install huggingface_hub
 
@@ -192,14 +207,17 @@ EOF
 # scGPT_human  - whole human body (recommended for human data)
 # scGPT_CP     - cell perturbation model
 # scGPT_bc     - blood cells
-# scGPT_brain  - brain-specific</code></pre>
+# scGPT_brain  - brain-specific</pre>
+          </div>
         </section>
 
         <section id="data" class="mb-5">
           <h2 class="fw-bold">Prepare Your Data</h2>
           <p>scGPT expects AnnData objects (the standard scRNA-Seq format used by Scanpy). Input should be raw counts or lightly normalised data.</p>
 
-          <pre><code class="language-python">import scanpy as sc
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Python</span><button class="btn-copy">Copy</button></div>
+<pre>import scanpy as sc
 import numpy as np
 
 # Load example PBMC dataset (or your own .h5ad)
@@ -225,14 +243,17 @@ sc.pp.normalize_total(adata, target_sum=1e4)
 sc.pp.log1p(adata)
 
 print(f"Data shape: {adata.shape}")
-# (2638 cells, 13714 genes)</code></pre>
+# (2638 cells, 13714 genes)</pre>
+          </div>
         </section>
 
         <section id="annotation" class="mb-5">
           <h2 class="fw-bold"><span class="step-number me-2">1</span>Cell Type Annotation</h2>
           <p>The most common scGPT use case — annotate cells in a query dataset using the pre-trained model without requiring labelled training data from the same dataset.</p>
 
-          <pre><code class="language-python">import scgpt
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Python</span><button class="btn-copy">Copy</button></div>
+<pre>import scgpt
 from scgpt.tasks import GeneEmbedding
 from scgpt.tokenizer.gene_tokenizer import GeneVocab
 import torch
@@ -271,10 +292,13 @@ sc.pl.umap(adata,
            ncols=3,
            show=False)
 plt.savefig("scgpt_umap.pdf", dpi=300, bbox_inches="tight")
-plt.show()</code></pre>
+plt.show()</pre>
+          </div>
 
           <h5 class="fw-bold mt-4">Zero-shot cell annotation using scGPT reference atlas</h5>
-          <pre><code class="language-python">from scgpt.tasks import CellTypeAnnotation
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Python</span><button class="btn-copy">Copy</button></div>
+<pre>from scgpt.tasks import CellTypeAnnotation
 
 # Fine-tune with a reference dataset that has known cell types
 # Or use zero-shot nearest-neighbour search against the pre-trained space
@@ -296,12 +320,15 @@ predictions = annotator.predict(
 adata.obs["scGPT_celltype"] = predictions
 sc.pl.umap(adata, color="scGPT_celltype", show=False)
 plt.savefig("scgpt_annotation.pdf", dpi=300, bbox_inches="tight")
-plt.show()</code></pre>
+plt.show()</pre>
+          </div>
         </section>
 
         <section id="integration" class="mb-5">
           <h2 class="fw-bold"><span class="step-number me-2">2</span>Multi-Batch Integration</h2>
-          <pre><code class="language-python">import scanpy as sc
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Python</span><button class="btn-copy">Copy</button></div>
+<pre>import scanpy as sc
 
 # Assume you have two batches
 adata_batch1 = sc.read_h5ad("batch1.h5ad")
@@ -342,14 +369,17 @@ results = scib.metrics.metrics(
     label_key="cell_type",
     embed="X_scGPT"
 )
-print(results[["ASW_label", "iLISI", "NMI_cluster/label"]])</code></pre>
+print(results[["ASW_label", "iLISI", "NMI_cluster/label"]])</pre>
+          </div>
         </section>
 
         <section id="grn" class="mb-5">
           <h2 class="fw-bold"><span class="step-number me-2">3</span>Gene Regulatory Network Inference</h2>
           <p>scGPT's attention weights encode relationships between genes in a cell context. These can be extracted to infer gene regulatory networks without requiring TF-binding or chromatin data.</p>
 
-          <pre><code class="language-python">from scgpt.tasks import GeneEmbedding
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Python</span><button class="btn-copy">Copy</button></div>
+<pre>from scgpt.tasks import GeneEmbedding
 import pandas as pd
 import networkx as nx
 import matplotlib.pyplot as plt
@@ -399,14 +429,17 @@ nx.draw_networkx(subgraph, pos=pos,
 ax.set_title(f"Gene regulatory subnetwork around {top_tf}", fontweight="bold")
 plt.tight_layout()
 plt.savefig("grn_subnetwork.pdf", dpi=300, bbox_inches="tight")
-plt.show()</code></pre>
+plt.show()</pre>
+          </div>
         </section>
 
         <section id="perturbation" class="mb-5">
           <h2 class="fw-bold"><span class="step-number me-2">4</span>Perturbation Response Prediction</h2>
           <p>Using the scGPT perturbation model (<code>scGPT_CP</code>), you can predict how cells respond to gene knockouts or overexpression — useful for drug target identification.</p>
 
-          <pre><code class="language-python"># Download perturbation model
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Python</span><button class="btn-copy">Copy</button></div>
+<pre># Download perturbation model
 from huggingface_hub import snapshot_download
 snapshot_download(repo_id="bowang-lab/scGPT_CP", local_dir="./scGPT_CP")
 
@@ -433,14 +466,17 @@ pred_ko  = predicted_expr.mean(axis=0)
 # Pearson correlation of prediction vs observation
 from scipy.stats import pearsonr
 r, p = pearsonr(np.asarray(obs_ko).flatten(), np.asarray(pred_ko).flatten())
-print(f"Pearson r (predicted vs observed): {r:.3f}  p={p:.2e}")</code></pre>
+print(f"Pearson r (predicted vs observed): {r:.3f}  p={p:.2e}")</pre>
+          </div>
         </section>
 
         <section id="finetune" class="mb-5">
           <h2 class="fw-bold"><span class="step-number me-2">5</span>Fine-Tuning on Your Dataset</h2>
           <p>For best performance on a specific tissue/disease, fine-tune the pre-trained model on your labelled data.</p>
 
-          <pre><code class="language-python">from scgpt.tasks import GeneExpressionClassifier
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Python</span><button class="btn-copy">Copy</button></div>
+<pre>from scgpt.tasks import GeneExpressionClassifier
 import torch
 
 # Requires labelled training data
@@ -471,15 +507,15 @@ from sklearn.metrics import classification_report
 print(classification_report(
     adata_test.obs["cell_type"],
     adata_test.obs["predicted_celltype"]
-))</code></pre>
+))</pre>
+          </div>
         </section>
 
         <section id="vs-tools" class="mb-5">
           <h2 class="fw-bold">scGPT vs CellTypist vs Scimilarity</h2>
-          <div class="table-responsive">
-            <table class="table table-bordered">
-              <thead class="table-dark">
-                <tr><th>Feature</th><th>scGPT</th><th>CellTypist</th><th>Scimilarity</th></tr>
+          <div class="param-table"><div class="table-responsive">
+            <table class="table table-striped mb-0">
+              <thead><tr><th>Feature</th><th>scGPT</th><th>CellTypist</th><th>Scimilarity</th></tr></thead>
               </thead>
               <tbody>
                 <tr><td>Publication</td><td>Nature Methods 2024</td><td>Science 2022</td><td>Nature Methods 2023</td></tr>
@@ -492,12 +528,12 @@ print(classification_report(
                 <tr><td>Best for</td><td>Complex multi-task analysis</td><td>Quick annotation</td><td>Large atlas integration</td></tr>
               </tbody>
             </table>
-          </div>
+          </div></div>
         </section>
 
         <section id="summary" class="mb-5">
           <h2 class="fw-bold">Summary</h2>
-          <div class="byte-callout byte-success">
+          <div class="byte-callout byte-tip">
             <img src="../img/Byte1.png" alt="Byte summary">
             <div>
               <strong>What you learned:</strong>
@@ -520,6 +556,11 @@ print(classification_report(
             <div class="col-md-6"><a href="scrna-cell-ranger-seurat.html" class="text-decoration-none"><div class="p-3 rounded-3 border"><i class="bi bi-arrow-right-circle text-primary me-2"></i><strong>Cell Ranger + Seurat v5</strong></div></a></div>
             <div class="col-md-6"><a href="scrna-scanpy-python.html" class="text-decoration-none"><div class="p-3 rounded-3 border"><i class="bi bi-arrow-right-circle text-primary me-2"></i><strong>Scanpy (Python)</strong></div></a></div>
           </div>
+
+          <div class="d-flex justify-content-between mt-5">
+            <a href="fastoma-orthology-inference-tutorial.html" class="btn btn-outline-secondary rounded-pill px-4"><i class="bi bi-arrow-left me-2"></i>Previous: FastOMA</a>
+            <a href="spatialdata-spatial-omics-framework-tutorial.html" class="btn btn-primary rounded-pill px-4">Next: SpatialData <i class="bi bi-arrow-right ms-2"></i></a>
+          </div>
         </section>
 
       </div>
@@ -527,18 +568,24 @@ print(classification_report(
   </div>
 </div>
 
-<section class="py-4" style="background:linear-gradient(135deg,#5865F2 0%,#4752c4 100%);">
-  <div class="container text-center">
-    <p class="text-white mb-2 fw-bold">Questions about scGPT? Ask in the community!</p>
-    <a href="https://discord.gg/nbwDxTbz" target="_blank" rel="noopener" class="btn btn-light rounded-pill px-4 fw-bold" style="color:#5865F2;">
-      <i class="bi bi-discord me-2"></i>Join Discord — #single-cell-scrna
-    </a>
-  </div>
-</section>
-
 <footer class="site-footer">
-  <div class="container text-center">
-    <p class="small mb-0">&copy; 2025 IndianElucidBiology &mdash; Free bioinformatics tutorials</p>
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-lg-6">
+        <h5 class="text-white fw-bold mb-3"><span style="color:#ff9933;">Indian</span><span style="color:var(--ieb-primary);">Elucid</span><span style="color:var(--ieb-accent);">Biology</span></h5>
+        <p class="small">Free, interactive bioinformatics tutorials. Open source and community-driven.</p>
+      </div>
+      <div class="col-lg-6 text-lg-end">
+        <p class="small mb-1">Founded by <strong>Ankush Sharma</strong></p>
+        <div class="d-flex gap-3 justify-content-lg-end">
+          <a href="https://github.com/ank-man" target="_blank" class="text-white fs-5" title="GitHub"><i class="bi bi-github"></i></a>
+          <a href="https://www.linkedin.com/in/ankush-sharma-290307/" target="_blank" class="text-white fs-5" title="LinkedIn"><i class="bi bi-linkedin"></i></a>
+          <a href="mailto:mr.ank2999@gmail.com" class="text-white fs-5" title="Email"><i class="bi bi-envelope"></i></a>
+        </div>
+      </div>
+    </div>
+    <hr class="border-secondary mt-4 mb-3">
+    <p class="text-center small mb-0">&copy; 2025 IndianElucidBiology &mdash; Founded by <a href="https://www.linkedin.com/in/ankush-sharma-290307/" class="text-white-50" target="_blank">Ankush Sharma</a>. Made with <span style="color:#e25555;">&#9829;</span> for the bioinformatics community.</p>
   </div>
 </footer>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>

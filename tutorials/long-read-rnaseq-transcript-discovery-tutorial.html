@@ -14,15 +14,27 @@
 </head>
 <body>
 <div class="progress-tracker"></div>
-<nav class="navbar navbar-expand-lg fixed-top">
+<nav class="navbar navbar-expand-lg fixed-top bg-body-tertiary">
   <div class="container">
-    <a class="navbar-brand" href="../index.html"><img src="../indian_elucid_biology.png" alt="IndianElucidBiology" class="navbar-logo"></a>
+    <a class="navbar-brand" href="../index.html">
+      <span class="brand-indian">Indian</span><span class="brand-elucid">Elucid</span><span class="brand-biology">Biology</span>
+    </a>
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav"><span class="navbar-toggler-icon"></span></button>
     <div class="collapse navbar-collapse" id="mainNav">
-      <ul class="navbar-nav ms-auto me-3 align-items-lg-center gap-lg-1">
-        <li class="nav-item"><a class="nav-link" href="../index.html"><i class="bi bi-house-door me-1"></i>Home</a></li>
-        <li class="nav-item"><a class="nav-link" href="index.html"><i class="bi bi-grid-3x3-gap me-1"></i>All Tutorials</a></li>
-        <li class="nav-item"><a class="nav-link" href="../community.html"><i class="bi bi-discord me-1"></i>Community</a></li>
+      <ul class="navbar-nav ms-auto me-3">
+        <li class="nav-item"><a class="nav-link" href="../index.html">Home</a></li>
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle active" href="#" role="button" data-bs-toggle="dropdown">Tutorials</a>
+          <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="rnaseq-differential-expression-deseq2-guide.html">RNA-Seq &amp; DESeq2</a></li>
+            <li><a class="dropdown-item" href="spatialdata-spatial-omics-framework-tutorial.html">SpatialData</a></li>
+            <li><a class="dropdown-item active" href="long-read-rnaseq-transcript-discovery-tutorial.html">Long-Read RNA-Seq</a></li>
+            <li><a class="dropdown-item" href="fastoma-orthology-inference-tutorial.html">FastOMA</a></li>
+            <li><a class="dropdown-item" href="variant-calling-gatk-bcftools-pipeline.html">Variant Calling</a></li>
+          </ul>
+        </li>
+        <li class="nav-item"><a class="nav-link" href="../community.html">Community</a></li>
+        <li class="nav-item"><a class="nav-link" href="../contributors.html">Contributors</a></li>
       </ul>
       <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode">&#9790;</button>
     </div>
@@ -96,10 +108,9 @@
 
         <section id="platforms" class="mb-5">
           <h2 class="fw-bold">ONT vs PacBio HiFi</h2>
-          <div class="table-responsive">
-            <table class="table table-bordered">
-              <thead class="table-dark">
-                <tr><th>Feature</th><th>Oxford Nanopore (ONT)</th><th>PacBio HiFi (CCS)</th></tr>
+          <div class="param-table"><div class="table-responsive">
+            <table class="table table-striped mb-0">
+              <thead><tr><th>Feature</th><th>Oxford Nanopore (ONT)</th><th>PacBio HiFi (CCS)</th></tr></thead>
               </thead>
               <tbody>
                 <tr><td>Read length</td><td>Avg 5–20 kb (up to 4 Mb)</td><td>Avg 10–20 kb</td></tr>
@@ -111,12 +122,14 @@
                 <tr><td>Recommended aligner</td><td>Minimap2 (<code>-ax splice</code>)</td><td>Minimap2 (<code>-ax splice:hq</code>)</td></tr>
               </tbody>
             </table>
-          </div>
+          </div></div>
         </section>
 
         <section id="install" class="mb-5">
           <h2 class="fw-bold">Tools &amp; Installation</h2>
-          <pre><code class="language-bash">conda create -n lrrnaseq python=3.10 -y
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash</span><button class="btn-copy">Copy</button></div>
+<pre>conda create -n lrrnaseq python=3.10 -y
 conda activate lrrnaseq
 
 # Core tools
@@ -126,13 +139,16 @@ conda install -c bioconda minimap2 samtools nanostat isoquant flames stringtie -
 pip install pyranges pandas matplotlib seaborn
 
 # R packages (run in R)
-# BiocManager::install(c("DEXSeq", "tximeta", "fishpond", "bambu"))</code></pre>
+# BiocManager::install(c("DEXSeq", "tximeta", "fishpond", "bambu"))</pre>
+          </div>
         </section>
 
         <section id="basecall" class="mb-5">
           <h2 class="fw-bold"><span class="step-number me-2">1</span>Basecalling ONT Raw Data</h2>
           <p>Raw ONT data (FAST5/POD5) must be basecalled to produce FASTQ. Use Dorado (the current ONT basecaller, replacing Guppy).</p>
-          <pre><code class="language-bash"># Install Dorado (ONT's current basecaller)
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash</span><button class="btn-copy">Copy</button></div>
+<pre># Install Dorado (ONT's current basecaller)
 # Download from: https://github.com/nanoporetech/dorado/releases
 
 # Download model (super-accurate for RNA)
@@ -153,12 +169,15 @@ dorado basecaller \
     --emit-fastq > cdna_reads.fastq
 
 echo "Basecalling done"
-wc -l reads.fastq  # should be 4x number of reads</code></pre>
+wc -l reads.fastq  # should be 4x number of reads</pre>
+          </div>
         </section>
 
         <section id="qc" class="mb-5">
           <h2 class="fw-bold"><span class="step-number me-2">2</span>Quality Control with NanoStat</h2>
-          <pre><code class="language-bash"># QC summary statistics
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash</span><button class="btn-copy">Copy</button></div>
+<pre># QC summary statistics
 NanoStat --fastq reads.fastq --outdir nanostat_qc/ -t 8
 
 # NanoPlot for visualisation
@@ -172,9 +191,12 @@ NanoPlot --fastq reads.fastq \
 # - Mean read length (aim: >1 kb for mRNA)
 # - Mean quality score (aim: Q15+ for ONT R10, Q30+ for PacBio HiFi)
 # - N50 read length (median of longest reads covering 50% of data)
-# - Total bases sequenced</code></pre>
+# - Total bases sequenced</pre>
+          </div>
 
-          <pre><code class="language-python"># Parse NanoStat output in Python
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Python</span><button class="btn-copy">Copy</button></div>
+<pre># Parse NanoStat output in Python
 import pandas as pd
 
 with open("nanostat_qc/NanoStats.txt") as f:
@@ -190,16 +212,19 @@ print(f"Total reads:      {stats.get('Number of reads', 'N/A')}")
 print(f"Mean length:      {stats.get('Mean read length', 'N/A')} bp")
 print(f"Mean quality:     {stats.get('Mean read quality', 'N/A')}")
 print(f"N50 length:       {stats.get('Read length N50', 'N/A')} bp")
-print(f"Total bases:      {stats.get('Total bases', 'N/A')}")</code></pre>
+print(f"Total bases:      {stats.get('Total bases', 'N/A')}")</pre>
+          </div>
         </section>
 
         <section id="align" class="mb-5">
           <h2 class="fw-bold"><span class="step-number me-2">3</span>Splice-Aware Alignment with Minimap2</h2>
-          <div class="byte-callout byte-warning">
-            <img src="../img/Byte2.png" alt="Byte warning">
+          <div class="byte-callout byte-warn">
+            <img src="../img/Byte5.png" alt="Byte warning">
             <div><strong>Critical:</strong> Use <code>-ax splice</code> for cDNA/mRNA (not <code>-ax map-ont</code> which is for genomic DNA). For PacBio HiFi, use <code>-ax splice:hq</code>. Missing this causes massive misalignment rates.</div>
           </div>
-          <pre><code class="language-bash"># Index genome
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash</span><button class="btn-copy">Copy</button></div>
+<pre># Index genome
 minimap2 -d genome.mmi genome.fa
 
 # Align ONT cDNA reads (splice-aware)
@@ -225,7 +250,8 @@ minimap2 \
 | samtools sort -@ 8 -o aligned_hifi.bam
 
 # Check alignment statistics
-samtools flagstat aligned.bam</code></pre>
+samtools flagstat aligned.bam</pre>
+          </div>
         </section>
 
         <section id="assembly" class="mb-5">
@@ -233,7 +259,9 @@ samtools flagstat aligned.bam</code></pre>
           <p>Three tools benchmarked by LRGASP — choose based on your use case:</p>
 
           <h5 class="fw-bold mt-4">Option A: IsoQuant (recommended for novel isoform discovery)</h5>
-          <pre><code class="language-bash">conda install -c bioconda isoquant -y
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash</span><button class="btn-copy">Copy</button></div>
+<pre>conda install -c bioconda isoquant -y
 
 isoquant.py \
     --reference genome.fa \
@@ -248,10 +276,13 @@ isoquant.py \
 # Key outputs:
 # isoquant_output/sample/sample.transcript_models.gtf  — novel transcripts
 # isoquant_output/sample/sample.transcript_counts.tsv  — counts per transcript
-# isoquant_output/sample/sample.gene_counts.tsv        — counts per gene</code></pre>
+# isoquant_output/sample/sample.gene_counts.tsv        — counts per gene</pre>
+          </div>
 
           <h5 class="fw-bold mt-4">Option B: FLAMES (for single-cell long-read RNA-Seq)</h5>
-          <pre><code class="language-bash"># FLAMES is particularly powerful for scRNA-Seq + long reads
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash</span><button class="btn-copy">Copy</button></div>
+<pre># FLAMES is particularly powerful for scRNA-Seq + long reads
 # Install via conda or R/Bioconductor
 pip install flames
 
@@ -267,22 +298,28 @@ bulk_long_pipeline(
     k=5,              # minimum splice count
     strand_specific=1
 )
-EOF</code></pre>
+EOF</pre>
+          </div>
 
           <h5 class="fw-bold mt-4">Option C: StringTie2 (fast, good for known-genome annotation)</h5>
-          <pre><code class="language-bash">stringtie \
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Bash</span><button class="btn-copy">Copy</button></div>
+<pre>stringtie \
     aligned.bam \
     -G annotation.gtf \
     -L \                 # long-read mode
     -o stringtie_output.gtf \
     -e \                 # estimate expression of known transcripts only
     -B \                 # output Ballgown-compatible tables
-    -p 16</code></pre>
+    -p 16</pre>
+          </div>
         </section>
 
         <section id="quant" class="mb-5">
           <h2 class="fw-bold"><span class="step-number me-2">5</span>Quantification &amp; Downstream Analysis</h2>
-          <pre><code class="language-python">import pandas as pd
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>Python</span><button class="btn-copy">Copy</button></div>
+<pre>import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 
@@ -322,12 +359,15 @@ ax.set_title("Transcript categories from IsoQuant", fontsize=14, fontweight="bol
 ax.bar_label(bars, padding=3, fontsize=9)
 plt.tight_layout()
 plt.savefig("transcript_categories.pdf", dpi=300, bbox_inches="tight")
-plt.show()</code></pre>
+plt.show()</pre>
+          </div>
         </section>
 
         <section id="dtu" class="mb-5">
           <h2 class="fw-bold"><span class="step-number me-2">6</span>Differential Transcript Usage (DTU) with DEXSeq</h2>
-          <pre><code class="language-r">library(DEXSeq)
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>R</span><button class="btn-copy">Copy</button></div>
+<pre>library(DEXSeq)
 library(tximeta)
 library(fishpond)
 
@@ -359,16 +399,16 @@ res <- data.frame(mcols(se)) |>
   dplyr::arrange(qvalue)
 
 cat("Significant DTU transcripts (q < 0.05):", sum(res$qvalue < 0.05, na.rm=TRUE), "\n")
-head(res[, c("tx_id","gene_id","log2FC","pvalue","qvalue")], 20)</code></pre>
+head(res[, c("tx_id","gene_id","log2FC","pvalue","qvalue")], 20)</pre>
+          </div>
         </section>
 
         <section id="lrgasp" class="mb-5">
           <h2 class="fw-bold">LRGASP Benchmark Findings</h2>
           <p>Key takeaways from the Nature Methods 2024 LRGASP consortium paper (<a href="https://www.nature.com/articles/s41592-024-02298-3" target="_blank" rel="noopener">Pardo-Palacios et al., 2024</a>):</p>
-          <div class="table-responsive">
-            <table class="table table-bordered">
-              <thead class="table-dark">
-                <tr><th>Tool</th><th>Novel isoform sensitivity</th><th>Precision</th><th>Best for</th></tr>
+          <div class="param-table"><div class="table-responsive">
+            <table class="table table-striped mb-0">
+              <thead><tr><th>Tool</th><th>Novel isoform sensitivity</th><th>Precision</th><th>Best for</th></tr></thead>
               </thead>
               <tbody>
                 <tr><td><strong>IsoQuant</strong></td><td>High</td><td>High</td><td>Novel isoform discovery, bulk &amp; single-cell</td></tr>
@@ -378,12 +418,12 @@ head(res[, c("tx_id","gene_id","log2FC","pvalue","qvalue")], 20)</code></pre>
                 <tr><td><strong>FLAIR</strong></td><td>Medium</td><td>Medium</td><td>Direct RNA, modification-aware</td></tr>
               </tbody>
             </table>
-          </div>
+          </div></div>
         </section>
 
         <section id="summary" class="mb-5">
           <h2 class="fw-bold">Summary</h2>
-          <div class="byte-callout byte-success">
+          <div class="byte-callout byte-tip">
             <img src="../img/Byte1.png" alt="Byte">
             <div>
               <strong>Key pipeline:</strong>
@@ -401,6 +441,10 @@ head(res[, c("tx_id","gene_id","log2FC","pvalue","qvalue")], 20)</code></pre>
           <div class="alert alert-secondary small">
             Pardo-Palacios FJ, Jiang D, Colby M, et al. <em>Systematic assessment of long-read RNA-seq methods for transcript identification and quantification.</em> Nature Methods. 2024. <a href="https://doi.org/10.1038/s41592-024-02298-3" target="_blank" rel="noopener">https://doi.org/10.1038/s41592-024-02298-3</a>
           </div>
+          <div class="d-flex justify-content-between mt-5">
+            <a href="spatialdata-spatial-omics-framework-tutorial.html" class="btn btn-outline-secondary rounded-pill px-4"><i class="bi bi-arrow-left me-2"></i>Previous: SpatialData</a>
+            <a href="spatial-proteomics-codex-imaging-tutorial.html" class="btn btn-primary rounded-pill px-4">Next: Spatial Proteomics <i class="bi bi-arrow-right ms-2"></i></a>
+          </div>
         </section>
 
       </div>
@@ -408,15 +452,26 @@ head(res[, c("tx_id","gene_id","log2FC","pvalue","qvalue")], 20)</code></pre>
   </div>
 </div>
 
-<section class="py-4" style="background:linear-gradient(135deg,#5865F2 0%,#4752c4 100%);">
-  <div class="container text-center">
-    <p class="text-white mb-2 fw-bold">Questions about long-read RNA-Seq? Ask in the community!</p>
-    <a href="https://discord.gg/nbwDxTbz" target="_blank" rel="noopener" class="btn btn-light rounded-pill px-4 fw-bold" style="color:#5865F2;">
-      <i class="bi bi-discord me-2"></i>Join Discord — #splicing-and-isoforms
-    </a>
+<footer class="site-footer">
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-lg-6">
+        <h5 class="text-white fw-bold mb-3"><span style="color:#ff9933;">Indian</span><span style="color:var(--ieb-primary);">Elucid</span><span style="color:var(--ieb-accent);">Biology</span></h5>
+        <p class="small">Free, interactive bioinformatics tutorials. Open source and community-driven.</p>
+      </div>
+      <div class="col-lg-6 text-lg-end">
+        <p class="small mb-1">Founded by <strong>Ankush Sharma</strong></p>
+        <div class="d-flex gap-3 justify-content-lg-end">
+          <a href="https://github.com/ank-man" target="_blank" class="text-white fs-5" title="GitHub"><i class="bi bi-github"></i></a>
+          <a href="https://www.linkedin.com/in/ankush-sharma-290307/" target="_blank" class="text-white fs-5" title="LinkedIn"><i class="bi bi-linkedin"></i></a>
+          <a href="mailto:mr.ank2999@gmail.com" class="text-white fs-5" title="Email"><i class="bi bi-envelope"></i></a>
+        </div>
+      </div>
+    </div>
+    <hr class="border-secondary mt-4 mb-3">
+    <p class="text-center small mb-0">&copy; 2025 IndianElucidBiology &mdash; Founded by <a href="https://www.linkedin.com/in/ankush-sharma-290307/" class="text-white-50" target="_blank">Ankush Sharma</a>. Made with <span style="color:#e25555;">&#9829;</span> for the bioinformatics community.</p>
   </div>
-</section>
-<footer class="site-footer"><div class="container text-center"><p class="small mb-0">&copy; 2025 IndianElucidBiology</p></div></footer>
+</footer>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="../js/main.js"></script>
 </body>
