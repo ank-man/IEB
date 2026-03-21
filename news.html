@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bioinformatics News &amp; Latest Preprints — IndianElucidBiology</title>
+  <meta name="description" content="Latest news in bioinformatics: tool updates (Seurat v5, Bioconductor, nf-core, Nextflow), AI breakthroughs (AlphaFold 3, Evo 2), and curated preprints from bioRxiv and arXiv.">
+  <meta name="keywords" content="bioinformatics news, seurat v5, bioconductor update, nf-core, alphafold 3, evo 2, biorxiv preprints, arxiv genomics, IndianElucidBiology">
+  <meta name="author" content="IndianElucidBiology">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="css/style.css" rel="stylesheet">
+</head>
+<body>
+<div class="progress-tracker"></div>
+
+<nav class="navbar navbar-expand-lg fixed-top bg-body-tertiary">
+  <div class="container">
+    <a class="navbar-brand" href="index.html">
+      <span class="brand-indian">Indian</span><span class="brand-elucid">Elucid</span><span class="brand-biology">Biology</span>
+    </a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav"><span class="navbar-toggler-icon"></span></button>
+    <div class="collapse navbar-collapse" id="mainNav">
+      <ul class="navbar-nav ms-auto me-3">
+        <li class="nav-item"><a class="nav-link" href="index.html">Home</a></li>
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">Tutorials</a>
+          <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="tutorials/rnaseq-differential-expression-deseq2-guide.html">RNA-Seq &amp; DESeq2</a></li>
+            <li><a class="dropdown-item" href="tutorials/scrna-cell-ranger-seurat.html">scRNA-Seq Seurat v5</a></li>
+            <li><a class="dropdown-item" href="tutorials/variant-calling-gatk-bcftools-pipeline.html">Variant Calling</a></li>
+            <li><a class="dropdown-item" href="tutorials/vibe-science-ai-cli-bioinformatics-tutorial.html">Vibe Science ✨</a></li>
+            <li><a class="dropdown-item" href="tutorials/index.html">All Tutorials</a></li>
+          </ul>
+        </li>
+        <li class="nav-item"><a class="nav-link active" href="news.html">News</a></li>
+        <li class="nav-item"><a class="nav-link" href="community.html">Community</a></li>
+        <li class="nav-item"><a class="nav-link" href="contributors.html">Contributors</a></li>
+      </ul>
+      <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode">&#9790;</button>
+    </div>
+  </div>
+</nav>
+
+<!-- Hero -->
+<section class="tutorial-hero" style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0d3b6e 100%);">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-lg-8">
+        <nav aria-label="breadcrumb"><ol class="breadcrumb mb-3" style="--bs-breadcrumb-divider-color:rgba(255,255,255,0.5);">
+          <li class="breadcrumb-item"><a href="index.html" class="text-white-50 text-decoration-none">Home</a></li>
+          <li class="breadcrumb-item active text-white">News &amp; Preprints</li>
+        </ol></nav>
+        <h1 class="display-5 fw-bold text-white mb-3">Bioinformatics News &amp; Preprints</h1>
+        <p class="lead text-white-50 mb-4">Tool updates, field breakthroughs, and curated preprints from bioRxiv and arXiv — everything happening in computational biology right now.</p>
+        <div class="d-flex gap-3 flex-wrap">
+          <a href="#tool-updates" class="btn btn-outline-light rounded-pill px-4"><i class="bi bi-tools me-2"></i>Tool Updates</a>
+          <a href="#field-news" class="btn btn-outline-light rounded-pill px-4"><i class="bi bi-globe2 me-2"></i>Field News</a>
+          <a href="#preprints" class="btn btn-outline-light rounded-pill px-4"><i class="bi bi-journal-text me-2"></i>Preprints</a>
+        </div>
+      </div>
+      <div class="col-lg-4 text-center d-none d-lg-block">
+        <img src="img/Byte3.png" alt="Byte" class="img-fluid" style="max-height:200px;filter:drop-shadow(0 10px 30px rgba(0,0,0,0.4));">
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="container py-5">
+
+  <!-- ── Tool Updates ─────────────────────────────────────── -->
+  <section id="tool-updates" class="mb-5">
+    <div class="d-flex align-items-center gap-3 mb-4">
+      <div style="width:44px;height:44px;border-radius:12px;background:rgba(25,200,120,0.15);display:flex;align-items:center;justify-content:center;font-size:1.4rem;">🛠️</div>
+      <div>
+        <h2 class="fw-bold mb-0">Tool Updates</h2>
+        <p class="text-muted small mb-0">Major releases and version updates across the bioinformatics stack</p>
+      </div>
+    </div>
+    <div class="row g-4">
+
+      <div class="col-md-6 col-xl-4">
+        <div class="news-card p-4 h-100">
+          <span class="news-card-label news-label-new"><i class="bi bi-tools"></i>R / Single-Cell</span>
+          <p class="news-card-date mt-2"><i class="bi bi-calendar3 me-1"></i>2024</p>
+          <div class="news-card-title">Seurat v5: Sketch Analysis &amp; Bridge Integration</div>
+          <p class="news-card-body">Seurat v5 rewrites the internals to support <strong>sketch-based analysis</strong> (analyse millions of cells without full loading via BPCells), <strong>Bridge Integration</strong> for multiome/ATAC-RNA linking, and a unified <code>JoinLayers()</code> API. The biggest architectural change since v3.</p>
+          <ul class="small text-muted ps-3 mt-2">
+            <li>BPCells on-disk matrix backend — 10M+ cells on a laptop</li>
+            <li>Sketch-based UMAP and clustering on representative subsets</li>
+            <li>Bridge Integration replaces WNN for multiome data</li>
+            <li>New <code>SCTransform v2</code> as default normalisation</li>
+          </ul>
+          <a href="https://satijalab.org/seurat/articles/seurat5_essential_commands" target="_blank" rel="noopener" class="news-card-link">Seurat v5 docs <i class="bi bi-arrow-right"></i></a>
+        </div>
+      </div>
+
+      <div class="col-md-6 col-xl-4">
+        <div class="news-card p-4 h-100">
+          <span class="news-card-label news-label-new"><i class="bi bi-tools"></i>R / Bioconductor</span>
+          <p class="news-card-date mt-2"><i class="bi bi-calendar3 me-1"></i>Oct 2024</p>
+          <div class="news-card-title">Bioconductor 3.20 — 2,300+ Packages, R 4.4</div>
+          <p class="news-card-body">The October 2024 release adds 73 new software packages and ships updated versions of core frameworks.</p>
+          <ul class="small text-muted ps-3 mt-2">
+            <li><strong>DESeq2 1.44</strong> — faster LRT, improved convergence</li>
+            <li><strong>scran 1.30</strong> — improved batch-aware normalisation</li>
+            <li><strong>SingleCellExperiment 1.26</strong> — lazy sparse support</li>
+            <li>New spatial packages: <strong>MerfishData</strong>, <strong>SpatialExperiment 1.14</strong></li>
+            <li><strong>edgeR 4.2</strong> — quasi-likelihood improvements</li>
+          </ul>
+          <a href="https://bioconductor.org/news/bioc_3_20_release/" target="_blank" rel="noopener" class="news-card-link">Release notes <i class="bi bi-arrow-right"></i></a>
+        </div>
+      </div>
+
+      <div class="col-md-6 col-xl-4">
+        <div class="news-card p-4 h-100">
+          <span class="news-card-label news-label-new"><i class="bi bi-tools"></i>Workflows</span>
+          <p class="news-card-date mt-2"><i class="bi bi-calendar3 me-1"></i>2024–2025</p>
+          <div class="news-card-title">nf-core Passes 100 Pipelines — All DSL2, Containerised</div>
+          <p class="news-card-body">The nf-core community now maintains over 100 peer-reviewed, CI-tested Nextflow DSL2 pipelines with Docker/Singularity support.</p>
+          <ul class="small text-muted ps-3 mt-2">
+            <li><strong>nf-core/rnaseq v3.14</strong> — STARsolo + Alevin-fry quantification</li>
+            <li><strong>nf-core/scrnaseq v2.7</strong> — Cell Ranger, STARsolo, Alevin support</li>
+            <li><strong>nf-core/sarek v3.4</strong> — germline + somatic variant calling</li>
+            <li><strong>nf-core/atacseq v2.1</strong> — ENCODE3-compliant ATAC pipeline</li>
+            <li><strong>nf-core/spatialvi</strong> — Visium + Xenium spatial analysis (new!)</li>
+          </ul>
+          <a href="https://nf-co.re/pipelines" target="_blank" rel="noopener" class="news-card-link">Browse nf-core <i class="bi bi-arrow-right"></i></a>
+        </div>
+      </div>
+
+      <div class="col-md-6 col-xl-4">
+        <div class="news-card p-4 h-100">
+          <span class="news-card-label news-label-new"><i class="bi bi-tools"></i>Workflows</span>
+          <p class="news-card-date mt-2"><i class="bi bi-calendar3 me-1"></i>2024</p>
+          <div class="news-card-title">Nextflow 24.x: Fusion FS, Wave Containers &amp; Seqera Platform</div>
+          <p class="news-card-body">Nextflow 24 makes cloud-scale workflows dramatically simpler with three headline features.</p>
+          <ul class="small text-muted ps-3 mt-2">
+            <li><strong>Fusion</strong> — virtual file system with native S3/GCS access (no staging)</li>
+            <li><strong>Wave</strong> — build and provision containers on-demand at runtime</li>
+            <li><strong>Seqera Platform</strong> — cloud monitoring, resource optimisation, collaboration</li>
+            <li>New <strong>nf-test</strong> framework for unit-testing pipelines</li>
+          </ul>
+          <a href="https://www.nextflow.io/blog.html" target="_blank" rel="noopener" class="news-card-link">Nextflow blog <i class="bi bi-arrow-right"></i></a>
+        </div>
+      </div>
+
+      <div class="col-md-6 col-xl-4">
+        <div class="news-card p-4 h-100">
+          <span class="news-card-label news-label-new"><i class="bi bi-tools"></i>Python / Single-Cell</span>
+          <p class="news-card-date mt-2"><i class="bi bi-calendar3 me-1"></i>2024</p>
+          <div class="news-card-title">Scanpy 1.10 &amp; scverse Ecosystem — GPU-Accelerated UMAP</div>
+          <p class="news-card-body">Scanpy 1.10 and the broader scverse ecosystem reach maturity with performance and interoperability improvements.</p>
+          <ul class="small text-muted ps-3 mt-2">
+            <li>RAPIDS-singlecell integration for GPU-accelerated PCA, UMAP, clustering</li>
+            <li><strong>AnnData 0.10</strong> zarr backend — lazy loading of 10M+ cell datasets</li>
+            <li><strong>Muon</strong> for multi-modal data (RNA+ATAC+protein)</li>
+            <li><strong>scvi-tools 1.1</strong> — SCVI, SCANVI, totalVI, MULTIVI updates</li>
+            <li><strong>Squidpy 1.5</strong> — faster spatial graph and niche analyses</li>
+          </ul>
+          <a href="https://scanpy.readthedocs.io/en/latest/release-notes/" target="_blank" rel="noopener" class="news-card-link">Scanpy release notes <i class="bi bi-arrow-right"></i></a>
+        </div>
+      </div>
+
+      <div class="col-md-6 col-xl-4">
+        <div class="news-card p-4 h-100">
+          <span class="news-card-label news-label-new"><i class="bi bi-tools"></i>Variant Calling</span>
+          <p class="news-card-date mt-2"><i class="bi bi-calendar3 me-1"></i>2024–2025</p>
+          <div class="news-card-title">GATK 4.6: STR Calling, DRAGEN-GATK Hybrid Mode Production-Ready</div>
+          <p class="news-card-body">The Broad's latest GATK release ships significant improvements across the variant calling stack.</p>
+          <ul class="small text-muted ps-3 mt-2">
+            <li><strong>HaplotypeCaller</strong> — improved short tandem repeat (STR) genotyping</li>
+            <li><strong>Mutect2</strong> — updated artifact filtering for FFPE and low-purity samples</li>
+            <li><strong>CNVSomaticPairWorkflow</strong> — streamlined somatic CNV detection</li>
+            <li><strong>DRAGEN-GATK hybrid</strong> — clinical-grade speed + GATK accuracy</li>
+            <li>New <strong>Funcotator</strong> annotation bundles for hg38</li>
+          </ul>
+          <a href="https://github.com/broadinstitute/gatk/releases" target="_blank" rel="noopener" class="news-card-link">GATK releases <i class="bi bi-arrow-right"></i></a>
+        </div>
+      </div>
+
+      <div class="col-md-6 col-xl-4">
+        <div class="news-card p-4 h-100">
+          <span class="news-card-label news-label-new"><i class="bi bi-tools"></i>Sequencing / Assembly</span>
+          <p class="news-card-date mt-2"><i class="bi bi-calendar3 me-1"></i>2025</p>
+          <div class="news-card-title">Oxford Nanopore R10.4.1: Q30 Long-Read Accuracy Standard</div>
+          <p class="news-card-body">ONT's R10.4.1 flow cell with <strong>Dorado v0.7+</strong> basecalling now routinely achieves Q30 (>99.9%) single-read accuracy on long reads — matching Illumina for SNP/indel detection. Key milestones:</p>
+          <ul class="small text-muted ps-3 mt-2">
+            <li>Q30 simplex reads with 400bps kit, R10.4.1 pore</li>
+            <li>5mCpG methylation calling integrated into Dorado</li>
+            <li>PromethION 2 Solo — portable sequencing at scale</li>
+            <li>Long-read-only clinical WGS pipelines now viable</li>
+          </ul>
+          <a href="https://nanoporetech.com/platform/accuracy" target="_blank" rel="noopener" class="news-card-link">ONT accuracy page <i class="bi bi-arrow-right"></i></a>
+        </div>
+      </div>
+
+      <div class="col-md-6 col-xl-4">
+        <div class="news-card p-4 h-100">
+          <span class="news-card-label news-label-new"><i class="bi bi-tools"></i>Assembly</span>
+          <p class="news-card-date mt-2"><i class="bi bi-calendar3 me-1"></i>2024–2025</p>
+          <div class="news-card-title">Hifiasm 0.20: T2T Assembly with HiFi + Ultra-Long ONT</div>
+          <p class="news-card-body">Hifiasm now jointly assembles PacBio HiFi and ultra-long ONT reads to produce fully phased T2T-quality diploid assemblies — bringing T2T to population scale.</p>
+          <ul class="small text-muted ps-3 mt-2">
+            <li>Hi-C phasing mode for trio-free haplotype separation</li>
+            <li>Centromere and telomere assembly via UL-ONT spanning</li>
+            <li>Benchmarked on 25 HG002 assemblies — best contiguity of any assembler</li>
+            <li>Works with PacBio Revio + ONT PromethION combo data</li>
+          </ul>
+          <a href="https://github.com/chhylp123/hifiasm" target="_blank" rel="noopener" class="news-card-link">Hifiasm GitHub <i class="bi bi-arrow-right"></i></a>
+        </div>
+      </div>
+
+      <div class="col-md-6 col-xl-4">
+        <div class="news-card p-4 h-100">
+          <span class="news-card-label news-label-new"><i class="bi bi-tools"></i>Alignment</span>
+          <p class="news-card-date mt-2"><i class="bi bi-calendar3 me-1"></i>2024</p>
+          <div class="news-card-title">STAR 2.7.11 + STARsolo: The New Default for RNA-Seq + scRNA-Seq</div>
+          <p class="news-card-body">STAR 2.7.11 consolidates its position as the standard RNA-seq aligner with enhanced STARsolo for single-cell quantification.</p>
+          <ul class="small text-muted ps-3 mt-2">
+            <li><strong>STARsolo</strong> now matches Cell Ranger output for 10x Chromium v2/v3</li>
+            <li>Supports 10x Multiome, ATAC barcode demultiplexing</li>
+            <li>Velocity-compatible spliced/unspliced output</li>
+            <li>2-pass alignment now default in nf-core/rnaseq</li>
+          </ul>
+          <a href="https://github.com/alexdobin/STAR/releases" target="_blank" rel="noopener" class="news-card-link">STAR releases <i class="bi bi-arrow-right"></i></a>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <hr class="my-5" style="border-color:var(--ieb-glass-border);">
+
+  <!-- ── Field News ─────────────────────────────────────────── -->
+  <section id="field-news" class="mb-5">
+    <div class="d-flex align-items-center gap-3 mb-4">
+      <div style="width:44px;height:44px;border-radius:12px;background:rgba(13,110,253,0.12);display:flex;align-items:center;justify-content:center;font-size:1.4rem;">🌍</div>
+      <div>
+        <h2 class="fw-bold mb-0">Field News</h2>
+        <p class="text-muted small mb-0">Major breakthroughs, consortia milestones, and AI advances in genomics</p>
+      </div>
+    </div>
+    <div class="row g-4">
+
+      <div class="col-md-6 col-xl-4">
+        <div class="news-card p-4 h-100">
+          <span class="news-card-label news-label-ai"><i class="bi bi-robot"></i>AI / Structural Bio</span>
+          <p class="news-card-date mt-2"><i class="bi bi-calendar3 me-1"></i>2024</p>
+          <div class="news-card-title">AlphaFold 3: Proteins, DNA, RNA &amp; Ligands in One Model</div>
+          <p class="news-card-body">DeepMind's AlphaFold 3 (Nature 2024) extends structure prediction to nucleic acids and small molecules jointly with proteins — enabling drug-target complex prediction, RNA structure modelling, and protein-DNA binding prediction in one forward pass. Model weights available for non-commercial research.</p>
+          <a href="https://www.nature.com/articles/s41586-024-07487-w" target="_blank" rel="noopener" class="news-card-link">Nature paper <i class="bi bi-arrow-right"></i></a>
+        </div>
+      </div>
+
+      <div class="col-md-6 col-xl-4">
+        <div class="news-card p-4 h-100">
+          <span class="news-card-label news-label-ai"><i class="bi bi-stars"></i>AI / Genomics</span>
+          <p class="news-card-date mt-2"><i class="bi bi-calendar3 me-1"></i>2025</p>
+          <div class="news-card-title">Evo 2: 40B Parameter DNA Language Model Across All Life</div>
+          <p class="news-card-body">Arc Institute's Evo 2 is trained on 9.3 million genomes spanning bacteria, archaea, and eukaryotes. It generates functional DNA sequences de novo, predicts variant effect scores, and enables zero-shot gene design. The GPT-4 moment for genomics — open weights.</p>
+          <a href="https://arcinstitute.org/tools/evo" target="_blank" rel="noopener" class="news-card-link">Arc Institute <i class="bi bi-arrow-right"></i></a>
+        </div>
+      </div>
+
+      <div class="col-md-6 col-xl-4">
+        <div class="news-card p-4 h-100">
+          <span class="news-card-label news-label-feature"><i class="bi bi-diagram-3"></i>Single-Cell Atlas</span>
+          <p class="news-card-date mt-2"><i class="bi bi-calendar3 me-1"></i>2025–2026</p>
+          <div class="news-card-title">Human Cell Atlas: 50 Million Cells, 35 Organs</div>
+          <p class="news-card-body">The HCA consortium has mapped over 50 million cells across 35 tissue types — the most comprehensive cellular atlas of the human body ever assembled. Data is freely available via the HCA Data Portal and CZ CELLxGENE Discover. Used as the gold-standard annotation reference for dozens of single-cell tools.</p>
+          <a href="https://www.humancellatlas.org/" target="_blank" rel="noopener" class="news-card-link">HCA Portal <i class="bi bi-arrow-right"></i></a>
+        </div>
+      </div>
+
+      <div class="col-md-6 col-xl-4">
+        <div class="news-card p-4 h-100">
+          <span class="news-card-label news-label-news"><i class="bi bi-globe2"></i>Pangenomics</span>
+          <p class="news-card-date mt-2"><i class="bi bi-calendar3 me-1"></i>2024–2025</p>
+          <div class="news-card-title">HPRC Pangenome v2: 94 Haplotype Assemblies, Graph Reference</div>
+          <p class="news-card-body">The Human Pangenome Reference Consortium released HPRCv2, a pangenome graph from 94 haplotype-resolved assemblies representing global diversity. Tools like <strong>vg</strong> and <strong>Minigraph-Cactus</strong> support alignment to the graph, reducing reference bias in variant calling and GWAS — especially for non-European populations.</p>
+          <a href="https://humanpangenome.org/" target="_blank" rel="noopener" class="news-card-link">HPRC Portal <i class="bi bi-arrow-right"></i></a>
+        </div>
+      </div>
+
+      <div class="col-md-6 col-xl-4">
+        <div class="news-card p-4 h-100">
+          <span class="news-card-label news-label-feature"><i class="bi bi-bar-chart-line"></i>Spatial Omics</span>
+          <p class="news-card-date mt-2"><i class="bi bi-calendar3 me-1"></i>Nature Methods 2024</p>
+          <div class="news-card-title">Spatial Proteomics: Nature Methods Method of the Year 2024</div>
+          <p class="news-card-body">CODEX, IMC, Phenocycler, and MIBI-TOF were collectively named Method of the Year 2024 by Nature Methods — reflecting how routine sub-cellular resolution protein mapping in intact tissue has become. Combined with spatial transcriptomics (Xenium, Visium HD), spatial multi-omics is now a mature field.</p>
+          <a href="https://doi.org/10.1038/s41592-024-02565-3" target="_blank" rel="noopener" class="news-card-link">Nature Methods editorial <i class="bi bi-arrow-right"></i></a>
+        </div>
+      </div>
+
+      <div class="col-md-6 col-xl-4">
+        <div class="news-card p-4 h-100">
+          <span class="news-card-label news-label-ai"><i class="bi bi-cpu"></i>AI / Gene Regulation</span>
+          <p class="news-card-date mt-2"><i class="bi bi-calendar3 me-1"></i>2024</p>
+          <div class="news-card-title">Nucleotide Transformers &amp; HyenaDNA: Long-Range Sequence Models</div>
+          <p class="news-card-body">Multiple groups released DNA sequence transformers (Nucleotide Transformer by InstaDeep/EMBL, HyenaDNA by Stanford) that learn long-range genomic context. These models predict regulatory element activity, variant effects, and chromatin states from sequence — no ChIP-seq or ATAC-seq required.</p>
+          <a href="https://www.biorxiv.org/content/10.1101/2023.01.11.523679" target="_blank" rel="noopener" class="news-card-link">bioRxiv preprint <i class="bi bi-arrow-right"></i></a>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <hr class="my-5" style="border-color:var(--ieb-glass-border);">
+
+  <!-- ── Preprints ────────────────────────────────────────── -->
+  <section id="preprints" class="mb-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <div class="d-flex align-items-center gap-3">
+        <div style="width:44px;height:44px;border-radius:12px;background:rgba(181,23,158,0.12);display:flex;align-items:center;justify-content:center;font-size:1.4rem;">📄</div>
+        <div>
+          <h2 class="fw-bold mb-0">Latest Preprints <span class="badge rounded-pill ms-2" style="background:rgba(181,23,158,0.12);color:#b5179e;font-size:0.72rem;">bioRxiv &amp; arXiv</span></h2>
+          <p class="text-muted small mb-0">Curated high-impact preprints in computational biology and genomics</p>
+        </div>
+      </div>
+      <div class="d-flex gap-2">
+        <a href="https://www.biorxiv.org/collection/bioinformatics" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary rounded-pill px-3 d-none d-md-inline-flex">bioRxiv <i class="bi bi-box-arrow-up-right ms-1"></i></a>
+        <a href="https://arxiv.org/list/q-bio.GN/recent" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary rounded-pill px-3 d-none d-md-inline-flex">arXiv <i class="bi bi-box-arrow-up-right ms-1"></i></a>
+      </div>
+    </div>
+    <div class="row g-4">
+
+      <div class="col-md-6 col-xl-4">
+        <div class="news-card p-4 h-100" style="border-top:3px solid #b5179e;">
+          <span class="news-card-label" style="background:rgba(181,23,158,0.1);color:#b5179e;border:1px solid rgba(181,23,158,0.2);"><i class="bi bi-journal-code"></i>Nature Methods · scRNA-Seq</span>
+          <p class="news-card-date mt-2"><i class="bi bi-calendar3 me-1"></i>2023–2024</p>
+          <div class="news-card-title">scVI-tools 1.0: Probabilistic Deep Learning for Single-Cell Omics</div>
+          <p class="news-card-body">Formalises the VAE-based framework for scRNA-seq integration, deconvolution, and DE. Covers SCVI, SCANVI (semi-supervised), totalVI (CITE-seq), and MULTIVI (multi-modal). Now the standard for large atlas integration (>100K cells).</p>
+          <a href="https://www.nature.com/articles/s41592-023-01773-1" target="_blank" rel="noopener" class="news-card-link">Nature Methods <i class="bi bi-arrow-right"></i></a>
+        </div>
+      </div>
+
+      <div class="col-md-6 col-xl-4">
+        <div class="news-card p-4 h-100" style="border-top:3px solid #b5179e;">
+          <span class="news-card-label" style="background:rgba(181,23,158,0.1);color:#b5179e;border:1px solid rgba(181,23,158,0.2);"><i class="bi bi-journal-code"></i>Nature · AI + Bio</span>
+          <p class="news-card-date mt-2"><i class="bi bi-calendar3 me-1"></i>2023</p>
+          <div class="news-card-title">Geneformer: Transfer Learning in Single-Cell Gene Expression Space</div>
+          <p class="news-card-body">Context-aware transformer pre-trained on 30M single-cell transcriptomes (Theodoris et al.). Fine-tuned for chromatin dynamics, gene network inference, and in-silico perturbation response prediction — demonstrating that transfer learning works in transcriptomics as powerfully as in NLP.</p>
+          <a href="https://doi.org/10.1038/s41586-023-06139-9" target="_blank" rel="noopener" class="news-card-link">Nature paper <i class="bi bi-arrow-right"></i></a>
+        </div>
+      </div>
+
+      <div class="col-md-6 col-xl-4">
+        <div class="news-card p-4 h-100" style="border-top:3px solid #b5179e;">
+          <span class="news-card-label" style="background:rgba(181,23,158,0.1);color:#b5179e;border:1px solid rgba(181,23,158,0.2);"><i class="bi bi-journal-code"></i>Nature Methods · ML + Genomics</span>
+          <p class="news-card-date mt-2"><i class="bi bi-calendar3 me-1"></i>2023</p>
+          <div class="news-card-title">Enformer: Predicting Gene Expression from 196kb DNA Context</div>
+          <p class="news-card-body">DeepMind's Enformer predicts RNA-seq, ATAC-seq, and ChIP-seq tracks directly from 196kb of raw DNA sequence. Enables in-silico regulatory variant effect prediction without any experimental assay — a major advance for variant annotation and functional genomics.</p>
+          <a href="https://doi.org/10.1038/s41592-021-01252-x" target="_blank" rel="noopener" class="news-card-link">Nature Methods <i class="bi bi-arrow-right"></i></a>
+        </div>
+      </div>
+
+      <div class="col-md-6 col-xl-4">
+        <div class="news-card p-4 h-100" style="border-top:3px solid #b5179e;">
+          <span class="news-card-label" style="background:rgba(181,23,158,0.1);color:#b5179e;border:1px solid rgba(181,23,158,0.2);"><i class="bi bi-journal-code"></i>bioRxiv · Population Genomics</span>
+          <p class="news-card-date mt-2"><i class="bi bi-calendar3 me-1"></i>2024–2025</p>
+          <div class="news-card-title">GLIMPSE2: Population-Scale Low-Coverage WGS Imputation</div>
+          <p class="news-card-body">GLIMPSE2 imputes 0.1–1× low-coverage WGS to near-WGS genotype quality using a haplotype reference panel. Orders of magnitude faster than BEAGLE for biobank-scale cohorts, supports the HPRC pangenome reference. Makes large population studies affordable on sequencing budgets.</p>
+          <a href="https://odelaneau.github.io/GLIMPSE/" target="_blank" rel="noopener" class="news-card-link">GLIMPSE2 docs <i class="bi bi-arrow-right"></i></a>
+        </div>
+      </div>
+
+      <div class="col-md-6 col-xl-4">
+        <div class="news-card p-4 h-100" style="border-top:3px solid #b5179e;">
+          <span class="news-card-label" style="background:rgba(181,23,158,0.1);color:#b5179e;border:1px solid rgba(181,23,158,0.2);"><i class="bi bi-journal-code"></i>bioRxiv · Epigenomics</span>
+          <p class="news-card-date mt-2"><i class="bi bi-calendar3 me-1"></i>2024</p>
+          <div class="news-card-title">ArchR 2.0: Scalable Single-Cell ATAC-Seq Analysis Framework</div>
+          <p class="news-card-body">ArchR 2.0 (Granja et al.) rewrites the HDF5-backed ATAC analysis framework with improved Arrow file format, faster iterative LSI, and tighter integration with Seurat and Signac. Handles 1M+ cells, provides trajectory analysis, and links peaks to genes via co-accessibility and co-expression.</p>
+          <a href="https://www.archrproject.com/" target="_blank" rel="noopener" class="news-card-link">ArchR docs <i class="bi bi-arrow-right"></i></a>
+        </div>
+      </div>
+
+      <div class="col-md-6 col-xl-4">
+        <div class="news-card p-4 h-100" style="border-top:3px solid #b5179e;">
+          <span class="news-card-label" style="background:rgba(181,23,158,0.1);color:#b5179e;border:1px solid rgba(181,23,158,0.2);"><i class="bi bi-journal-code"></i>arXiv · Protein + Structure</span>
+          <p class="news-card-date mt-2"><i class="bi bi-calendar3 me-1"></i>2024–2025</p>
+          <div class="news-card-title">ESM3: Multimodal Protein Language Model (Sequence, Structure, Function)</div>
+          <p class="news-card-body">EvolutionaryScale's ESM3 jointly models protein sequence, 3D structure, and functional annotations in a single generative model. Demonstrated de novo generation of fluorescent proteins distant from all known sequences — the first AI-designed protein with confirmed novel function. Open weights released.</p>
+          <a href="https://www.evolutionaryscale.ai/blog/esm3-release" target="_blank" rel="noopener" class="news-card-link">ESM3 blog <i class="bi bi-arrow-right"></i></a>
+        </div>
+      </div>
+
+      <div class="col-md-6 col-xl-4">
+        <div class="news-card p-4 h-100" style="border-top:3px solid #b5179e;">
+          <span class="news-card-label" style="background:rgba(181,23,158,0.1);color:#b5179e;border:1px solid rgba(181,23,158,0.2);"><i class="bi bi-journal-code"></i>bioRxiv · RNA-Seq</span>
+          <p class="news-card-date mt-2"><i class="bi bi-calendar3 me-1"></i>2024</p>
+          <div class="news-card-title">satuRn vs DEXSeq: Differential Transcript Usage Benchmark</div>
+          <p class="news-card-body">Head-to-head benchmarks (Gilis et al.) show <strong>satuRn</strong>'s quasi-binomial GLM approach has superior FDR control and speed compared to DEXSeq for differential transcript usage analysis. Now recommended as the primary DTU tool in the Bioconductor RNA-seq workflow.</p>
+          <a href="https://www.bioconductor.org/packages/release/bioc/html/satuRn.html" target="_blank" rel="noopener" class="news-card-link">satuRn Bioconductor <i class="bi bi-arrow-right"></i></a>
+        </div>
+      </div>
+
+      <div class="col-md-6 col-xl-4">
+        <div class="news-card p-4 h-100" style="border-top:3px solid #b5179e;">
+          <span class="news-card-label" style="background:rgba(181,23,158,0.1);color:#b5179e;border:1px solid rgba(181,23,158,0.2);"><i class="bi bi-journal-code"></i>Nature · Metagenomics</span>
+          <p class="news-card-date mt-2"><i class="bi bi-calendar3 me-1"></i>2024</p>
+          <div class="news-card-title">Unified Human Gastrointestinal Genome (UHGG) v2: 286,000 Genomes</div>
+          <p class="news-card-body">The UHGG v2 catalogue (Almeida et al.) compiles 286,000 non-redundant gut microbial genomes from 42,000 human samples — the most comprehensive human gut reference to date. Enables species-level strain tracking, resistome profiling, and metabolic pathway reconstruction from shotgun metagenomics.</p>
+          <a href="https://www.ebi.ac.uk/metagenomics/genome-catalogues/human-gut-v2-0" target="_blank" rel="noopener" class="news-card-link">UHGG v2 Portal <i class="bi bi-arrow-right"></i></a>
+        </div>
+      </div>
+
+      <div class="col-md-6 col-xl-4">
+        <div class="news-card p-4 h-100" style="border-top:3px solid #b5179e;">
+          <span class="news-card-label" style="background:rgba(181,23,158,0.1);color:#b5179e;border:1px solid rgba(181,23,158,0.2);"><i class="bi bi-journal-code"></i>bioRxiv · GWAS</span>
+          <p class="news-card-date mt-2"><i class="bi bi-calendar3 me-1"></i>2024–2025</p>
+          <div class="news-card-title">PolyFun + SuSiE: Fine-Mapping 95% Credible Sets at GWAS Scale</div>
+          <p class="news-card-body"><strong>PolyFun</strong> (Weissbrod et al.) uses functional annotations to improve GWAS fine-mapping priors, while <strong>SuSiE</strong> (Wang et al.) delivers 95% credible sets via sum of single effects. Together they are now the recommended post-GWAS fine-mapping pipeline — replacing FINEMAP for most applications.</p>
+          <a href="https://github.com/omerwe/polyfun" target="_blank" rel="noopener" class="news-card-link">PolyFun GitHub <i class="bi bi-arrow-right"></i></a>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="text-center mt-5">
+      <a href="https://www.biorxiv.org/collection/bioinformatics" target="_blank" rel="noopener" class="btn btn-outline-secondary rounded-pill px-4 me-2">
+        <i class="bi bi-box-arrow-up-right me-2"></i>Browse bioRxiv Bioinformatics
+      </a>
+      <a href="https://arxiv.org/list/q-bio.GN/recent" target="_blank" rel="noopener" class="btn btn-outline-secondary rounded-pill px-4">
+        <i class="bi bi-box-arrow-up-right me-2"></i>Browse arXiv q-bio.GN
+      </a>
+    </div>
+  </section>
+
+</div>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="row g-4">
+      <div class="col-lg-6">
+        <h5 class="text-white fw-bold mb-3"><span style="color:#ff9933;">Indian</span><span style="color:var(--ieb-primary);">Elucid</span><span style="color:var(--ieb-accent);">Biology</span></h5>
+        <p class="small">Free, interactive bioinformatics tutorials. Open source and community-driven.</p>
+      </div>
+      <div class="col-lg-6 text-lg-end">
+        <p class="small mb-1">Founded by <strong>Ankush Sharma</strong></p>
+        <div class="d-flex gap-3 justify-content-lg-end">
+          <a href="https://github.com/ank-man" target="_blank" class="text-white fs-5" title="GitHub"><i class="bi bi-github"></i></a>
+          <a href="https://www.linkedin.com/in/ankush-sharma-290307/" target="_blank" class="text-white fs-5" title="LinkedIn"><i class="bi bi-linkedin"></i></a>
+          <a href="mailto:mr.ank2999@gmail.com" class="text-white fs-5" title="Email"><i class="bi bi-envelope"></i></a>
+        </div>
+      </div>
+    </div>
+    <hr class="border-secondary mt-4 mb-3">
+    <p class="text-center small mb-0">&copy; 2025 IndianElucidBiology &mdash; Founded by <a href="https://www.linkedin.com/in/ankush-sharma-290307/" class="text-white-50" target="_blank">Ankush Sharma</a>. Made with <span style="color:#e25555;">&#9829;</span> for the bioinformatics community.</p>
+  </div>
+</footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

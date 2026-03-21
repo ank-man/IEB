@@ -3,14 +3,350 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Vibe Science: Using Claude, Codex & Gemini CLI for Bioinformatics — Tutorial | IndianElucidBiology</title>
-  <meta name="description" content="Learn how to use Claude CLI, OpenAI Codex, and Gemini CLI to supercharge your bioinformatics workflows. Vibe-code your RNA-seq pipelines, debug your segfaults at 2am, and let AI write the boilerplate you hate.">
-  <meta name="keywords" content="vibe science, Claude CLI bioinformatics, Codex bioinformatics, Gemini CLI, AI bioinformatics, vibe coding, LLM science, AI life science, IndianElucidBiology">
+  <title>Vibe Science: Claude + Codex + Gemini + LabClaw CLI for Bioinformatics — IndianElucidBiology</title>
+  <meta name="description" content="The definitive guide to AI-assisted bioinformatics: Claude CLI, OpenAI Codex, Gemini CLI, and LabClaw agent skills. Write pipelines, debug at 2am, and do autonomous science.">
+  <meta name="keywords" content="vibe science, LabClaw bioinformatics, Claude CLI, Codex bioinformatics, Gemini CLI, AI agent bioinformatics, OpenClaw, autonomous science, IndianElucidBiology">
   <meta name="author" content="IndianElucidBiology">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
   <link href="../css/style.css" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════
+   VIBE SCIENCE — FUTURISTIC STYLES
+═══════════════════════════════════════════════ */
+
+/* Animated hero */
+.vs-hero {
+  background: linear-gradient(135deg, #050510 0%, #0d0d2b 30%, #0f1a3d 60%, #1a0533 100%);
+  padding: 100px 0 60px;
+  position: relative;
+  overflow: hidden;
+  min-height: 480px;
+}
+.vs-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 80% 50% at 20% 60%, rgba(83,52,131,0.35), transparent),
+    radial-gradient(ellipse 60% 40% at 80% 30%, rgba(13,110,253,0.25), transparent),
+    radial-gradient(ellipse 40% 30% at 50% 80%, rgba(0,255,200,0.12), transparent);
+  pointer-events: none;
+}
+
+/* Floating particles canvas */
+#vs-particles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.55;
+}
+
+/* Glowing title text */
+.vs-title {
+  font-size: clamp(2rem, 5vw, 3.4rem);
+  font-weight: 900;
+  background: linear-gradient(90deg, #fff 0%, #b3d9ff 40%, #c084fc 70%, #67e8f9 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: drop-shadow(0 0 30px rgba(192,132,252,0.4));
+  line-height: 1.15;
+}
+.vs-subtitle {
+  color: rgba(255,255,255,0.6);
+  font-size: 1.05rem;
+}
+
+/* Glowing badge */
+.vs-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  border: 1px solid;
+  animation: badge-pulse 3s ease-in-out infinite;
+}
+@keyframes badge-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(192,132,252,0); }
+  50% { box-shadow: 0 0 16px 4px rgba(192,132,252,0.3); }
+}
+
+/* Tool cards — glowing hover */
+.ai-tool-card {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 20px;
+  padding: 28px 22px;
+  text-align: center;
+  transition: transform 0.25s, box-shadow 0.25s, border-color 0.25s;
+  position: relative;
+  overflow: hidden;
+}
+.ai-tool-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.3s;
+  border-radius: 20px;
+}
+.ai-tool-card:hover { transform: translateY(-6px); }
+.ai-tool-card.claude { border-top: 2px solid #cc785c; }
+.ai-tool-card.claude:hover { box-shadow: 0 12px 40px rgba(204,120,92,0.35); border-color: #cc785c; }
+.ai-tool-card.codex { border-top: 2px solid #10a37f; }
+.ai-tool-card.codex:hover { box-shadow: 0 12px 40px rgba(16,163,127,0.35); border-color: #10a37f; }
+.ai-tool-card.gemini { border-top: 2px solid #4285f4; }
+.ai-tool-card.gemini:hover { box-shadow: 0 12px 40px rgba(66,133,244,0.35); border-color: #4285f4; }
+.ai-tool-card.labclaw { border-top: 2px solid #ef4444; }
+.ai-tool-card.labclaw:hover { box-shadow: 0 12px 40px rgba(239,68,68,0.35); border-color: #ef4444; }
+.ai-tool-card .tool-icon { font-size: 2.8rem; margin-bottom: 12px; }
+.ai-tool-card .tool-name { font-weight: 800; font-size: 1.05rem; margin-bottom: 6px; }
+
+/* Animated flowchart */
+.flowchart-container {
+  background: linear-gradient(135deg, #070714, #0d1b3e);
+  border: 1px solid rgba(100,120,255,0.2);
+  border-radius: 20px;
+  padding: 32px 20px;
+  position: relative;
+  overflow: hidden;
+}
+.flowchart-container::before {
+  content: '';
+  position: absolute;
+  top: -40%; left: -20%;
+  width: 80%; height: 80%;
+  background: radial-gradient(circle, rgba(83,52,131,0.15), transparent 65%);
+  pointer-events: none;
+}
+.fc-node {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: 12px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  white-space: nowrap;
+  position: relative;
+  animation: fc-glow 4s ease-in-out infinite;
+}
+@keyframes fc-glow {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.25) drop-shadow(0 0 8px currentColor); }
+}
+.fc-node.start { background: rgba(192,132,252,0.18); color: #c084fc; border: 1px solid rgba(192,132,252,0.35); }
+.fc-node.process { background: rgba(56,189,248,0.12); color: #38bdf8; border: 1px solid rgba(56,189,248,0.3); }
+.fc-node.agent { background: rgba(239,68,68,0.12); color: #f87171; border: 1px solid rgba(239,68,68,0.3); }
+.fc-node.output { background: rgba(52,211,153,0.12); color: #34d399; border: 1px solid rgba(34,211,153,0.3); }
+.fc-node.decision { background: rgba(251,191,36,0.1); color: #fbbf24; border: 1px solid rgba(251,191,36,0.3); border-radius: 6px; transform: rotate(0deg); }
+.fc-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(148,163,184,0.5);
+  font-size: 1.1rem;
+  margin: 2px 0;
+  animation: arrow-flow 2s ease-in-out infinite;
+}
+@keyframes arrow-flow {
+  0%, 100% { opacity: 0.4; transform: translateY(0); }
+  50% { opacity: 1; transform: translateY(3px); }
+}
+.fc-row { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; margin: 4px 0; }
+.fc-col { display: flex; flex-direction: column; align-items: center; }
+.fc-h-arrow { color: rgba(148,163,184,0.5); animation: arrow-flow-h 2s ease-in-out infinite; }
+@keyframes arrow-flow-h {
+  0%, 100% { opacity: 0.4; transform: translateX(0); }
+  50% { opacity: 1; transform: translateX(3px); }
+}
+
+/* LabClaw specific */
+.labclaw-hero {
+  background: linear-gradient(135deg, #1a0000, #2d0505, #1a0a00);
+  border: 1px solid rgba(239,68,68,0.25);
+  border-radius: 20px;
+  padding: 32px;
+  position: relative;
+  overflow: hidden;
+}
+.labclaw-hero::before {
+  content: '';
+  position: absolute;
+  top: -30%; right: -10%;
+  width: 50%; height: 80%;
+  background: radial-gradient(circle, rgba(239,68,68,0.15), transparent 60%);
+  pointer-events: none;
+}
+.labclaw-skill {
+  background: rgba(239,68,68,0.07);
+  border: 1px solid rgba(239,68,68,0.2);
+  border-radius: 14px;
+  padding: 18px 16px;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.labclaw-skill:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(239,68,68,0.2);
+}
+.skill-domain {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #f87171;
+  margin-bottom: 6px;
+}
+.skill-name { font-weight: 700; font-size: 0.9rem; margin-bottom: 4px; }
+.skill-desc { font-size: 0.8rem; color: var(--ieb-muted); }
+
+/* Comparison table glow */
+.vs-table {
+  background: rgba(10,10,30,0.6);
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(100,120,255,0.15);
+}
+.vs-table th {
+  background: rgba(83,52,131,0.25);
+  color: #c084fc;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(100,120,255,0.2);
+  border-right: none;
+}
+.vs-table td {
+  padding: 11px 16px;
+  font-size: 0.88rem;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  vertical-align: middle;
+}
+.vs-table tr:last-child td { border-bottom: none; }
+.vs-table tr:hover td { background: rgba(255,255,255,0.03); }
+
+/* Animated terminal */
+.vs-terminal {
+  background: #050510;
+  border: 1px solid rgba(100,255,200,0.2);
+  border-radius: 14px;
+  overflow: hidden;
+  font-family: 'JetBrains Mono', monospace;
+}
+.vs-terminal-bar {
+  background: rgba(255,255,255,0.05);
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.vs-terminal-dot { width: 12px; height: 12px; border-radius: 50%; }
+.vs-terminal-body {
+  padding: 20px;
+  font-size: 0.82rem;
+  line-height: 1.7;
+}
+.vs-terminal-body .cmd { color: #67e8f9; }
+.vs-terminal-body .comment { color: rgba(148,163,184,0.6); }
+.vs-terminal-body .string { color: #86efac; }
+.vs-terminal-body .flag { color: #fbbf24; }
+.vs-terminal-body .output-line { color: rgba(255,255,255,0.75); }
+.vs-terminal-body .success { color: #34d399; }
+.vs-terminal-body .prompt { color: #c084fc; }
+
+/* Section step badges */
+.vs-step-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #7c3aed, #2563eb);
+  color: #fff;
+  font-weight: 800;
+  font-size: 0.9rem;
+  margin-right: 10px;
+  flex-shrink: 0;
+  box-shadow: 0 0 20px rgba(124,58,237,0.5);
+}
+
+/* Prompt card */
+.prompt-card {
+  background: linear-gradient(135deg, rgba(124,58,237,0.08), rgba(37,99,235,0.06));
+  border: 1px solid rgba(124,58,237,0.2);
+  border-left: 3px solid #7c3aed;
+  border-radius: 12px;
+  padding: 20px;
+  position: relative;
+}
+.prompt-card::before {
+  content: '💬';
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  font-size: 1.2rem;
+  opacity: 0.4;
+}
+
+/* Skill meter */
+.skill-meter { background: rgba(255,255,255,0.08); border-radius: 999px; height: 7px; overflow: hidden; }
+.skill-meter-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #7c3aed, #06b6d4);
+  animation: meter-fill 1.5s ease-out forwards;
+  transform-origin: left;
+}
+@keyframes meter-fill { from { width: 0; } }
+
+/* Typewriter cursor blink */
+.cursor-blink {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  background: #67e8f9;
+  animation: cursor-blink 1s step-end infinite;
+  vertical-align: text-bottom;
+  margin-left: 2px;
+}
+@keyframes cursor-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+/* Pulse dot */
+.pulse-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: #34d399;
+  display: inline-block;
+  box-shadow: 0 0 0 0 rgba(52,211,153,0.5);
+  animation: pulse-ring 2s ease-out infinite;
+}
+@keyframes pulse-ring {
+  0% { box-shadow: 0 0 0 0 rgba(52,211,153,0.6); }
+  70% { box-shadow: 0 0 0 8px rgba(52,211,153,0); }
+  100% { box-shadow: 0 0 0 0 rgba(52,211,153,0); }
+}
+
+/* Dark section override for dark hero areas */
+[data-bs-theme="dark"] .vs-terminal { border-color: rgba(100,255,200,0.15); }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .vs-hero { padding: 90px 0 40px; }
+  .vs-title { font-size: 1.9rem; }
+  .fc-row { gap: 6px; }
+  .fc-node { font-size: 0.72rem; padding: 8px 12px; }
+}
+</style>
 </head>
 <body>
 <div class="progress-tracker"></div>
@@ -42,30 +378,43 @@
   </div>
 </nav>
 
-<section class="tutorial-hero" style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 40%, #0f3460 70%, #533483 100%);">
-  <div class="container">
-    <div class="row align-items-center">
-      <div class="col-lg-8">
-        <nav aria-label="breadcrumb"><ol class="breadcrumb mb-3" style="--bs-breadcrumb-divider-color:rgba(255,255,255,0.5);">
+<section class="vs-hero">
+  <canvas id="vs-particles"></canvas>
+  <div class="container position-relative" style="z-index:1;">
+    <div class="row align-items-center g-5">
+      <div class="col-lg-7">
+        <nav aria-label="breadcrumb"><ol class="breadcrumb mb-3" style="--bs-breadcrumb-divider-color:rgba(255,255,255,0.4);">
           <li class="breadcrumb-item"><a href="../index.html" class="text-white-50 text-decoration-none">Home</a></li>
           <li class="breadcrumb-item"><a href="index.html" class="text-white-50 text-decoration-none">Tutorials</a></li>
-          <li class="breadcrumb-item active text-white">Vibe Science</li>
+          <li class="breadcrumb-item active" style="color:rgba(255,255,255,0.6);">Vibe Science</li>
         </ol></nav>
         <div class="mb-3 d-flex gap-2 flex-wrap">
-          <span class="badge px-3 py-2 rounded-pill" style="background:rgba(255,200,0,0.35);color:#fff;font-size:0.78rem;"><i class="bi bi-stars me-1"></i>New Era of Science</span>
-          <span class="badge px-3 py-2 rounded-pill" style="background:rgba(100,220,150,0.3);color:#fff;font-size:0.78rem;"><i class="bi bi-emoji-laughing me-1"></i>Mildly Unhinged</span>
+          <span class="vs-badge" style="background:rgba(192,132,252,0.15);color:#c084fc;border-color:rgba(192,132,252,0.3);"><i class="bi bi-stars"></i>2026 Edition</span>
+          <span class="vs-badge" style="background:rgba(52,211,153,0.12);color:#34d399;border-color:rgba(52,211,153,0.25);"><span class="pulse-dot me-1"></span>Live &amp; Active</span>
+          <span class="vs-badge" style="background:rgba(239,68,68,0.12);color:#f87171;border-color:rgba(239,68,68,0.25);">🦞 Now with LabClaw</span>
         </div>
-        <h1 class="display-5 fw-bold text-white mb-3">Vibe Science ✨<br><span style="font-size:0.65em;opacity:0.85;">Claude + Codex + Gemini CLI for Bioinformatics</span></h1>
-        <p class="lead text-white-50 mb-4">Why spend 6 hours debugging a Snakemake rule when you can just <em>describe the vibe</em> to an AI? Learn to harness Claude CLI, OpenAI Codex, and Gemini CLI to write pipelines, analyse genomes, debug segfaults at 2am, and publish papers so fast your PI will think you cloned yourself.</p>
-        <div class="d-flex gap-3 flex-wrap">
-          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-clock me-1"></i>~35 min</span>
-          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-bar-chart me-1"></i>All Levels</span>
-          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-terminal me-1"></i>Bash / Python / R</span>
-          <span class="badge bg-white bg-opacity-10 text-white px-3 py-2 rounded-pill"><i class="bi bi-robot me-1"></i>AI-Assisted</span>
+        <h1 class="vs-title mb-3">Vibe Science ✨<br><span style="font-size:0.6em;">Claude · Codex · Gemini · LabClaw</span></h1>
+        <p class="vs-subtitle mb-4">The definitive guide to AI-assisted bioinformatics. Four tools, one workflow, zero excuses for writing boilerplate at 2am. We added <strong style="color:#f87171;">LabClaw</strong> — autonomous AI agent skills from Stanford &amp; Princeton that run your entire lab without sleeping.</p>
+        <div class="d-flex gap-2 flex-wrap">
+          <span class="badge" style="background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.8);font-size:0.78rem;"><i class="bi bi-clock me-1"></i>~50 min</span>
+          <span class="badge" style="background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.8);font-size:0.78rem;"><i class="bi bi-bar-chart me-1"></i>All Levels</span>
+          <span class="badge" style="background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.8);font-size:0.78rem;"><i class="bi bi-terminal me-1"></i>Bash · Python · R</span>
+          <span class="badge" style="background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.8);font-size:0.78rem;"><i class="bi bi-robot me-1"></i>AI-Assisted</span>
         </div>
       </div>
-      <div class="col-lg-4 text-center d-none d-lg-block">
-        <img src="../img/Byte1.png" alt="Byte" class="img-fluid" style="max-height:220px;filter:drop-shadow(0 10px 30px rgba(0,0,0,0.4));">
+      <div class="col-lg-5 text-center d-none d-lg-block">
+        <div style="position:relative;display:inline-block;">
+          <img src="../img/Byte1.png" alt="Byte" class="img-fluid" style="max-height:240px;filter:drop-shadow(0 0 40px rgba(192,132,252,0.5)) drop-shadow(0 10px 30px rgba(0,0,0,0.6));animation:float-byte 4s ease-in-out infinite;">
+          <style>@keyframes float-byte{0%,100%{transform:translateY(0)}50%{transform:translateY(-14px)}}</style>
+          <!-- Orbiting icons -->
+          <div style="position:absolute;top:10%;right:-8%;animation:orbit-1 6s linear infinite;">🤖</div>
+          <div style="position:absolute;bottom:15%;left:-5%;animation:orbit-2 8s linear infinite;">🧬</div>
+          <div style="position:absolute;top:50%;right:-12%;animation:orbit-1 10s linear infinite reverse;">🦞</div>
+          <style>
+            @keyframes orbit-1{0%{transform:translateY(0) scale(1)}50%{transform:translateY(-10px) scale(1.15)}100%{transform:translateY(0) scale(1)}}
+            @keyframes orbit-2{0%{transform:translateY(0) scale(1)}50%{transform:translateY(8px) scale(0.9)}100%{transform:translateY(0) scale(1)}}
+          </style>
+        </div>
       </div>
     </div>
   </div>
@@ -78,15 +427,17 @@
         <h6 class="fw-bold text-muted text-uppercase small mb-3">On this page</h6>
         <nav class="nav flex-column">
           <a class="nav-link" href="#overview">What is Vibe Science?</a>
-          <a class="nav-link" href="#tools">The Holy Trinity of AI CLIs</a>
+          <a class="nav-link" href="#tools">The Four AI Tools</a>
+          <a class="nav-link" href="#flowchart">How It All Fits</a>
           <a class="nav-link" href="#install">Installation</a>
           <a class="nav-link" href="#claude">1. Claude CLI</a>
           <a class="nav-link" href="#codex">2. OpenAI Codex CLI</a>
           <a class="nav-link" href="#gemini">3. Gemini CLI</a>
-          <a class="nav-link" href="#prompts">Prompt Engineering for Bio</a>
+          <a class="nav-link" href="#labclaw">4. LabClaw 🦞</a>
+          <a class="nav-link" href="#prompts">Prompt Engineering</a>
           <a class="nav-link" href="#pipelines">AI-Generated Pipelines</a>
           <a class="nav-link" href="#debug">Debugging with AI</a>
-          <a class="nav-link" href="#ethics">A Word on Ethics</a>
+          <a class="nav-link" href="#ethics">Ethics</a>
           <a class="nav-link" href="#summary">Summary</a>
         </nav>
       </div>
@@ -101,55 +452,106 @@
           <div class="byte-callout byte-info">
             <img src="../img/Byte3.png" alt="Byte">
             <div>
-              <strong>Hot take:</strong> The bioinformatics community spent 30 years arguing about the best aligner. Claude will write you a wrapper for all of them in 4 seconds and ask which one you actually wanted. We are living in a simulation and the simulation has an API.
+              <strong>Hot take:</strong> The bioinformatics community spent 30 years arguing about the best aligner. Claude will write you a wrapper for all of them in 4 seconds and ask which one you actually wanted. We are living in a simulation and the simulation has an API. And now Stanford built <strong>LabClaw</strong> so the simulation can run your lab autonomously too.
             </div>
           </div>
 
-          <p class="mt-3">In all seriousness, large language model CLIs (command-line interfaces) have become genuinely transformative tools for computational biologists in 2024–2025. This tutorial covers three of the best:</p>
-
-          <div class="row g-3 mt-2">
-            <div class="col-md-4">
-              <div class="card border-0 shadow-sm h-100" style="border-top: 3px solid #cc785c !important;">
-                <div class="card-body text-center">
-                  <div class="fs-1 mb-2">🤖</div>
-                  <h6 class="fw-bold">Claude (Anthropic)</h6>
-                  <p class="small mb-0">Best at reasoning, long-context document analysis, and being suspiciously polite about your terrible variable names.</p>
-                </div>
-              </div>
-            </div>
-            <div class="col-md-4">
-              <div class="card border-0 shadow-sm h-100" style="border-top: 3px solid #10a37f !important;">
-                <div class="card-body text-center">
-                  <div class="fs-1 mb-2">⚡</div>
-                  <h6 class="fw-bold">Codex / GPT-4o (OpenAI)</h6>
-                  <p class="small mb-0">Blazing fast code generation. Will write your entire GATK pipeline and then ask if you want it in Nextflow too.</p>
-                </div>
-              </div>
-            </div>
-            <div class="col-md-4">
-              <div class="card border-0 shadow-sm h-100" style="border-top: 3px solid #4285f4 !important;">
-                <div class="card-body text-center">
-                  <div class="fs-1 mb-2">💎</div>
-                  <h6 class="fw-bold">Gemini (Google)</h6>
-                  <p class="small mb-0">Enormous context window. Can read your entire genome annotation GTF and still have room for your feelings.</p>
-                </div>
-              </div>
-            </div>
-          </div>
+          <p class="mt-3">Large language model CLIs and autonomous agent frameworks have become genuinely transformative tools for computational biologists in 2024–2026. This tutorial covers <strong>four</strong> of the best tools across the spectrum — from simple chat CLIs to fully autonomous lab agents:</p>
         </section>
 
         <section id="tools" class="mb-5">
-          <h2 class="fw-bold">The Holy Trinity of AI CLIs</h2>
-          <div class="param-table"><div class="table-responsive">
-            <table class="table table-striped mb-0">
-              <thead><tr><th>Tool</th><th>Developer</th><th>Context Window</th><th>Best for Bio Use Case</th><th>Free Tier?</th></tr></thead>
+          <h2 class="fw-bold">The Four AI Tools</h2>
+
+          <!-- Tool cards -->
+          <div class="row g-3 mb-4">
+            <div class="col-sm-6 col-xl-3">
+              <div class="ai-tool-card claude">
+                <div class="tool-icon">🤖</div>
+                <div class="tool-name" style="color:#cc785c;">Claude CLI</div>
+                <div class="small text-muted mb-2">Anthropic &middot; 200K ctx</div>
+                <p class="small mb-3">The reasoning champion. Best for code review, long-doc QA, methods sections. Think calm postdoc who's read every paper.</p>
+                <div class="mb-1 small fw-semibold">Code reasoning</div>
+                <div class="skill-meter mb-2"><div class="skill-meter-fill" style="width:96%"></div></div>
+                <div class="mb-1 small fw-semibold">Long context</div>
+                <div class="skill-meter"><div class="skill-meter-fill" style="width:85%"></div></div>
+              </div>
+            </div>
+            <div class="col-sm-6 col-xl-3">
+              <div class="ai-tool-card codex">
+                <div class="tool-icon">⚡</div>
+                <div class="tool-name" style="color:#10a37f;">Codex / GPT-4o</div>
+                <div class="small text-muted mb-2">OpenAI &middot; 128K ctx</div>
+                <p class="small mb-3">Code generation powerhouse. Will write your GATK pipeline and ask if you want it in Nextflow too. Types 200wpm.</p>
+                <div class="mb-1 small fw-semibold">Code generation</div>
+                <div class="skill-meter mb-2"><div class="skill-meter-fill" style="width:99%"></div></div>
+                <div class="mb-1 small fw-semibold">Speed</div>
+                <div class="skill-meter"><div class="skill-meter-fill" style="width:95%"></div></div>
+              </div>
+            </div>
+            <div class="col-sm-6 col-xl-3">
+              <div class="ai-tool-card gemini">
+                <div class="tool-icon">💎</div>
+                <div class="tool-name" style="color:#4285f4;">Gemini CLI</div>
+                <div class="small text-muted mb-2">Google &middot; <strong>1M ctx</strong></div>
+                <p class="small mb-3">The dark horse. 1 million token context means it can read your whole GTF file. Free tier exists. Google handed science a superpower.</p>
+                <div class="mb-1 small fw-semibold">Context window</div>
+                <div class="skill-meter mb-2"><div class="skill-meter-fill" style="width:100%"></div></div>
+                <div class="mb-1 small fw-semibold">Free access</div>
+                <div class="skill-meter"><div class="skill-meter-fill" style="width:80%"></div></div>
+              </div>
+            </div>
+            <div class="col-sm-6 col-xl-3">
+              <div class="ai-tool-card labclaw">
+                <div class="tool-icon">🦞</div>
+                <div class="tool-name" style="color:#ef4444;">LabClaw</div>
+                <div class="small text-muted mb-2">Stanford &amp; Princeton &middot; Autonomous</div>
+                <p class="small mb-3">206 agentic skills. Runs your full biomedical stack autonomously. Not just a chat CLI — a <em>lab operating system</em>.</p>
+                <div class="mb-1 small fw-semibold">Autonomy</div>
+                <div class="skill-meter mb-2"><div class="skill-meter-fill" style="width:100%"></div></div>
+                <div class="mb-1 small fw-semibold">Skill breadth</div>
+                <div class="skill-meter"><div class="skill-meter-fill" style="width:98%"></div></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Comparison table -->
+          <div class="table-responsive">
+            <table class="vs-table w-100">
+              <thead><tr>
+                <th>Tool</th><th>Developer</th><th>Context</th><th>Best Bioinformatics Use</th><th>Free?</th><th>Autonomy Level</th>
+              </tr></thead>
               <tbody>
-                <tr><td><strong>Claude CLI</strong></td><td>Anthropic</td><td>200K tokens</td><td>Code review, long-doc QA, writing methods sections</td><td>Limited (API key)</td></tr>
-                <tr><td><strong>Codex CLI</strong></td><td>OpenAI</td><td>128K tokens</td><td>Code generation, pipeline writing, data wrangling</td><td>Limited (API key)</td></tr>
-                <tr><td><strong>Gemini CLI</strong></td><td>Google DeepMind</td><td>1M tokens (!)</td><td>Whole-genome analysis prompts, reading massive files</td><td>Yes (free tier)</td></tr>
+                <tr>
+                  <td><strong style="color:#cc785c;">Claude CLI</strong></td>
+                  <td>Anthropic</td><td>200K tokens</td>
+                  <td>Code review, methods QA, long-doc analysis</td>
+                  <td><span class="badge" style="background:rgba(251,191,36,0.15);color:#fbbf24;">API key</span></td>
+                  <td><span class="badge" style="background:rgba(56,189,248,0.1);color:#38bdf8;">Interactive</span></td>
+                </tr>
+                <tr>
+                  <td><strong style="color:#10a37f;">Codex / GPT-4o</strong></td>
+                  <td>OpenAI</td><td>128K tokens</td>
+                  <td>Pipeline generation, boilerplate, scripting</td>
+                  <td><span class="badge" style="background:rgba(251,191,36,0.15);color:#fbbf24;">API key</span></td>
+                  <td><span class="badge" style="background:rgba(56,189,248,0.1);color:#38bdf8;">Interactive</span></td>
+                </tr>
+                <tr>
+                  <td><strong style="color:#4285f4;">Gemini CLI</strong></td>
+                  <td>Google</td><td><strong style="color:#34d399;">1M tokens</strong></td>
+                  <td>Whole-genome queries, multi-file analysis</td>
+                  <td><span class="badge" style="background:rgba(52,211,153,0.15);color:#34d399;">Free tier ✓</span></td>
+                  <td><span class="badge" style="background:rgba(56,189,248,0.1);color:#38bdf8;">Interactive</span></td>
+                </tr>
+                <tr>
+                  <td><strong style="color:#f87171;">🦞 LabClaw</strong></td>
+                  <td>Stanford + Princeton</td><td>Agent-based</td>
+                  <td>Full autonomous biomedical workflows, 206 skills</td>
+                  <td><span class="badge" style="background:rgba(52,211,153,0.15);color:#34d399;">MIT License ✓</span></td>
+                  <td><span class="badge" style="background:rgba(239,68,68,0.15);color:#f87171;">Autonomous ⚡</span></td>
+                </tr>
               </tbody>
             </table>
-          </div></div>
+          </div>
 
           <div class="byte-callout byte-tip mt-4">
             <img src="../img/Byte1.png" alt="Byte tip">
@@ -159,10 +561,126 @@
           </div>
         </section>
 
-        <section id="install" class="mb-5">
-          <h2 class="fw-bold">Installation — All Three</h2>
+        <!-- ═══ ANIMATED FLOWCHART ═══ -->
+        <section id="flowchart" class="mb-5">
+          <h2 class="fw-bold">How It All Fits Together</h2>
+          <p class="text-muted mb-4">A typical Vibe Science workflow — from raw data to published result — and where each AI tool slots in:</p>
 
-          <h5 class="fw-bold mt-3">Claude CLI (claude-cli)</h5>
+          <div class="flowchart-container">
+            <p class="text-center small mb-4" style="color:rgba(148,163,184,0.7);letter-spacing:0.05em;">VIBE SCIENCE WORKFLOW — END-TO-END</p>
+
+            <!-- Row 1: Input -->
+            <div class="fc-col">
+              <div class="fc-row">
+                <div class="fc-node start"><i class="bi bi-folder2-open"></i>Raw FASTQ / Data</div>
+              </div>
+              <div class="fc-arrow">↓</div>
+
+              <!-- Row 2: Describe -->
+              <div class="fc-row">
+                <div class="fc-node process"><i class="bi bi-chat-dots"></i>Describe task in plain English</div>
+              </div>
+              <div class="fc-arrow">↓</div>
+
+              <!-- Row 3: Choose tool -->
+              <div class="fc-row">
+                <div class="fc-col me-2">
+                  <div class="fc-node decision">💬 Which AI?</div>
+                </div>
+              </div>
+              <div class="fc-arrow">↓</div>
+
+              <!-- Row 4: Four branches -->
+              <div class="fc-row" style="gap:8px;align-items:flex-start;">
+                <div class="fc-col" style="flex:1;min-width:100px;">
+                  <div class="fc-node" style="background:rgba(204,120,92,0.15);color:#cc785c;border:1px solid rgba(204,120,92,0.3);width:100%;justify-content:center;">🤖 Claude</div>
+                  <div class="fc-arrow">↓</div>
+                  <div class="fc-node process" style="font-size:0.72rem;padding:7px 10px;">Review &amp; Reason</div>
+                </div>
+                <div class="fc-col" style="flex:1;min-width:100px;">
+                  <div class="fc-node" style="background:rgba(16,163,127,0.12);color:#10a37f;border:1px solid rgba(16,163,127,0.3);width:100%;justify-content:center;">⚡ Codex</div>
+                  <div class="fc-arrow">↓</div>
+                  <div class="fc-node process" style="font-size:0.72rem;padding:7px 10px;">Generate Code</div>
+                </div>
+                <div class="fc-col" style="flex:1;min-width:100px;">
+                  <div class="fc-node" style="background:rgba(66,133,244,0.12);color:#4285f4;border:1px solid rgba(66,133,244,0.3);width:100%;justify-content:center;">💎 Gemini</div>
+                  <div class="fc-arrow">↓</div>
+                  <div class="fc-node process" style="font-size:0.72rem;padding:7px 10px;">Big Context Analysis</div>
+                </div>
+                <div class="fc-col" style="flex:1;min-width:100px;">
+                  <div class="fc-node agent" style="width:100%;justify-content:center;">🦞 LabClaw</div>
+                  <div class="fc-arrow">↓</div>
+                  <div class="fc-node agent" style="font-size:0.72rem;padding:7px 10px;">Autonomous Agent</div>
+                </div>
+              </div>
+              <div class="fc-arrow">↓</div>
+
+              <!-- Row 5: Review -->
+              <div class="fc-row">
+                <div class="fc-node decision"><i class="bi bi-eye"></i>Review &amp; Validate Output</div>
+              </div>
+              <div class="fc-arrow">↓</div>
+
+              <!-- Row 6: Iterate or publish -->
+              <div class="fc-row" style="gap:20px;">
+                <div class="fc-col">
+                  <div class="fc-node decision" style="font-size:0.76rem;"><i class="bi bi-arrow-counterclockwise"></i>Needs revision? Iterate</div>
+                </div>
+                <div class="fc-col">
+                  <div class="fc-node output"><i class="bi bi-check-circle"></i>Results / Paper</div>
+                </div>
+              </div>
+            </div>
+
+            <p class="text-center mt-4 small" style="color:rgba(148,163,184,0.5);">Each step is AI-assisted. You remain the scientist. The AI is your tireless co-pilot.</p>
+          </div>
+
+          <!-- LabClaw-specific flowchart -->
+          <h5 class="fw-bold mt-5 mb-3">LabClaw Autonomous Workflow</h5>
+          <div class="flowchart-container">
+            <p class="text-center small mb-4" style="color:rgba(148,163,184,0.7);letter-spacing:0.05em;">🦞 LABCLAW — AUTONOMOUS AGENT PIPELINE</p>
+            <div class="fc-col">
+              <div class="fc-row">
+                <div class="fc-node start"><i class="bi bi-chat-text"></i>Natural language task sent to OpenClaw agent</div>
+              </div>
+              <div class="fc-arrow">↓</div>
+              <div class="fc-row">
+                <div class="fc-node agent"><i class="bi bi-download"></i>Agent fetches LabClaw skill library automatically</div>
+              </div>
+              <div class="fc-arrow">↓</div>
+              <div class="fc-row" style="gap:6px;align-items:flex-start;">
+                <div class="fc-col" style="flex:1;min-width:90px;">
+                  <div class="fc-node" style="background:rgba(192,132,252,0.1);color:#c084fc;border:1px solid rgba(192,132,252,0.25);font-size:0.72rem;padding:7px 9px;">scRNA-seq<br>Pipeline</div>
+                </div>
+                <div class="fc-col" style="flex:1;min-width:90px;">
+                  <div class="fc-node" style="background:rgba(192,132,252,0.1);color:#c084fc;border:1px solid rgba(192,132,252,0.25);font-size:0.72rem;padding:7px 9px;">Drug<br>Discovery</div>
+                </div>
+                <div class="fc-col" style="flex:1;min-width:90px;">
+                  <div class="fc-node" style="background:rgba(192,132,252,0.1);color:#c084fc;border:1px solid rgba(192,132,252,0.25);font-size:0.72rem;padding:7px 9px;">Literature<br>Search</div>
+                </div>
+                <div class="fc-col" style="flex:1;min-width:90px;">
+                  <div class="fc-node" style="background:rgba(192,132,252,0.1);color:#c084fc;border:1px solid rgba(192,132,252,0.25);font-size:0.72rem;padding:7px 9px;">Clinical<br>Trials</div>
+                </div>
+                <div class="fc-col" style="flex:1;min-width:90px;">
+                  <div class="fc-node" style="background:rgba(192,132,252,0.1);color:#c084fc;border:1px solid rgba(192,132,252,0.25);font-size:0.72rem;padding:7px 9px;">Structural<br>Biology</div>
+                </div>
+              </div>
+              <div class="fc-arrow">↓</div>
+              <div class="fc-row">
+                <div class="fc-node agent"><i class="bi bi-cpu"></i>Agent executes tools, monitors results, handles errors</div>
+              </div>
+              <div class="fc-arrow">↓</div>
+              <div class="fc-row">
+                <div class="fc-node output"><i class="bi bi-file-earmark-check"></i>Structured output delivered to researcher</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="install" class="mb-5">
+          <h2 class="fw-bold">Installation — All Four Tools</h2>
+
+          <h5 class="fw-bold mt-3" style="color:#cc785c;"><i class="bi bi-circle-fill me-2" style="font-size:0.6rem;"></i>Claude CLI</h5>
           <div class="code-block-wrapper">
             <div class="code-block-header"><span>Bash</span><button class="btn-copy">Copy</button></div>
 <pre># Install via npm (Node.js required)
@@ -178,7 +696,7 @@ export ANTHROPIC_API_KEY="sk-ant-..."
 claude --version</pre>
           </div>
 
-          <h5 class="fw-bold mt-4">OpenAI Codex CLI</h5>
+          <h5 class="fw-bold mt-4" style="color:#10a37f;"><i class="bi bi-circle-fill me-2" style="font-size:0.6rem;"></i>OpenAI Codex CLI</h5>
           <div class="code-block-wrapper">
             <div class="code-block-header"><span>Bash</span><button class="btn-copy">Copy</button></div>
 <pre># Install Codex CLI
@@ -194,7 +712,7 @@ export OPENAI_API_KEY="sk-..."
 codex --version</pre>
           </div>
 
-          <h5 class="fw-bold mt-4">Gemini CLI</h5>
+          <h5 class="fw-bold mt-4" style="color:#4285f4;"><i class="bi bi-circle-fill me-2" style="font-size:0.6rem;"></i>Gemini CLI</h5>
           <div class="code-block-wrapper">
             <div class="code-block-header"><span>Bash</span><button class="btn-copy">Copy</button></div>
 <pre># Install Gemini CLI (Google AI SDK)
@@ -209,14 +727,48 @@ export GEMINI_API_KEY="AIza..."
 # Verify
 gemini --version
 
-# Pro tip: Gemini 1.5 Pro has a free tier with 1M context
+# Gemini 1.5 Pro has a free tier with 1M context window
 # You can literally paste a GTF file and ask questions about it</pre>
+          </div>
+
+          <h5 class="fw-bold mt-4" style="color:#ef4444;"><i class="bi bi-circle-fill me-2" style="font-size:0.6rem;"></i>LabClaw + OpenClaw (Autonomous Agent)</h5>
+          <div class="byte-callout byte-info mt-2">
+            <img src="../img/Byte3.png" alt="Byte">
+            <div>
+              <strong>LabClaw is different from the CLI tools above.</strong> Instead of chatting line by line, LabClaw is a <strong>skill library</strong> that plugs into the OpenClaw agent runtime — giving an AI agent 206 bioinformatics, drug discovery, clinical, and literature skills it can chain autonomously. From Stanford (Le Cong Lab) &amp; Princeton (Mengdi Wang Lab).
+            </div>
+          </div>
+          <div class="code-block-wrapper mt-3">
+            <div class="code-block-header"><span>Bash — LabClaw Quick Setup</span><button class="btn-copy">Copy</button></div>
+<pre># Step 1: Install OpenClaw agent runtime (Python 3.9+)
+pip install openclaw
+
+# Or clone directly
+git clone https://github.com/openclaw/openclaw
+cd openclaw
+pip install -e .
+
+# Step 2: Clone LabClaw skill library
+git clone https://github.com/wu-yc/LabClaw
+cd LabClaw
+
+# Step 3: Configure your LLM backend (OpenAI, Anthropic, or local)
+export OPENAI_API_KEY="sk-..."
+# or
+export ANTHROPIC_API_KEY="sk-ant-..."
+
+# Step 4: One-message install — send this to your OpenClaw agent:
+# "Fetch and install the LabClaw skill library into this workspace"
+# The agent auto-downloads all 206 skills.
+
+# Step 5: Verify skills loaded
+python -c "import labclaw; print(labclaw.list_skills())"</pre>
           </div>
 
           <div class="byte-callout byte-warn mt-4">
             <img src="../img/Byte5.png" alt="Byte warning">
             <div>
-              <strong>Never commit API keys to GitHub.</strong> Use <code>export</code> in your <code>~/.bashrc</code> or a <code>.env</code> file (add it to <code>.gitignore</code>). Leaked API keys get abused within minutes. Your PI will not be amused when they get a $4,000 OpenAI bill from some cryptominer in Crimea.
+              <strong>Never commit API keys to GitHub.</strong> Use <code>export</code> in your <code>~/.bashrc</code> or a <code>.env</code> file (add to <code>.gitignore</code>). Leaked keys get abused within minutes. Your PI will not be amused when they get a $4,000 OpenAI bill from a cryptominer in Crimea.
             </div>
           </div>
         </section>
@@ -446,6 +998,163 @@ print(response.text)
           </div>
         </section>
 
+        <!-- ═══ LABCLAW SECTION ═══ -->
+        <section id="labclaw" class="mb-5">
+          <h2 class="fw-bold"><span class="vs-step-badge">4</span>LabClaw 🦞 — Autonomous AI Agent for Biomedical Research</h2>
+
+          <div class="labclaw-hero mb-4">
+            <div class="row align-items-center g-4">
+              <div class="col-lg-8">
+                <p style="color:rgba(239,68,68,0.7);font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;" class="mb-2">🦞 Stanford &amp; Princeton · MIT License · 2025</p>
+                <h4 class="fw-bold text-white mb-2">LabClaw is not a chatbot. It's a lab OS.</h4>
+                <p style="color:rgba(255,255,255,0.65);" class="mb-3">LabClaw (from Le Cong Lab at Stanford and Mengdi Wang Lab at Princeton) is a <strong style="color:#f87171;">skill library for autonomous biomedical AI agents</strong>. It provides 206 composable skills across biology, drug discovery, clinical research, and literature — all wired into the OpenClaw agent runtime so an agent can chain them autonomously without human prompting for each step.</p>
+                <div class="d-flex gap-2 flex-wrap">
+                  <span class="badge" style="background:rgba(239,68,68,0.2);color:#f87171;border:1px solid rgba(239,68,68,0.3);">206 agentic skills</span>
+                  <span class="badge" style="background:rgba(239,68,68,0.2);color:#f87171;border:1px solid rgba(239,68,68,0.3);">5 research domains</span>
+                  <span class="badge" style="background:rgba(239,68,68,0.2);color:#f87171;border:1px solid rgba(239,68,68,0.3);">MIT License</span>
+                  <span class="badge" style="background:rgba(239,68,68,0.2);color:#f87171;border:1px solid rgba(239,68,68,0.3);">OpenClaw runtime</span>
+                </div>
+              </div>
+              <div class="col-lg-4 text-center">
+                <div style="font-size:4rem;animation:float-byte 3s ease-in-out infinite;">🦞</div>
+                <div class="mt-2">
+                  <a href="https://labclaw-ai.github.io/" target="_blank" rel="noopener" class="btn btn-sm rounded-pill px-3" style="background:rgba(239,68,68,0.2);color:#f87171;border:1px solid rgba(239,68,68,0.35);">LabClaw Website <i class="bi bi-arrow-right ms-1"></i></a>
+                  <a href="https://github.com/wu-yc/LabClaw" target="_blank" rel="noopener" class="btn btn-sm rounded-pill px-3 ms-2" style="background:rgba(255,255,255,0.06);color:#fff;border:1px solid rgba(255,255,255,0.15);"><i class="bi bi-github me-1"></i>GitHub</a>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <h5 class="fw-bold">The 5 Domains of LabClaw Skills</h5>
+          <div class="row g-3 mb-4">
+            <div class="col-sm-6 col-md-4">
+              <div class="labclaw-skill">
+                <div class="skill-domain">🧬 Biology &amp; Life Sciences</div>
+                <div class="skill-name">Bioinformatics &amp; Omics</div>
+                <div class="skill-desc">Single-cell, genomics, proteomics, multi-omics, spatial transcriptomics, structural biology. Covers Scanpy, Seurat, STAR, GATK and more.</div>
+              </div>
+            </div>
+            <div class="col-sm-6 col-md-4">
+              <div class="labclaw-skill">
+                <div class="skill-domain">💊 Pharmacy &amp; Drug Discovery</div>
+                <div class="skill-name">Cheminformatics &amp; ML</div>
+                <div class="skill-desc">Molecular ML, docking, target discovery, pharmacovigilance. Integrates RDKit, AutoDock Vina, and AlphaFold pipelines.</div>
+              </div>
+            </div>
+            <div class="col-sm-6 col-md-4">
+              <div class="labclaw-skill">
+                <div class="skill-domain">🏥 Medical &amp; Clinical</div>
+                <div class="skill-name">Precision Medicine</div>
+                <div class="skill-desc">Clinical trials, oncology AI, rare disease diagnosis, medical imaging interpretation. Connects to ClinicalTrials.gov API.</div>
+              </div>
+            </div>
+            <div class="col-sm-6 col-md-4">
+              <div class="labclaw-skill">
+                <div class="skill-domain">📊 General &amp; Data Science</div>
+                <div class="skill-name">Statistics &amp; ML</div>
+                <div class="skill-desc">Biostatistics, machine learning, scientific visualisation, reproducibility. Generates publication-ready figures autonomously.</div>
+              </div>
+            </div>
+            <div class="col-sm-6 col-md-4">
+              <div class="labclaw-skill">
+                <div class="skill-domain">📚 Literature &amp; Search</div>
+                <div class="skill-name">Academic Intelligence</div>
+                <div class="skill-desc">PubMed, bioRxiv, patent search, grant discovery, citation management. Synthesises literature into structured summaries automatically.</div>
+              </div>
+            </div>
+            <div class="col-sm-6 col-md-4">
+              <div class="labclaw-skill">
+                <div class="skill-domain">👁️ Always-On Agent</div>
+                <div class="skill-name">Continuous Monitoring</div>
+                <div class="skill-desc">Deploy as a persistent lab agent that monitors instrument feeds, interprets multimodal signals, and triggers responses 24/7 without human intervention.</div>
+              </div>
+            </div>
+          </div>
+
+          <h5 class="fw-bold">Real-World LabClaw Usage: scRNA-seq Pipeline</h5>
+          <p>Here’s what a LabClaw-powered autonomous scRNA-seq analysis looks like. You send <em>one message</em>. The agent handles the rest:</p>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>OpenClaw Agent Session</span><button class="btn-copy">Copy</button></div>
+<pre># You send ONE message to your OpenClaw agent:
+→ USER: "Run a complete scRNA-seq analysis on the 10x data in /data/pbmc_10x/.
+         Cluster the cells, annotate them, and find differentially expressed genes
+         between CD4 T cells and CD8 T cells. Save all plots to /results/."
+
+# The agent:
+# 1. Loads the LabClaw tooluniverse-single-cell skill
+# 2. Runs Cell Ranger count if raw FASTQs are present
+# 3. Imports into AnnData / Seurat automatically
+# 4. Applies QC filters (adaptive thresholds)
+# 5. Normalises, scales, PCA → UMAP
+# 6. Clusters with Leiden (tests multiple resolutions)
+# 7. Annotates cell types using SingleR / CellTypist
+# 8. Runs FindMarkers for CD4 vs CD8
+# 9. Generates volcano plots, UMAP PDFs, marker heatmaps
+# 10. Writes a structured summary report
+# All without another message from you.
+
+# You get back:
+← AGENT: "Analysis complete. Found 14 cell types across 8,423 cells.
+          Top DE genes CD4 vs CD8: CD4, IL7R, CCR7 (up in CD4);
+          CD8A, GZMB, PRF1 (up in CD8). Results saved to /results/.
+          Report: /results/analysis_summary.html"</pre>
+          </div>
+
+          <h5 class="fw-bold mt-4">LabClaw Skill Format — What Each Skill Defines</h5>
+          <div class="code-block-wrapper">
+            <div class="code-block-header"><span>YAML — Skill schema example</span><button class="btn-copy">Copy</button></div>
+<pre># Each LabClaw skill is a structured YAML/Python definition:
+# Format: Overview → When to Use → Capabilities → Examples
+
+skill_name: tooluniverse-single-cell-rna
+domain: biology
+when_to_use:
+  - "User has scRNA-seq data (10x, Smart-seq2, Parse, etc.)"
+  - "User wants QC, clustering, annotation, or DE analysis"
+  - "Any mention of Seurat, Scanpy, Cell Ranger, or AnnData"
+capabilities:
+  - Load CellRanger output or h5ad/RDS files
+  - QC filtering with adaptive thresholds
+  - Normalisation (SCTransform, scran, log-normalise)
+  - Dimensionality reduction: PCA, UMAP, tSNE
+  - Clustering: Leiden, Louvain
+  - Cell type annotation: SingleR, CellTypist, scGPT
+  - Differential expression: FindMarkers, DESeq2 pseudobulk
+  - Visualisation: UMAP, violin, dot, heatmap, volcano
+examples:
+  - "Analyse PBMC 10x data and find all immune cell types"
+  - "Compare CD4 vs CD8 T cells in tumour microenvironment"</pre>
+          </div>
+
+          <h5 class="fw-bold mt-4">LabClaw + Gemini CLI: The Ultimate Combo</h5>
+          <div class="byte-callout byte-tip">
+            <img src="../img/Byte1.png" alt="Byte tip">
+            <div>
+              <strong>Power combo:</strong> Use LabClaw for autonomous task execution + Gemini CLI for exploratory analysis with its 1M token window. LabClaw runs your pipeline autonomously; Gemini helps you interpret the massive output files. This is what bioinformatics looks like in 2026.
+            </div>
+          </div>
+
+          <div class="code-block-wrapper mt-3">
+            <div class="code-block-header"><span>Bash — LabClaw + Gemini combo</span><button class="btn-copy">Copy</button></div>
+<pre># Step 1: Let LabClaw run the whole pipeline autonomously
+# (sends one message to OpenClaw agent as above)
+# Agent produces: results/de_genes_all_celltypes.csv (50,000 rows)
+
+# Step 2: Use Gemini's 1M context to interpret the ENTIRE output
+cat results/de_genes_all_celltypes.csv | gemini \
+  "This is the complete differential expression result across all cell types
+   in a tumour microenvironment scRNA-seq experiment.
+   1. What are the top biological themes per cell type?
+   2. Are there any consistently dysregulated pathways across multiple cell types?
+   3. What transcription factors likely drive these signatures?
+   4. Suggest the 3 most publishable follow-up experiments."
+
+# LabClaw did the work. Gemini interpreted 50,000 rows in one shot.
+# Your job: critically evaluate the output and design experiments.
+# Welcome to 2026 bioinformatics.</pre>
+          </div>
+        </section>
+
         <section id="prompts" class="mb-5">
           <h2 class="fw-bold">Prompt Engineering for Bioinformatics</h2>
           <p>Good prompts are the new bioinformatics skill. Here are patterns that work reliably across all three CLIs:</p>
@@ -652,24 +1361,52 @@ tryCatch(
 
         <section id="summary" class="mb-5">
           <h2 class="fw-bold">Summary</h2>
+
+          <!-- Summary cards -->
+          <div class="row g-3 mb-4">
+            <div class="col-sm-6">
+              <div style="background:linear-gradient(135deg,rgba(204,120,92,0.08),rgba(204,120,92,0.04));border:1px solid rgba(204,120,92,0.2);border-radius:14px;padding:20px;">
+                <div class="fw-bold mb-1" style="color:#cc785c;">🤖 Claude CLI</div>
+                <div class="small text-muted">Best for: reasoning, code review, long-doc analysis, methods QA. The thoughtful postdoc who never sleeps.</div>
+              </div>
+            </div>
+            <div class="col-sm-6">
+              <div style="background:linear-gradient(135deg,rgba(16,163,127,0.08),rgba(16,163,127,0.04));border:1px solid rgba(16,163,127,0.2);border-radius:14px;padding:20px;">
+                <div class="fw-bold mb-1" style="color:#10a37f;">⚡ Codex / GPT-4o</div>
+                <div class="small text-muted">Best for: rapid code generation, boilerplate, pipeline writing, unit tests. The caffeine-fuelled grad student.</div>
+              </div>
+            </div>
+            <div class="col-sm-6">
+              <div style="background:linear-gradient(135deg,rgba(66,133,244,0.08),rgba(66,133,244,0.04));border:1px solid rgba(66,133,244,0.2);border-radius:14px;padding:20px;">
+                <div class="fw-bold mb-1" style="color:#4285f4;">💎 Gemini CLI</div>
+                <div class="small text-muted">Best for: massive 1M-token context, free tier, whole-genome analysis, multi-file interpretation. The big one.</div>
+              </div>
+            </div>
+            <div class="col-sm-6">
+              <div style="background:linear-gradient(135deg,rgba(239,68,68,0.08),rgba(239,68,68,0.04));border:1px solid rgba(239,68,68,0.2);border-radius:14px;padding:20px;">
+                <div class="fw-bold mb-1" style="color:#f87171;">🦞 LabClaw</div>
+                <div class="small text-muted">Best for: fully autonomous biomedical workflows, 206 composable skills, no step-by-step prompting required. The lab OS.</div>
+              </div>
+            </div>
+          </div>
+
           <div class="byte-callout byte-tip">
             <img src="../img/Byte1.png" alt="Byte summary">
             <div>
-              <strong>The Vibe Science toolkit:</strong>
+              <strong>The Vibe Science golden rules:</strong>
               <ul class="mb-0 mt-1">
-                <li><strong>Claude CLI</strong> — best for reasoning, code review, long-document analysis. The thoughtful one.</li>
-                <li><strong>Codex / GPT-4o</strong> — best for rapid code generation and boilerplate. The fast one.</li>
-                <li><strong>Gemini CLI</strong> — best for massive context (1M tokens!), free tier available. The big one.</li>
-                <li>Use the <strong>expert persona + format constraint + specific example</strong> prompt pattern for best results</li>
-                <li>Always <strong>review, test, and understand</strong> AI-generated code before using it</li>
-                <li>Disclose AI use in publications per your journal's policy</li>
-                <li>The future of bioinformatics is <strong>you + AI</strong>, not AI replacing you. Probably. Ask again in 5 years.</li>
+                <li>Use <strong>expert persona + format constraint + specific example</strong> prompts for best results</li>
+                <li>Always <strong>review, test, and understand</strong> AI-generated code before running it on real data</li>
+                <li>Use <strong>LabClaw</strong> when you want a full pipeline to run end-to-end without per-step prompting</li>
+                <li>Use <strong>Gemini</strong> when you have huge files and need a single-shot interpretation</li>
+                <li>Disclose AI use in publications per your journal’s policy</li>
+                <li>The bottleneck has shifted from “can I code this?” to “do I understand the biology well enough to ask the right question?” That’s actually a better bottleneck. You + AI &gt; AI alone.</li>
               </ul>
             </div>
           </div>
 
-          <div class="alert alert-secondary small mt-4">
-            <strong>Community note:</strong> Bioinformatics is being transformed faster than any subfield of biology right now. Join the <a href="../community.html">IndianElucidBiology Discord</a> — we have a dedicated <strong>#vibe-science</strong> channel where we share prompts, workflows, and commiserate about the time AI confidently wrote us a script that called a function that doesn't exist. We call it "hallucination bingo."
+          <div class="alert mt-4" style="background:linear-gradient(135deg,rgba(83,52,131,0.1),rgba(13,110,253,0.08));border:1px solid rgba(83,52,131,0.2);border-radius:12px;">
+            <strong>🌐 Community note:</strong> Bioinformatics is being transformed faster than any subfield of biology right now. Join the <a href="../community.html">IndianElucidBiology Discord</a> — we have a dedicated <strong>#vibe-science</strong> channel for prompts, workflows, and hallucination bingo (when AI confidently calls a function that doesn’t exist). Subscribe to <strong>#labclaw-updates</strong> for when new skills drop.
           </div>
 
           <div class="d-flex justify-content-between mt-5">
@@ -705,5 +1442,70 @@ tryCatch(
 </footer>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="../js/main.js"></script>
+<script>
+/* ═══ PARTICLE BACKGROUND ═══ */
+(function() {
+  const canvas = document.getElementById('vs-particles');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  let W, H, particles = [];
+  const NUM = 55;
+
+  function resize() {
+    W = canvas.width = canvas.offsetWidth;
+    H = canvas.height = canvas.offsetHeight;
+  }
+
+  function Particle() {
+    this.x = Math.random() * W;
+    this.y = Math.random() * H;
+    this.r = Math.random() * 1.8 + 0.4;
+    this.vx = (Math.random() - 0.5) * 0.35;
+    this.vy = (Math.random() - 0.5) * 0.35;
+    this.alpha = Math.random() * 0.6 + 0.2;
+    const hues = [220, 260, 190, 300];
+    this.hue = hues[Math.floor(Math.random() * hues.length)];
+  }
+
+  function init() {
+    resize();
+    particles = Array.from({length: NUM}, () => new Particle());
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    particles.forEach(p => {
+      p.x += p.vx; p.y += p.vy;
+      if (p.x < 0) p.x = W; if (p.x > W) p.x = 0;
+      if (p.y < 0) p.y = H; if (p.y > H) p.y = 0;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fillStyle = `hsla(${p.hue},80%,70%,${p.alpha})`;
+      ctx.fill();
+    });
+    /* Draw lines between close particles */
+    for (let i = 0; i < particles.length; i++) {
+      for (let j = i + 1; j < particles.length; j++) {
+        const dx = particles[i].x - particles[j].x;
+        const dy = particles[i].y - particles[j].y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        if (dist < 90) {
+          ctx.beginPath();
+          ctx.moveTo(particles[i].x, particles[i].y);
+          ctx.lineTo(particles[j].x, particles[j].y);
+          ctx.strokeStyle = `rgba(150,120,255,${0.18 * (1 - dist/90)})`;
+          ctx.lineWidth = 0.5;
+          ctx.stroke();
+        }
+      }
+    }
+    requestAnimationFrame(draw);
+  }
+
+  init();
+  draw();
+  window.addEventListener('resize', init);
+})();
+</script>
 </body>
 </html>
